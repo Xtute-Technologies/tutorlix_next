@@ -2,6 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -30,6 +31,7 @@ import { Loader2 } from "lucide-react";
  * Reusable Form Builder Component
  * 
  * @example
+ * // Usage 1: With config object
  * const formConfig = {
  *   schema: loginSchema, // Zod schema
  *   defaultValues: { email: '', password: '' },
@@ -40,10 +42,34 @@ import { Loader2 } from "lucide-react";
  *   ],
  *   submitButton: { text: 'Login', loadingText: 'Logging in...' }
  * };
- * 
  * <FormBuilder config={formConfig} />
+ * 
+ * // Usage 2: With direct props (for admin pages)
+ * <FormBuilder
+ *   fields={categoryFields}
+ *   validationSchema={categorySchema}
+ *   onSubmit={handleSubmit}
+ *   submitLabel="Create"
+ *   isSubmitting={submitting}
+ *   defaultValues={editingCategory}
+ *   onCancel={handleCancel}
+ * />
  */
-export function FormBuilder({ config }) {
+export function FormBuilder({ 
+  config,
+  // Direct props (alternative to config)
+  fields: directFields,
+  validationSchema,
+  onSubmit: directOnSubmit,
+  submitLabel,
+  isSubmitting: externalIsSubmitting,
+  defaultValues: directDefaultValues,
+  onCancel,
+  className: directClassName,
+  error: directError,
+  success: directSuccess,
+}) {
+  // Support both patterns: config object OR direct props
   const {
     schema,
     defaultValues = {},
@@ -53,14 +79,29 @@ export function FormBuilder({ config }) {
     className = "",
     error = null,
     success = null,
-  } = config;
+  } = config || {
+    schema: validationSchema,
+    defaultValues: directDefaultValues || {},
+    onSubmit: directOnSubmit,
+    fields: directFields || [],
+    submitButton: { 
+      text: submitLabel || "Submit", 
+      loadingText: `${submitLabel || "Submitting"}...` 
+    },
+    className: directClassName || "",
+    error: directError,
+    success: directSuccess,
+  };
 
   const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues,
+    resolver: schema ? zodResolver(schema) : undefined,
+    values: defaultValues, // Use 'values' for dynamic data instead of 'defaultValues'
   });
 
-  const { isSubmitting } = form.formState;
+  // No longer need useEffect to reset form - 'values' prop handles it automatically
+
+  const { isSubmitting: formIsSubmitting } = form.formState;
+  const isSubmitting = externalIsSubmitting !== undefined ? externalIsSubmitting : formIsSubmitting;
 
   const handleSubmit = async (data) => {
     try {
@@ -97,6 +138,22 @@ export function FormBuilder({ config }) {
         );
       }
 
+      // File Input
+      if (type === "file") {
+        return (
+          <Input
+            type="file"
+            multiple={field.multiple || false}
+            accept={field.accept || "*"}
+            disabled={disabled || isSubmitting}
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              formField.onChange(field.multiple ? files : files[0]);
+            }}
+          />
+        );
+      }
+
       // Textarea
       if (type === "textarea") {
         return (
@@ -111,10 +168,11 @@ export function FormBuilder({ config }) {
 
       // Select Dropdown
       if (type === "select") {
+        const selectValue = formField.value ? formField.value.toString() : undefined;
         return (
           <Select
             onValueChange={formField.onChange}
-            defaultValue={formField.value}
+            value={selectValue}
             disabled={disabled || isSubmitting}
           >
             <SelectTrigger>
@@ -122,12 +180,40 @@ export function FormBuilder({ config }) {
             </SelectTrigger>
             <SelectContent>
               {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem key={option.value} value={option.value.toString()}>
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+        );
+      }
+
+      // Multi-Select
+      if (type === "multiselect") {
+        const selectedValues = formField.value || [];
+        return (
+          <div className="space-y-2">
+            <select
+              multiple
+              value={selectedValues.map(v => v.toString())}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, option => Number(option.value) || option.value);
+                formField.onChange(selected);
+              }}
+              disabled={disabled || isSubmitting}
+              className="w-full min-h-[150px] border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Hold Ctrl/Cmd to select multiple items
+            </p>
+          </div>
         );
       }
 
@@ -215,14 +301,27 @@ export function FormBuilder({ config }) {
           {fields.map((field) => renderField(field))}
 
           {/* Submit Button */}
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSubmitting ? submitButton.loadingText : submitButton.text}
-          </Button>
+          <div className="flex gap-2">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={onCancel ? "flex-1" : "w-full"}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? submitButton.loadingText : submitButton.text}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>
