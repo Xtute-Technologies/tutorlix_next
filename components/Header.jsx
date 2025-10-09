@@ -29,6 +29,7 @@ export default function Header() {
     { href: '/', label: 'Home', public: true },
     { href: '/dashboard', label: 'Dashboard', auth: true },
     { href: '/courses', label: 'Courses', public: true },
+    { href: '/contact', label: 'Contact', public: true },
   ];
 
   // Role-based navigation
