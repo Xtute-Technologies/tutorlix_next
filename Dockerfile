@@ -12,6 +12,7 @@ RUN npm install
 
 # 5️⃣ Copy the rest of your app source code
 COPY . .
+ENV NEXT_PUBLIC_API_URL=https://back.tutorlix.com
 
 
 # 6️⃣ Build the Next.js app
