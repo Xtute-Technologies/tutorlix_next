@@ -4,7 +4,7 @@ pipeline {
     environment {
         REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
         BRANCH   = 'nextjs'   // change if your branch is different
-        DEPLOY_PATH = '/srv/tutorlix/frontend'
+        DEPLOY_PATH = '/srv/tutorlix/frontend/tutorlix_next'
         COMPOSE_FILE = 'docker-compose.yml'
     }
 
