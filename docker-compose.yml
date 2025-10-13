@@ -1,9 +1,9 @@
-# docker-compose.yml
 # NOTE: omit explicit 'version' (Compose v2/v3 compatibility); keep services only.
 services:
   frontend:
     build:
-      context: ./frontend
+      # Corrected: The context is now the current directory '.', where the Dockerfile is located.
+      context: .
       dockerfile: Dockerfile
     image: tutorlix/frontend:local
     container_name: tutorlix-repo-frontend-1
