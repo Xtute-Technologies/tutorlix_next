@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
-        BRANCH   = 'main'   // change if your branch is different
+        BRANCH   = 'main'    // change if your branch is different
         DEPLOY_PATH = '/srv/tutorlix/frontend/tutorlix_next'
         COMPOSE_FILE = 'docker-compose.yml'
     }
@@ -15,9 +15,13 @@ pipeline {
             }
         }
 
-        stage('Build & Deploy') {
+        stage('Sync & Deploy') { // Renamed stage for clarity
             steps {
                 sh """
+                    echo "Syncing new code to deployment directory..."
+                    # This rsync command copies the freshly checked-out code to the deployment path
+                    rsync -av --delete ./ ${DEPLOY_PATH}/
+
                     echo "Deploying Next.js app..."
                     docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
                     docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} build --no-cache
