@@ -20,40 +20,41 @@ export default function CategoryDetailPage() {
   const [sortBy, setSortBy] = useState('name');
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [categoryData, allProducts] = await Promise.all([
+          categoryAPI.getById(params.id),
+          productAPI.getAll(),
+        ]);
+
+        setCategory(categoryData);
+
+        // Filter products by category
+        const categoryProducts = Array.isArray(allProducts)
+          ? allProducts.filter(p => p.category?.toString() === params.id && p.is_active)
+          : [];
+        setProducts(categoryProducts);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setCategory(null);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
     if (params.id) {
       fetchData();
     }
   }, [params.id]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [categoryData, allProducts] = await Promise.all([
-        categoryAPI.getById(params.id),
-        productAPI.getAll(),
-      ]);
-      
-      setCategory(categoryData);
-      
-      // Filter products by category
-      const categoryProducts = Array.isArray(allProducts)
-        ? allProducts.filter(p => p.category?.toString() === params.id && p.is_active)
-        : [];
-      setProducts(categoryProducts);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setCategory(null);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Filter and sort products
   const filteredProducts = products
     .filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          product.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        product.description?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch;
     })
     .sort((a, b) => {

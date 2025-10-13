@@ -30,22 +30,23 @@ export default function CourseDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const data = await productAPI.getById(params.id);
+        setProduct(data);
+      } catch (error) {
+        console.error('Error fetching product:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     if (params.id) {
       fetchProduct();
     }
   }, [params.id]);
 
-  const fetchProduct = async () => {
-    try {
-      setLoading(true);
-      const data = await productAPI.getById(params.id);
-      setProduct(data);
-    } catch (error) {
-      console.error('Error fetching product:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleEnroll = () => {
     if (!user) {
@@ -143,11 +144,10 @@ export default function CourseDetailPage() {
                         <button
                           key={image.id}
                           onClick={() => setSelectedImageIndex(index)}
-                          className={`relative aspect-video rounded overflow-hidden border-2 transition ${
-                            index === selectedImageIndex
+                          className={`relative aspect-video rounded overflow-hidden border-2 transition ${index === selectedImageIndex
                               ? 'border-primary'
                               : 'border-gray-200 hover:border-gray-300'
-                          }`}
+                            }`}
                         >
                           <img
                             src={image.image_url || image.image}
@@ -180,7 +180,7 @@ export default function CourseDetailPage() {
                     </div>
 
                     <div>
-                      <h3 className="text-xl font-semibold mb-4">What You'll Learn</h3>
+                      <h3 className="text-xl font-semibold mb-4">What You will Learn</h3>
                       <div className="grid md:grid-cols-2 gap-3">
                         {[
                           'Master the fundamentals',
@@ -253,9 +253,8 @@ export default function CourseDetailPage() {
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star
                                 key={star}
-                                className={`h-4 w-4 ${
-                                  star <= 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                                }`}
+                                className={`h-4 w-4 ${star <= 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                                  }`}
                               />
                             ))}
                           </div>
