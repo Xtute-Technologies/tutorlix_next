@@ -19,8 +19,10 @@ pipeline {
             steps {
                 sh """
                     echo "Syncing new code to deployment directory..."
-                    # This rsync command copies the freshly checked-out code to the deployment path
-                    rsync -av --delete ./ ${DEPLOY_PATH}/
+                    # This rsync command copies the freshly checked-out code to the deployment path.
+                    # The flags are changed from -av to -rltpv to avoid permission errors when rsync
+                    # tries to change the ownership of the destination files.
+                    rsync -rltpv --delete ./ ${DEPLOY_PATH}/
 
                     echo "Deploying Next.js app..."
                     docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
@@ -49,3 +51,4 @@ pipeline {
         }
     }
 }
+
