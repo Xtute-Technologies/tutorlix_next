@@ -19,15 +19,14 @@ pipeline {
             steps {
                 sh """
                     echo "Syncing new code to deployment directory..."
-                    # This rsync command copies the freshly checked-out code to the deployment path.
-                    # The 't' flag (preserve timestamps) is removed to avoid permission errors when the
-                    # Jenkins user does not have permission to change file timestamps.
-                    rsync -rlpv --delete ./ ${DEPLOY_PATH}/
+                    # Running rsync with sudo to overcome file permission issues in the destination directory.
+                    sudo rsync -rlpv --delete ./ ${DEPLOY_PATH}/
 
                     echo "Deploying Next.js app..."
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} build --no-cache
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} up -d
+                    # Running docker compose with sudo in case the Jenkins user is not in the docker group.
+                    sudo docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
+                    sudo docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} build --no-cache
+                    sudo docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} up -d
                 """
             }
         }
