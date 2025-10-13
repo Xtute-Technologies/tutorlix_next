@@ -5,8 +5,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: lactae/frontend:local
-    container_name: lactae-repo-frontend-1
+    image: tutorlix/frontend:local
+    container_name: tutorlix-repo-frontend-1
     restart: unless-stopped
     ports:
       - "10001:10001"
@@ -21,7 +21,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - lactae_net
+      - tutorlix_net
 
 networks:
   tutorlix_net:
