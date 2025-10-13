@@ -13,6 +13,7 @@ RUN npm install
 # 5️⃣ Copy the rest of your app source code
 COPY . .
 
+
 # 6️⃣ Build the Next.js app
 RUN npm run build
 
@@ -22,6 +23,7 @@ FROM node:18-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=10001
 
 # Copy built files and node_modules from previous stage
 COPY --from=base /app/.next ./.next
