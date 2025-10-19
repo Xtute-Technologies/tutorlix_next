@@ -1,5 +1,5 @@
 <single-spa-router>
-  <!--
+    <!--
 
     This is the single-spa Layout Definition for your microfrontends.
     See https://single-spa.js.org/docs/layout-definition/ for more information.
@@ -16,11 +16,13 @@
   </route>
 
   -->
-
+  
   <main>
     <route default>
-      <application name="@ui-lake/test1"></application>
+      <application name="@ui-lake/test1__a"></application>
       <application name="@ui-lake/test2"></application>
+      <application name="@ui-lake/test1__b"></application>
+      <application name="@ui-lake/test2__b"></application>
     </route>
   </main>
 </single-spa-router>
