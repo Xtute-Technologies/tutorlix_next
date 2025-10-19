@@ -10,7 +10,10 @@ const routes = constructRoutes(microfrontendLayout);
 const applications = constructApplications({
   routes,
   loadApp({ name }) {
-    return import(/* webpackIgnore: true */ name);
+    if (name === "@ui-lake/productList1" || name === "@ui-lake/productList2") {
+      return import(/* webpackIgnore: true */ "http://localhost:8081/ui-lake-productList.js");
+    }
+    return import(/* webpackIgnore: true */ "http://localhost:8081/ui-lake-productList.js");
   },
 });
 const layoutEngine = constructLayoutEngine({ routes, applications });
