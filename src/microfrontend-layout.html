@@ -1,6 +1,6 @@
 <single-spa-router>
   <main>
-    <route path="settings" data-title="Settings — Acme" data-description="Manage your settings on Acme.">
+    <route path="settings" data-title="Settings — Acme" data-description="Manage your settings on Acme">
       <application name="@ui-lake/test1__b"></application>
     </route>
 
@@ -8,11 +8,13 @@
       <application name="@ui-lake/test2"></application>
     </route>
 
+    <route path="login" data-title="Products — Login" data-description="All products — Acme">
+      <application name="@ui-lake/navSearch__a" props="navigation,COLOR_MAP"></application>
+      <application name="@ui-lake/LoginCard1" props="LOGIN_COLOR_MAP"></application>
+    </route>
+
     <route default data-title="Home — Acme" data-description="Welcome to Acme">
-      <application name="@ui-lake/test1__a"></application>
-      <application name="@ui-lake/test2"></application>
-      <application name="@ui-lake/test1__b"></application>
-      <application name="@ui-lake/test2__b"></application>
+      <application name="@ui-lake/navSearch__a" props="navigation,COLOR_MAP"></application>
     </route>
   </main>
 </single-spa-router>
