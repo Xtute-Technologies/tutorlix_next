@@ -1,0 +1,96 @@
+{
+    "navigation": [
+        {
+            "name": "Home",
+            "href": "/"
+        },
+        {
+            "name": "Products",
+            "href": "/products"
+        },
+        {
+            "name": "Settings",
+            "href": "/settings"
+        }
+    ],
+    "COLOR_MAP": {
+        "gray": {
+            "navBg": "bg-gray-800",
+            "navBgActive": "bg-gray-900",
+            "navText": "text-gray-300",
+            "navTextActive": "text-white",
+            "iconText": "text-gray-400",
+            "focusOutline": "focus:outline-indigo-500",
+            "logoColorParam": "indigo&shade=500",
+            "avatarBg": "bg-gray-800",
+            "activeText": "text-gray-800"
+        },
+        "indigo": {
+            "navBg": "bg-indigo-800",
+            "navBgActive": "bg-indigo-900",
+            "navText": "text-indigo-200",
+            "navTextActive": "text-white",
+            "iconText": "text-indigo-200",
+            "focusOutline": "focus:outline-indigo-500",
+            "logoColorParam": "indigo&shade=500",
+            "avatarBg": "bg-indigo-800",
+            "activeText": "text-indigo-800"
+        },
+        "blue": {
+            "navBg": "bg-blue-800",
+            "navBgActive": "bg-blue-900",
+            "navText": "text-blue-200",
+            "navTextActive": "text-white",
+            "iconText": "text-blue-200",
+            "focusOutline": "focus:outline-blue-500",
+            "logoColorParam": "blue&shade=500",
+            "avatarBg": "bg-blue-800",
+            "activeText": "text-blue-800"
+        },
+        "green": {
+            "navBg": "bg-green-800",
+            "navBgActive": "bg-green-900",
+            "navText": "text-green-200",
+            "navTextActive": "text-white",
+            "iconText": "text-green-200",
+            "focusOutline": "focus:outline-green-500",
+            "logoColorParam": "green&shade=500",
+            "avatarBg": "bg-green-800",
+            "activeText": "text-green-800"
+        },
+        "red": {
+            "navBg": "bg-red-800",
+            "navBgActive": "bg-red-900",
+            "navText": "text-red-200",
+            "navTextActive": "text-white",
+            "iconText": "text-red-200",
+            "focusOutline": "focus:outline-red-500",
+            "logoColorParam": "red&shade=500",
+            "avatarBg": "bg-red-800",
+            "activeText": "text-red-900"
+        },
+        "purple": {
+            "navBg": "bg-purple-800",
+            "navBgActive": "bg-purple-900",
+            "navText": "text-purple-200",
+            "navTextActive": "text-white",
+            "iconText": "text-purple-200",
+            "focusOutline": "focus:outline-purple-500",
+            "logoColorParam": "purple&shade=500",
+            "avatarBg": "bg-purple-800",
+            "activeText": "text-purple-900"
+        },
+        "yellow": {
+            "navBg": "bg-yellow-800",
+            "navBgActive": "bg-yellow-900",
+            "navText": "text-yellow-200",
+            "navTextActive": "text-white",
+            "iconText": "text-yellow-200",
+            "focusOutline": "focus:outline-yellow-500",
+            "logoColorParam": "yellow&shade=500",
+            "avatarBg": "bg-yellow-800",
+            "activeText": "text-yellow-800"
+        }
+    },
+    "color": "blue"
+}
