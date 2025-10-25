@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  tutorlix_next:
+    image: "${IMAGE_NAME:-xtute-p_main-next-app:latest}"
+    container_name: "${CONTAINER_NAME:-nextjs_xtute}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-7827}
+      # add any app-specific envs here or mount .env file
+    ports:
+      - "${PORT:-7827}:7827"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-7827}/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - tutorlix-net
+
+networks:
+  tutorlix-net:
+    driver: bridge
