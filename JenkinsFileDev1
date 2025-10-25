@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+
+    environment {
+        REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
+        BRANCH   = 'main'   // change if your branch is different
+        DEPLOY_PATH = '/srv/tutorlix/frontend/tutorlix_next'
+        COMPOSE_FILE = 'docker-compose.yml'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
+            }
+        }
+
+        stage('Build & Deploy') {
+            steps {
+                sh """
+                    echo "Deploying Next.js app..."
+                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
+                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} build --no-cache
+                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} up -d
+                """
+            }
+        }
+
+        stage('Restart Nginx') {
+            steps {
+                sh """
+                    echo "Restarting Nginx..."
+                    sudo systemctl restart nginx
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment completed successfully at https://xtute.com"
+        }
+        failure {
+            echo "❌ Deployment failed"
+        }
+    }
+}
