@@ -23,7 +23,7 @@ pipeline {
         dir("${ROOT_APP_DIR}") {
           sh '''
             echo "📦 Installing dependencies..."
-            npm ci
+            npm install
 
             echo "🏗️ Building single-spa root app..."
             npm run build
