@@ -8,7 +8,7 @@
     "format": "prettier --write .",
     "check-format": "prettier --check .",
     "prepare": "husky install",
-    "build": "npx webpack --config webpack.config.cjs --mode=production --stats-children",
+    "build": "npx webpack --config webpack.config.mjs --mode=production --stats-children",
     "build:webpack": "webpack --mode=production"
   },
   "devDependencies": {
