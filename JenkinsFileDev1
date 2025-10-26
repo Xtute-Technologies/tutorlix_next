@@ -26,6 +26,7 @@ pipeline {
             npm ci
 
             echo "🏗️ Building single-spa root app..."
+            npm i
             npm run build
 
             echo "✅ Build complete. Files in ${BUILD_DIR}:"
