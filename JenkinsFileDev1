@@ -6,7 +6,7 @@ pipeline {
     BRANCH       = 'main'
     DEPLOY_PATH  = '/srv/tutorlix/frontend/tutorlix_next'
     COMPOSE_FILE = 'docker-compose.yml'
-    ROOT_APP_DIR = 'ui-lake'     // 👈 change if folder name differs
+    ROOT_APP_DIR = 'tutorlix_next'     // 👈 change if folder name differs
     BUILD_DIR    = 'dist'        // 👈 change if build folder is build/ or .next
   }
 
