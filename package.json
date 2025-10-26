@@ -8,7 +8,7 @@
     "format": "prettier --write .",
     "check-format": "prettier --check .",
     "prepare": "husky install",
-    "build": "npx webpack --config webpack.config.js --mode=production",
+    "build": "npx webpack --config webpack.config.cjs --mode=production --stats-children",
     "build:webpack": "webpack --mode=production"
   },
   "devDependencies": {
@@ -19,6 +19,7 @@
     "@babel/runtime": "^7.23.3",
     "concurrently": "^6.2.1",
     "cross-env": "^7.0.3",
+    "ejs-compiled-loader": "^3.1.0",
     "eslint": "^7.32.0",
     "eslint-config-important-stuff": "^1.1.0",
     "eslint-config-prettier": "^8.3.0",
