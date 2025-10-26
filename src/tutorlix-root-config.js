@@ -7,7 +7,7 @@ import {
 } from "single-spa-layout";
 import microfrontendLayout from "./microfrontend-layout.html";
 
-import { initHeadManager } from "./root-head-manager";
+import { initHeadManager } from "./root-head-manager.js";
 
 // import props from JSON (webpack will bundle it)
 import propsData from "./props.json";
