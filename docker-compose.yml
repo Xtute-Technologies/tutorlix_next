@@ -2,10 +2,10 @@ version: "3.8"
 
 services:
   tutorlix_next:
-    image: "${IMAGE_NAME:-xtute-p_main-next-app:latest}"
-    container_name: "${CONTAINER_NAME:-nextjs_xtute}"
+    image: tutorlix/frontend:local
+    container_name: tutorlix-repo-frontend-1
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
