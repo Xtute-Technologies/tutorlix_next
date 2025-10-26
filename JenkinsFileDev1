@@ -4,9 +4,8 @@ pipeline {
   environment {
     REPO_URL     = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
     BRANCH       = 'main'
-    DEPLOY_PATH  = '/srv/tutorlix/frontend/tutorlix_next'
+    DEPLOY_PATH  = '/var/lib/jenkins/workspace/tutorlix_frontend_main'
     COMPOSE_FILE = 'docker-compose.yml'
-    ROOT_APP_DIR = 'tutorlix_next'     // 👈 change if folder name differs
     BUILD_DIR    = 'dist'        // 👈 change if build folder is build/ or .next
   }
 
