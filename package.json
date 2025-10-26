@@ -7,7 +7,7 @@
     "format": "prettier --write .",
     "check-format": "prettier --check .",
     "prepare": "husky install",
-    "build": "concurrently npm:build:*",
+    "build": "npx webpack --config webpack.config.js --mode=production",
     "build:webpack": "webpack --mode=production"
   },
   "devDependencies": {
