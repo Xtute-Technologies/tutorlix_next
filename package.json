@@ -1,5 +1,6 @@
 {
   "name": "@tutorlix/root-config",
+  "type": "module",
   "scripts": {
     "start": "webpack serve --port 9000 --env isLocal",
     "lint": "eslint src --ext js",
