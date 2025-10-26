@@ -46,9 +46,9 @@ pipeline {
           cp ${COMPOSE_FILE} ${DEPLOY_PATH}/
 
           # Replace old build with new one
-          rm -rf ${DEPLOY_PATH}/${ROOT_APP_DIR}/${BUILD_DIR}
-          mkdir -p ${DEPLOY_PATH}/${ROOT_APP_DIR}/
-          cp -r ${ROOT_APP_DIR}/${BUILD_DIR} ${DEPLOY_PATH}/${ROOT_APP_DIR}/
+          rm -rf ${DEPLOY_PATH}/${BUILD_DIR}
+          mkdir -p ${DEPLOY_PATH}/
+          cp -r ${BUILD_DIR} ${DEPLOY_PATH}/
 
           echo "🔁 Rebuilding and restarting Docker containers..."
           cd ${DEPLOY_PATH}
