@@ -1,47 +1,85 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
-        BRANCH   = 'main'   // change if your branch is different
-        DEPLOY_PATH = '/srv/tutorlix/frontend/tutorlix_next'
-        COMPOSE_FILE = 'docker-compose.yml'
+  environment {
+    REPO_URL     = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
+    BRANCH       = 'main'
+    DEPLOY_PATH  = '/srv/tutorlix/frontend/tutorlix_next'
+    COMPOSE_FILE = 'docker-compose.yml'
+    ROOT_APP_DIR = 'ui-lake'     // 👈 change if folder name differs
+    BUILD_DIR    = 'dist'        // 👈 change if build folder is build/ or .next
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
+      }
     }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
-            }
-        }
+    stage('Build Single-SPA Root') {
+      steps {
+        dir("${ROOT_APP_DIR}") {
+          sh '''
+            echo "📦 Installing dependencies..."
+            npm ci
 
-        stage('Build & Deploy') {
-            steps {
-                sh """
-                    echo "Deploying Next.js app..."
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} down
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} build --no-cache
-                    docker compose -f ${DEPLOY_PATH}/${COMPOSE_FILE} up -d
-                """
-            }
-        }
+            echo "🏗️ Building single-spa root app..."
+            npm run build
 
-        stage('Restart Nginx') {
-            steps {
-                sh """
-                    echo "Restarting Nginx..."
-                    sudo systemctl restart nginx
-                """
-            }
+            echo "✅ Build complete. Files in ${BUILD_DIR}:"
+            ls -lah ${BUILD_DIR} || true
+          '''
         }
+      }
     }
 
-    post {
-        success {
-            echo "✅ Deployment completed successfully at https://xtute.com"
-        }
-        failure {
-            echo "❌ Deployment failed"
-        }
+    stage('Deploy Locally') {
+      steps {
+        sh '''
+          echo "🚚 Deploying build to ${DEPLOY_PATH}..."
+
+          # Ensure deploy directory exists
+          sudo mkdir -p ${DEPLOY_PATH}
+          sudo chown -R $USER:$USER ${DEPLOY_PATH}
+
+          # Copy docker-compose.yml
+          cp ${COMPOSE_FILE} ${DEPLOY_PATH}/
+
+          # Replace old build with new one
+          rm -rf ${DEPLOY_PATH}/${ROOT_APP_DIR}/${BUILD_DIR}
+          mkdir -p ${DEPLOY_PATH}/${ROOT_APP_DIR}/
+          cp -r ${ROOT_APP_DIR}/${BUILD_DIR} ${DEPLOY_PATH}/${ROOT_APP_DIR}/
+
+          echo "🔁 Rebuilding and restarting Docker containers..."
+          cd ${DEPLOY_PATH}
+          docker compose -f ${COMPOSE_FILE} down || true
+          docker compose -f ${COMPOSE_FILE} build --no-cache
+          docker compose -f ${COMPOSE_FILE} up -d --remove-orphans
+
+          echo "✅ Deployment successful. Containers running:"
+          docker ps --filter "name=tutorlix" --format "table {{.Names}}\t{{.Status}}"
+        '''
+      }
     }
+
+    stage('Restart Nginx') {
+      steps {
+        sh '''
+          echo "♻️ Restarting Nginx..."
+          sudo systemctl restart nginx || echo "⚠️ Nginx restart skipped (no permission)"
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ Single-SPA root app deployed successfully at https://xtute.com"
+    }
+    failure {
+      echo "❌ Deployment failed. Check Jenkins console output for details."
+    }
+  }
 }
