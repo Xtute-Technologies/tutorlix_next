@@ -20,21 +20,19 @@ pipeline {
 
     stage('Build Single-SPA Root') {
       steps {
-        dir("${ROOT_APP_DIR}") {
-          sh '''
-            echo "📦 Installing dependencies..."
-            npm install
+        // run build from root so webpack config uses correct __dirname
+        sh '''
+          echo "📦 Installing dependencies..."
+          npm install
 
-            echo "🏗️ Building single-spa root app..."
-            npm run build
+          echo "🏗️ Building single-spa root app (webpack will emit to ./dist at repo root)..."
+          npm run build
 
-            echo "✅ Build complete. Files in ${BUILD_DIR}:"
-            ls -lah ${BUILD_DIR} || true
-          '''
-        }
+          echo "✅ Build complete. Files in repo-root ./dist:"
+          ls -lah ./dist || true
+        '''
       }
     }
-
     stage('Deploy Locally') {
       steps {
         sh '''
