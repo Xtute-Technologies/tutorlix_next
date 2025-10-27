@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import { WebpackManifestPlugin } from 'webpack-manifest-plugin'; // << added
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,26 +21,22 @@ if (!fs.existsSync(TEMPLATE)) {
 export default (env, argv) => {
   const isProd = process.env.NODE_ENV === 'production' || (argv && argv.mode === 'production');
 
-  // debug: helpful on CI to see what entries are being used
-  // (will print once at config load time)
   console.log(`Webpack mode=${isProd ? 'production' : 'development'}`);
 
   return {
     mode: isProd ? 'production' : 'development',
 
-    // entry produces a single bundle named tutorlix-root-config.js
+    // entry produces a single logical bundle named tutorlix-root-config
     entry: { 'tutorlix-root-config': ENTRY },
 
     output: {
       path: path.resolve(__dirname, 'dist'),
-      // keep deterministic filename for the main bundle (import-map consumers expect this)
-      // if you ever want content-hashed production filename, change here and update import map.
-      filename: 'tutorlix-root-config.js',
-      // ensure non-entry chunks (vendors, dynamic imports, splitChunks) get unique names
+      // === CHANGE: use contenthash in production to avoid filename collisions ===
+      filename: isProd ? 'tutorlix-root-config.[contenthash:8].js' : 'tutorlix-root-config.js',
+      // chunkFilename for other chunks (unique names)
       chunkFilename: isProd ? '[name].[contenthash:8].chunk.js' : '[name].chunk.js',
       publicPath: '/',
       clean: true,
-      // unique name for build to avoid collisions when multiple webpack runtimes present
       uniqueName: 'tutorlix_root_config_' + (isProd ? 'prod' : 'dev'),
       library: { name: 'rootConfig', type: 'umd' }
     },
@@ -82,25 +79,42 @@ export default (env, argv) => {
         inject: false,
         template: TEMPLATE,
         templateParameters: { isLocal: !!(env && env.isLocal), orgName: 'tutorlix' }
+      }),
+
+      // === NEW: emit a manifest.json mapping logical names -> hashed files ===
+      new WebpackManifestPlugin({
+        fileName: 'manifest.json',
+        publicPath: '/',
+        // only keep entries (avoid clutter)
+        generate: (seed, files, entries) => {
+          const manifest = {};
+          for (const [key, value] of Object.entries(entries)) {
+            // entries[key].assets contains the list of files for that entry
+            // we choose the first file (normally the main js)
+            if (Array.isArray(value.assets) && value.assets.length) {
+              manifest[key] = value.assets[0].name || value.assets[0];
+            } else if (Array.isArray(files)) {
+              // fallback: find a file that starts with the entry name
+              const match = files.find(f => f.name && f.name.includes(key));
+              if (match) manifest[key] = match.name;
+            }
+          }
+          return manifest;
+        }
       })
     ],
 
     optimization: {
-      // stable ids and chunk ids between builds
       moduleIds: 'deterministic',
       chunkIds: 'deterministic',
-      // single runtime reduces number of emitted runtime files
       runtimeChunk: 'single',
       splitChunks: {
         chunks: 'all',
-        // prevent automatic named chunks which can collide with entry names;
-        // rely on chunkFilename pattern instead (which includes contenthash in prod)
         name: false,
         automaticNameDelimiter: '-',
         cacheGroups: {
           vendors: {
             test: /[\\/]node_modules[\\/]/,
-            // don't force a single vendors filename that could conflict — let chunkFilename rule handle uniqueness
             priority: -10,
             chunks: 'all'
           }
@@ -109,24 +123,17 @@ export default (env, argv) => {
     },
 
     devServer: {
-      // allow container/remote access
       host: '0.0.0.0',
       allowedHosts: 'all',
       port: 10001,
-
-      // serve from the dist directory (where build output lands)
       static: {
         directory: path.resolve(__dirname, 'dist'),
         publicPath: '/'
       },
-
-      // ensure dot-containing static files (like /tutorlix-root-config.js) are
-      // NOT rewritten to index.html by the SPA fallback
       historyApiFallback: {
         index: '/index.html',
         disableDotRule: true
       },
-
       client: {
         logging: 'info'
       }
