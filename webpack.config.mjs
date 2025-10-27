@@ -20,6 +20,10 @@ if (!fs.existsSync(TEMPLATE)) {
 export default (env, argv) => {
   const isProd = process.env.NODE_ENV === 'production' || (argv && argv.mode === 'production');
 
+  // debug: helpful on CI to see what entries are being used
+  // (will print once at config load time)
+  console.log(`Webpack mode=${isProd ? 'production' : 'development'}`);
+
   return {
     mode: isProd ? 'production' : 'development',
 
@@ -28,10 +32,15 @@ export default (env, argv) => {
 
     output: {
       path: path.resolve(__dirname, 'dist'),
-      // deterministic filename that import-map expects
+      // keep deterministic filename for the main bundle (import-map consumers expect this)
+      // if you ever want content-hashed production filename, change here and update import map.
       filename: 'tutorlix-root-config.js',
+      // ensure non-entry chunks (vendors, dynamic imports, splitChunks) get unique names
+      chunkFilename: isProd ? '[name].[contenthash:8].chunk.js' : '[name].chunk.js',
       publicPath: '/',
       clean: true,
+      // unique name for build to avoid collisions when multiple webpack runtimes present
+      uniqueName: 'tutorlix_root_config_' + (isProd ? 'prod' : 'dev'),
       library: { name: 'rootConfig', type: 'umd' }
     },
 
@@ -68,17 +77,36 @@ export default (env, argv) => {
     },
 
     plugins: [
-      // NOTE: input template is src/index.ejs (EJS template) — HtmlWebpackPlugin will
-      // process it and emit dist/index.html (browser-consumable). Do NOT serve .ejs.
       new HtmlWebpackPlugin({
-        filename: 'index.html', // final file served to browser
+        filename: 'index.html',
         inject: false,
         template: TEMPLATE,
         templateParameters: { isLocal: !!(env && env.isLocal), orgName: 'tutorlix' }
       })
     ],
 
-    optimization: { splitChunks: { chunks: 'all' }, runtimeChunk: 'single' },
+    optimization: {
+      // stable ids and chunk ids between builds
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic',
+      // single runtime reduces number of emitted runtime files
+      runtimeChunk: 'single',
+      splitChunks: {
+        chunks: 'all',
+        // prevent automatic named chunks which can collide with entry names;
+        // rely on chunkFilename pattern instead (which includes contenthash in prod)
+        name: false,
+        automaticNameDelimiter: '-',
+        cacheGroups: {
+          vendors: {
+            test: /[\\/]node_modules[\\/]/,
+            // don't force a single vendors filename that could conflict — let chunkFilename rule handle uniqueness
+            priority: -10,
+            chunks: 'all'
+          }
+        }
+      }
+    },
 
     devServer: {
       // allow container/remote access
