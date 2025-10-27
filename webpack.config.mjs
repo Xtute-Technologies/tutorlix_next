@@ -22,7 +22,7 @@ export default (env, argv) => {
 
   return {
     mode: isProd ? 'production' : 'development',
-    entry: { 'root-config': ENTRY },
+    entry: { 'tutorlix-root-config': ENTRY },
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: isProd ? '[name].[contenthash].js' : '[name].js',
@@ -69,6 +69,11 @@ export default (env, argv) => {
       })
     ],
     optimization: { splitChunks: { chunks: 'all' }, runtimeChunk: 'single' },
+    devServer: {
+      allowedHosts: 'all',         // Fixes "Invalid Host header"
+    port: 10001,                 // Your container port
+      historyApiFallback: true     // Fixes "Cannot GET /" for SPAs
+    },
     devtool: isProd ? false : 'eval-source-map'
   };
 };
