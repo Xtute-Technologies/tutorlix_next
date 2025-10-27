@@ -22,7 +22,7 @@ export default (env, argv) => {
 
   return {
     mode: isProd ? 'production' : 'development',
-    entry: { 'root-config': ENTRY },
+    entry: { 'tutorlix-root-config': ENTRY },
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: isProd ? '[name].[contenthash].js' : '[name].js',
