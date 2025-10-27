@@ -18,6 +18,8 @@ RUN npm run build
 ########################################
 FROM node:18-alpine AS runner
 
+RUN apk add --no-cache wget
+
 # create non-root user for safety
 RUN addgroup -S app && adduser -S app -G app
 
