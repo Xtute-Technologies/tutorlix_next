@@ -22,15 +22,21 @@ export default (env, argv) => {
 
   return {
     mode: isProd ? 'production' : 'development',
+
+    // entry produces a single bundle named tutorlix-root-config.js
     entry: { 'tutorlix-root-config': ENTRY },
+
     output: {
       path: path.resolve(__dirname, 'dist'),
-      filename: isProd ? '[name].[contenthash].js' : '[name].js',
+      // deterministic filename that import-map expects
+      filename: 'tutorlix-root-config.js',
       publicPath: '/',
       clean: true,
       library: { name: 'rootConfig', type: 'umd' }
     },
+
     resolve: { extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'] },
+
     module: {
       rules: [
         {
@@ -60,20 +66,44 @@ export default (env, argv) => {
         { test: /\.(png|jpe?g|gif|svg|ico)$/i, type: 'asset/resource' }
       ]
     },
+
     plugins: [
+      // NOTE: input template is src/index.ejs (EJS template) — HtmlWebpackPlugin will
+      // process it and emit dist/index.html (browser-consumable). Do NOT serve .ejs.
       new HtmlWebpackPlugin({
-        filename: 'index.html',
+        filename: 'index.html', // final file served to browser
         inject: false,
         template: TEMPLATE,
         templateParameters: { isLocal: !!(env && env.isLocal), orgName: 'tutorlix' }
       })
     ],
+
     optimization: { splitChunks: { chunks: 'all' }, runtimeChunk: 'single' },
+
     devServer: {
-      allowedHosts: 'all',         // Fixes "Invalid Host header"
-    port: 10001,                 // Your container port
-      historyApiFallback: true     // Fixes "Cannot GET /" for SPAs
-    },
+      // allow container/remote access
+      host: '0.0.0.0',
+      allowedHosts: 'all',
+      port: 10001,
+
+      // serve from the dist directory (where build output lands)
+      static: {
+        directory: path.resolve(__dirname, 'dist'),
+        publicPath: '/'
+      },
+
+      // ensure dot-containing static files (like /tutorlix-root-config.js) are
+      // NOT rewritten to index.html by the SPA fallback
+      historyApiFallback: {
+        index: '/index.html',
+        disableDotRule: true
+      },
+
+      client: {
+        logging: 'info'
+      }
+    },
+
     devtool: isProd ? false : 'eval-source-map'
   };
 };
