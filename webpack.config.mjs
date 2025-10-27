@@ -69,6 +69,11 @@ export default (env, argv) => {
       })
     ],
     optimization: { splitChunks: { chunks: 'all' }, runtimeChunk: 'single' },
+    devServer: {
+      allowedHosts: 'all',         // Fixes "Invalid Host header"
+    port: 10001,                 // Your container port
+      historyApiFallback: true     // Fixes "Cannot GET /" for SPAs
+    },
     devtool: isProd ? false : 'eval-source-map'
   };
 };
