@@ -27,11 +27,23 @@ pipeline {
           echo "🏗️ Building single-spa root app (webpack will emit to ./dist at repo root)..."
           npm run build
 
+          cd ${WORKSPACE}/dist
+          # remove any previous symlink/file and create a new symlink pointing to the latest hashed file
+          latest=$(ls -1t tutorlix-root-config.*.js 2>/dev/null | head -n1)
+          if [ -n "$latest" ]; then
+            ln -sf "$latest" tutorlix-root-config.js
+            echo "Linked $latest -> tutorlix-root-config.js"
+          else
+            echo "No tutorlix-root-config.*.js found in dist"
+            exit 1
+          fi
+
           echo "✅ Build complete. Files in repo-root ./dist:"
           ls -lah ./dist || true
         '''
       }
     }
+
     stage('Deploy Locally') {
       steps {
         sh '''
