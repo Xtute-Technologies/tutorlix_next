@@ -118,10 +118,10 @@ const applications = constructApplications({
   loadApp({ name }) {
     // adjust this mapping to load correct bundles per app name
     if (name === "@ui-lake/productList1" || name === "@ui-lake/productList2") {
-      return import(/* webpackIgnore: true */ "http://localhost:8081/ui-lake-productList.js");
+      return import(/* webpackIgnore: true */ "http://82.29.160.174:8081/ui-lake-productList.js");
     }
     // fallback or other apps — update URLs as needed
-    return import(/* webpackIgnore: true */ "http://localhost:8081/ui-lake-productList.js");
+    return import(/* webpackIgnore: true */ "http://82.29.160.174:8081/ui-lake-productList.js");
   },
 });
 
