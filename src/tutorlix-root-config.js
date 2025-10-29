@@ -118,10 +118,10 @@ const applications = constructApplications({
   loadApp({ name }) {
     // adjust this mapping to load correct bundles per app name
     if (name === "@ui-lake/productList1" || name === "@ui-lake/productList2") {
-      return import(/* webpackIgnore: true */ "/ui-lake-productList.js");
+      return import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js");
     }
     // fallback or other apps — update URLs as needed
-    return import(/* webpackIgnore: true */ "/ui-lake-productList.js");
+    return import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js");
   },
 });
 
