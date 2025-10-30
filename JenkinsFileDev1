@@ -89,7 +89,7 @@ pipeline {
               exit 1
             fi
           fi
-
+          sed -i 's|localhost:10001|dev.tutorlix.com|g' ./dist/importmap.json
           echo "✅ Build complete. Files in ./dist:"
           ls -lah ./ || true
         '''
