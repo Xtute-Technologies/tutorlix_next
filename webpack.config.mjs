@@ -23,21 +23,25 @@ export default (webpackConfigEnv, argv) => {
   // Merge custom settings
   return merge(defaultConfig, {
     devServer: {
-      host: "0.0.0.0",
-      allowedHosts: "all",
-      port: process.env.PORT || 10001, // 👈 Default port 10001
+      host: '0.0.0.0',
+      port: process.env.PORT || 10001,
       static: {
-        directory: path.resolve(__dirname, "dist"),
-        publicPath: "/",
+        directory: path.resolve(__dirname, 'dist'), // or './dist'
+        publicPath: '/',
+        setHeaders: (res, filePath) => {
+          // If the requested static file is importmap.json, return correct content-type
+          if (filePath.endsWith('importmap.json')) {
+            res.setHeader('Content-Type', 'application/importmap+json');
+          }
+        }
       },
       historyApiFallback: {
-        index: "/index.html",
-        disableDotRule: true,
+        index: '/index.html',
+        disableDotRule: true
       },
-      client: {
-        logging: "info",
-      },
+      client: { logging: 'info' }
     },
+
 
     plugins: [
       new HtmlWebpackPlugin({
