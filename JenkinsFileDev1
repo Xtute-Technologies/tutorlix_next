@@ -59,22 +59,21 @@ pipeline {
 
           if [ -d ./dist ]; then
             echo "Ensuring ./dist is writable by jenkins..."
-            # best-effort: try chown; allow sudo in CI
             id -u jenkins >/dev/null 2>&1 && chown -R jenkins:jenkins ./dist || true
-            # fallback with sudo if previous failed (works if Jenkins agent has sudo)
             sudo chown -R jenkins:jenkins ./dist || true
             sudo chmod -R 755 ./dist || true
           fi
 
-          # Ensure importmap.json exists in repo root and copy it into dist (so server serves it)
+          # copy importmap into dist if present at repo root
           if [ -f ./importmap.json ]; then
             echo "Copying importmap.json into dist/"
             cp ./importmap.json ./dist/importmap.json
           else
-            echo "Warning: importmap.json not found at repo root; ensure CI provides it or pipeline will 404"
+            echo "Warning: importmap.json not found at repo root; build will continue but importmap will be missing."
           fi
 
-          cd ${WORKSPACE}/dist
+          # move into dist to operate on built files
+          cd "${WORKSPACE}/dist"
 
           # create a stable symlink for the latest hashed chunk (if hashed filename exists)
           latest=$(ls -1t tutorlix-root-config.*.js 2>/dev/null | head -n1 || true)
@@ -89,9 +88,21 @@ pipeline {
               exit 1
             fi
           fi
-          sed -i 's|localhost:10001|dev.tutorlix.com|g' ./dist/importmap.json
+
+          # ===== safe sed replace: run only if file exists (we're already in dist) =====
+          if [ -f ./importmap.json ]; then
+            echo "Patching importmap.json: localhost:10001 -> dev.tutorlix.com"
+            # use quoted sed expression, and make it non-fatal to avoid breaking pipeline unexpectedly
+            sed -i 's|localhost:10001|dev.tutorlix.com|g' ./importmap.json || true
+            echo "Patched importmap.json content:"
+            sed -n '1,120p' ./importmap.json || true
+          else
+            echo "Notice: ./dist/importmap.json not found; skipping patch."
+          fi
+
           echo "✅ Build complete. Files in ./dist:"
           ls -lah ./ || true
+
         '''
       }
     }
