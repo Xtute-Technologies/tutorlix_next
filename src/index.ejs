@@ -7,13 +7,11 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <title>Root Config</title>
 
-  <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self' https: https://dev.tutorlix.com;
-      script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com;
-      connect-src 'self' https: https://dev.tutorlix.com ws://localhost:10001;
-      style-src 'unsafe-inline' https:;
-      object-src 'none';
-    ">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; 
+          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com http://82.29.160.174:8081; 
+          connect-src https: http://82.29.160.174:8081 ws:; 
+          style-src 'unsafe-inline' https:; 
+          object-src 'none';">
 
   <meta name="importmap-type" content="use-injector" />
 
