@@ -9,6 +9,7 @@ pipeline {
     BUILD_DIR    = 'dist'
     PIN_PLUGIN_VERSION = '1.1.0'   // standalone-single-spa-webpack-plugin (CJS)
     AJV_PIN      = '6.12.6'        // ajv pin to satisfy older consumers
+    AJV_KEYWORDS_PIN = '3.5.2'    // ajv-keywords compatible with ajv@6
     NGINX_USER   = 'www-data'
   }
 
@@ -19,7 +20,7 @@ pipeline {
       }
     }
 
-    stage('Prepare Node / Install (pin plugin + ajv)') {
+    stage('Prepare Node / Install (pin plugin + ajv + ajv-keywords)') {
       steps {
         sh '''
           set -eu
@@ -28,17 +29,22 @@ pipeline {
           node -v || true
           npm -v || true
 
-          # ensure we use legacy peer deps resolving in CI
+          # Use legacy peer deps to avoid peer resolution halts in CI
           npm config set legacy-peer-deps true
 
           echo "Cleaning previous installs..."
           rm -rf node_modules package-lock.json
 
-          echo "Pinning problematic packages (standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION}, ajv@${AJV_PIN}) into package.json as exact versions..."
-          npm install --no-audit --no-fund --save-exact standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION} ajv@${AJV_PIN}
+          echo "Pinning required packages exactly (ajv, ajv-keywords, standalone plugin)..."
+          # Install exact versions as top-level dependencies (no-save to avoid editing package.json if you prefer)
+          # We use --no-audit/--no-fund to speed things up in CI.
+          npm install --no-audit --no-fund --save-exact ajv@${AJV_PIN} ajv-keywords@${AJV_KEYWORDS_PIN} standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION}
 
           echo "Installing full dependency tree (legacy-peer-deps)..."
           npm install --legacy-peer-deps --no-audit --no-fund
+
+          echo "Installed top-level versions (sanity checks):"
+          npm ls ajv ajv-keywords standalone-single-spa-webpack-plugin --depth=0 || true
         '''
       }
     }
