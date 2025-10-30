@@ -21,6 +21,9 @@ pipeline {
       steps {
         // run build from root so webpack config uses correct __dirname
         sh '''
+          npm install --save-dev webpack-config-single-spa@latest standalone-single-spa-webpack-plugin@latest webpack-cli@latest
+          # verify a clean install
+          rm -rf node_modules package-lock.json
           echo "📦 Installing dependencies..."
           npm install
 
