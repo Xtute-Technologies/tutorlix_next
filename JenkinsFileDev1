@@ -57,6 +57,15 @@ pipeline {
           echo "🏗️ Building single-spa root app (webpack will emit to ./dist at repo root)..."
           npm run build
 
+          if [ -d ./dist ]; then
+            echo "Ensuring ./dist is writable by jenkins..."
+            # best-effort: try chown; allow sudo in CI
+            id -u jenkins >/dev/null 2>&1 && chown -R jenkins:jenkins ./dist || true
+            # fallback with sudo if previous failed (works if Jenkins agent has sudo)
+            sudo chown -R jenkins:jenkins ./dist || true
+            sudo chmod -R 755 ./dist || true
+          fi
+
           # Ensure importmap.json exists in repo root and copy it into dist (so server serves it)
           if [ -f ./importmap.json ]; then
             echo "Copying importmap.json into dist/"
