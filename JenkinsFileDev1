@@ -6,9 +6,10 @@ pipeline {
     BRANCH       = 'main'
     DEPLOY_PATH  = '/var/lib/jenkins/workspace/tutorlix_frontend_main'
     COMPOSE_FILE = 'docker-compose.yml'
-    BUILD_DIR    = 'dist'        // 👈 change if build folder is build/ or .next
-    PIN_PLUGIN_VERSION = '1.1.0' // pinned CJS version to avoid ERR_REQUIRE_ESM
-    NGINX_USER   = 'www-data'    // change if your nginx runs as another user
+    BUILD_DIR    = 'dist'                 // change if your build folder is different
+    PIN_PLUGIN_VERSION = '1.1.0'          // pinned CJS version to avoid ERR_REQUIRE_ESM
+    AJV_PIN      = '6.12.6'               // pin to fix ajv/dist/compile/codegen not found
+    NGINX_USER   = 'www-data'             // change if your nginx runs as another user
   }
 
   stages {
@@ -19,20 +20,25 @@ pipeline {
       }
     }
 
-    stage('Prepare Node / Install (pin plugin)') {
+    stage('Prepare Node / Install (pin plugin + ajv)') {
       steps {
         sh '''
           set -eu
 
-          echo "📦 Pinning standalone-single-spa-webpack-plugin to CJS v${PIN_PLUGIN_VERSION} and preparing clean install..."
+          echo "Node version:"
+          node -v || true
+          echo "NPM version:"
+          npm -v || true
 
-          # pin the plugin to a known CJS version to avoid ESM require errors
-          npm install --save-dev standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION} --save-exact || true
+          echo "📦 Pinning standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION} and ajv@${AJV_PIN} (CJS) and preparing clean install..."
 
-          # ensure a clean resolution
+          # Pin problematic packages to compatible versions (idempotent)
+          npm install --no-save --no-audit --no-fund --save-exact standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION} || true
+          npm install --no-save --no-audit --no-fund --save-exact ajv@${AJV_PIN} || true
+
+          # Ensure a completely fresh install to produce reproducible lockfile
           rm -rf node_modules package-lock.json
 
-          # perform install with legacy-peer-deps to avoid peer override failures in CI
           echo "Installing dependencies (legacy-peer-deps)..."
           npm install --legacy-peer-deps
         '''
@@ -41,7 +47,6 @@ pipeline {
 
     stage('Build Single-SPA Root') {
       steps {
-        // run build from root so webpack config uses correct __dirname
         sh '''
           set -eu
 
@@ -64,12 +69,10 @@ pipeline {
             ln -sf "$latest" tutorlix-root-config.js
             echo "Linked $latest -> tutorlix-root-config.js"
           else
-            # If non-hashed filename exists, ensure it's available
             if [ -f "tutorlix-root-config.js" ]; then
               echo "Found tutorlix-root-config.js (non-hashed)."
             else
-              echo "No tutorlix-root-config.*.js or tutorlix-root-config.js found in dist"
-              # Fail here because build artifact missing
+              echo "ERROR: No tutorlix-root-config.*.js or tutorlix-root-config.js found in dist"
               exit 1
             fi
           fi
@@ -88,13 +91,11 @@ pipeline {
           echo "🚚 Deploying build to ${DEPLOY_PATH}..."
 
           sudo mkdir -p "${DEPLOY_PATH}"
-          # copy build into deploy path (frontend)
           FRONTEND_DIR="${DEPLOY_PATH}/frontend"
           sudo rm -rf "${FRONTEND_DIR}" || true
           sudo mkdir -p "${FRONTEND_DIR}"
 
           echo "Copying built artifacts into ${FRONTEND_DIR}..."
-          # Copy everything from repo-root ./dist into FRONTEND_DIR
           sudo cp -a "${WORKSPACE}/dist/." "${FRONTEND_DIR}/"
 
           # ensure importmap.json is present (critical)
