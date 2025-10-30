@@ -6,7 +6,7 @@ pipeline {
     BRANCH       = 'main'
     DEPLOY_PATH  = '/var/lib/jenkins/workspace/tutorlix_frontend_main'
     COMPOSE_FILE = 'docker-compose.yml'
-    BUILD_DIR    = 'dist',
+    BUILD_DIR    = 'dist'
     PIN_PLUGIN_VERSION = '1.1.0'
   }
 
