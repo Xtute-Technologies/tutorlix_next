@@ -1,7 +1,0 @@
-{
-    "imports": {
-        "@tutorlix/root-config": "https://dev.tutorlix.com/tutorlix-root-config.js",
-        "@ui-lake/productList": "https://dev.tutorlix.com/ui-lake-productList.js",
-        "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/system/single-spa.min.js"
-    }
-}
