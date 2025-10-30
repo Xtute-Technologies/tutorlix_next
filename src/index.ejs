@@ -8,8 +8,8 @@
   <title>Root Config</title>
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; 
-          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com http://82.29.160.174:8081; 
-          connect-src https: https://82.29.160.174:8081 ws:; 
+          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com; 
+          connect-src https: https://uilake.xtute.com ws:; 
           style-src 'unsafe-inline' https:; 
           object-src 'none';">
 
@@ -19,7 +19,7 @@
       {
         "imports": {
           "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js",
-          "@ui-lake/productList": "http://82.29.160.174:8081/ui-lake-productList.js"
+          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake-productList.js"
         }
       }
     </script>
@@ -33,7 +33,7 @@
         "imports": {
           "@tutorlix/root-config": "/tutorlix-root-config.js",
           "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
-          "@ui-lake/productList": "http://82.29.160.174:8081/ui-lake-productList.js"
+          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake-productList.js"
         }
       }
     </script>
