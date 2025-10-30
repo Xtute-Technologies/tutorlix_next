@@ -7,6 +7,8 @@ pipeline {
     DEPLOY_PATH  = '/var/lib/jenkins/workspace/tutorlix_frontend_main'
     COMPOSE_FILE = 'docker-compose.yml'
     BUILD_DIR    = 'dist'        // 👈 change if build folder is build/ or .next
+    PIN_PLUGIN_VERSION = '1.1.0' // pinned CJS version to avoid ERR_REQUIRE_ESM
+    NGINX_USER   = 'www-data'    // change if your nginx runs as another user
   }
 
   stages {
@@ -17,32 +19,63 @@ pipeline {
       }
     }
 
+    stage('Prepare Node / Install (pin plugin)') {
+      steps {
+        sh '''
+          set -eu
+
+          echo "📦 Pinning standalone-single-spa-webpack-plugin to CJS v${PIN_PLUGIN_VERSION} and preparing clean install..."
+
+          # pin the plugin to a known CJS version to avoid ESM require errors
+          npm install --save-dev standalone-single-spa-webpack-plugin@${PIN_PLUGIN_VERSION} --save-exact || true
+
+          # ensure a clean resolution
+          rm -rf node_modules package-lock.json
+
+          # perform install with legacy-peer-deps to avoid peer override failures in CI
+          echo "Installing dependencies (legacy-peer-deps)..."
+          npm install --legacy-peer-deps
+        '''
+      }
+    }
+
     stage('Build Single-SPA Root') {
       steps {
         // run build from root so webpack config uses correct __dirname
         sh '''
-          npm install --save-dev webpack-config-single-spa@latest standalone-single-spa-webpack-plugin@latest webpack-cli@latest
-          # verify a clean install
-          rm -rf node_modules package-lock.json
-          echo "📦 Installing dependencies..."
-          npm install
+          set -eu
 
           echo "🏗️ Building single-spa root app (webpack will emit to ./dist at repo root)..."
           npm run build
 
+          # Ensure importmap.json exists in repo root and copy it into dist (so server serves it)
+          if [ -f ./importmap.json ]; then
+            echo "Copying importmap.json into dist/"
+            cp ./importmap.json ./dist/importmap.json
+          else
+            echo "Warning: importmap.json not found at repo root; ensure CI provides it or pipeline will 404"
+          fi
+
           cd ${WORKSPACE}/dist
-          # remove any previous symlink/file and create a new symlink pointing to the latest hashed file
-          latest=$(ls -1t tutorlix-root-config.*.js 2>/dev/null | head -n1)
+
+          # create a stable symlink for the latest hashed chunk (if hashed filename exists)
+          latest=$(ls -1t tutorlix-root-config.*.js 2>/dev/null | head -n1 || true)
           if [ -n "$latest" ]; then
             ln -sf "$latest" tutorlix-root-config.js
             echo "Linked $latest -> tutorlix-root-config.js"
           else
-            echo "No tutorlix-root-config.*.js found in dist"
-            exit 1
+            # If non-hashed filename exists, ensure it's available
+            if [ -f "tutorlix-root-config.js" ]; then
+              echo "Found tutorlix-root-config.js (non-hashed)."
+            else
+              echo "No tutorlix-root-config.*.js or tutorlix-root-config.js found in dist"
+              # Fail here because build artifact missing
+              exit 1
+            fi
           fi
 
-          echo "✅ Build complete. Files in repo-root ./dist:"
-          ls -lah ./dist || true
+          echo "✅ Build complete. Files in ./dist:"
+          ls -lah ./ || true
         '''
       }
     }
@@ -50,52 +83,58 @@ pipeline {
     stage('Deploy Locally') {
       steps {
         sh '''
-          # POSIX-safe (works with /bin/sh)
           set -eu
 
           echo "🚚 Deploying build to ${DEPLOY_PATH}..."
 
           sudo mkdir -p "${DEPLOY_PATH}"
-          sudo chown -R "$USER":"$USER" "${DEPLOY_PATH}"
-
-          # Prepare frontend build context expected by docker-compose
+          # copy build into deploy path (frontend)
           FRONTEND_DIR="${DEPLOY_PATH}/frontend"
-          echo "Ensuring frontend build context exists at ${FRONTEND_DIR}..."
-          rm -rf "${FRONTEND_DIR}" || true
-          mkdir -p "${FRONTEND_DIR}"
+          sudo rm -rf "${FRONTEND_DIR}" || true
+          sudo mkdir -p "${FRONTEND_DIR}"
 
-          echo "Copying built artifacts (repo-root ./dist) into frontend build context..."
-          if [ ! -d "./dist" ]; then
-            echo "ERROR: ./dist not found. Build did not produce ./dist. Aborting."
-            exit 1
+          echo "Copying built artifacts into ${FRONTEND_DIR}..."
+          # Copy everything from repo-root ./dist into FRONTEND_DIR
+          sudo cp -a "${WORKSPACE}/dist/." "${FRONTEND_DIR}/"
+
+          # ensure importmap.json is present (critical)
+          if sudo test -f "${FRONTEND_DIR}/importmap.json"; then
+            echo "importmap.json found in deployed frontend."
+          else
+            echo "Warning: importmap.json missing in deployed frontend; nginx will return 404 for /importmap.json"
           fi
 
-          echo "Frontend context prepared (contains Dockerfile + dist)."
+          # give nginx user ownership/read access
+          sudo chown -R ${NGINX_USER}:${NGINX_USER} "${FRONTEND_DIR}"
+          sudo chmod -R 755 "${FRONTEND_DIR}"
 
-          # show what compose will see
           echo "--- ${DEPLOY_PATH} contents ---"
-          ls -la "${DEPLOY_PATH}" || true
+          sudo ls -la "${DEPLOY_PATH}" || true
           echo "--- ${FRONTEND_DIR} contents ---"
-          ls -la "${FRONTEND_DIR}" || true
+          sudo ls -la "${FRONTEND_DIR}" || true
 
-          # Run docker compose
-          cd "${DEPLOY_PATH}"
-          docker compose -f "${COMPOSE_FILE}" down || true
-          docker compose -f "${COMPOSE_FILE}" build --no-cache
-          docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
+          # Run docker compose if present
+          if [ -f "${DEPLOY_PATH}/${COMPOSE_FILE}" ]; then
+            cd "${DEPLOY_PATH}"
+            docker compose -f "${COMPOSE_FILE}" down || true
+            docker compose -f "${COMPOSE_FILE}" build --no-cache
+            docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
+            echo "✅ Docker compose started."
+          else
+            echo "No ${COMPOSE_FILE} at ${DEPLOY_PATH}; skipping docker compose."
+          fi
 
-          echo "✅ Deployment done. Containers:"
-          docker ps --filter "name=tutorlix" --format "table {{.Names}}\t{{.Status}}"
+          echo "✅ Deployment (files copied)."
         '''
       }
     }
-
 
     stage('Restart Nginx') {
       steps {
         sh '''
           echo "♻️ Restarting Nginx..."
-          sudo systemctl restart nginx || echo "⚠️ Nginx restart skipped (no permission)"
+          sudo nginx -t
+          sudo systemctl restart nginx
         '''
       }
     }
@@ -103,7 +142,7 @@ pipeline {
 
   post {
     success {
-      echo "✅ Single-SPA root app deployed successfully at https://xtute.com"
+      echo "✅ Single-SPA root app deployed successfully at https://dev.tutorlix.com"
     }
     failure {
       echo "❌ Deployment failed. Check Jenkins console output for details."
