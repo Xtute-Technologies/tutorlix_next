@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <title>Root Config</title>
+  <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; 
           script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com; 
@@ -18,8 +19,9 @@
   <script type="injector-importmap">
       {
         "imports": {
-          "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js",
-          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.dc15f63accb4be35ad2d.js"
+          "@tutorlix/root-config": "/tutorlix-root-config.js",
+          "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
+          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.4969b3b341eae138cc47.js"
         }
       }
     </script>
@@ -33,7 +35,7 @@
         "imports": {
           "@tutorlix/root-config": "/tutorlix-root-config.js",
           "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
-          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.dc15f63accb4be35ad2d.js"
+          "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.4969b3b341eae138cc47.js"
         }
       }
     </script>
