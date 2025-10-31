@@ -8,17 +8,14 @@
   <title>Root Config</title>
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; 
-          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com https://cdn.jsdelivr.net; 
+          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com; 
           connect-src https: https://uilake.xtute.com ws:; 
           style-src 'unsafe-inline' https:; 
           object-src 'none';">
 
   <meta name="importmap-type" content="use-injector" />
-
-  <!-- 1) Load SystemJS runtime FIRST so System.register/System.import exist for system bundles -->
   <script src="https://cdn.jsdelivr.net/npm/systemjs@6.14.0/dist/system.min.js"></script>
 
-  <!-- 2) Inline import map for immediate mappings (import-map-injector will merge these) -->
   <script type="injector-importmap">
       {
         "imports": {
@@ -26,11 +23,9 @@
           "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.dc15f63accb4be35ad2d.js"
         }
       }
-  </script>
-
+    </script>
   <link rel="preload" href="https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js" as="module">
 
-  <!-- external importmap file (optional) -->
   <script type="injector-importmap" src="../importmap.json"></script>
 
   <% if (isLocal) { %>
@@ -43,11 +38,11 @@
         }
       }
     </script>
-  <% } %>
+    <% } %>
 
-  <!-- import-map override and injector (after importmaps and after SystemJS is available) -->
-  <script src="https://cdn.jsdelivr.net/npm/import-map-overrides@5.1.1/dist/import-map-overrides.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@single-spa/import-map-injector@2.0.1/lib/import-map-injector.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/import-map-overrides@5.1.1/dist/import-map-overrides.js"></script>
+      <script
+        src="https://cdn.jsdelivr.net/npm/@single-spa/import-map-injector@2.0.1/lib/import-map-injector.js"></script>
 </head>
 
 <body>
@@ -55,28 +50,11 @@
     You need to enable JavaScript to run this app.
   </noscript>
   <main></main>
-
   <script>
-    // quick runtime check: ensure SystemJS loaded
-    if (typeof System === 'undefined') {
-      console.error('SystemJS not found — system bundles will fail. Check that system.min.js loaded and CSP allows it.');
-    } else {
-      console.log('SystemJS OK:', System.version || true);
-    }
-
-    // initialize import map injector, then load root-config
-    window.importMapInjector && window.importMapInjector.initPromise
-      ? window.importMapInjector.initPromise.then(() => {
-          import('@tutorlix/root-config');
-        })
-      : (function () {
-          // fallback: if importMapInjector not present, just load root-config directly after a tick
-          setTimeout(() => {
-            import('@tutorlix/root-config').catch(e => console.error('Failed to load root-config', e));
-          }, 50);
-        })();
+    window.importMapInjector.initPromise.then(() => {
+      import('@tutorlix/root-config');
+    });
   </script>
-
   <import-map-overrides-full show-when-local-storage="devtools" dev-libs></import-map-overrides-full>
 </body>
 
