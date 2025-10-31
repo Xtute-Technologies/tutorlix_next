@@ -1,5 +1,6 @@
 {
     "imports": {
+        "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js",
         "@tutorlix/root-config": "/tutorlix-root-config.js",
         "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
         "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.4969b3b341eae138cc47.js"
