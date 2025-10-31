@@ -8,11 +8,13 @@
   <title>Root Config</title>
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
 
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; 
-          script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com; 
-          connect-src https: https://uilake.xtute.com ws:; 
-          style-src 'unsafe-inline' https:; 
-          object-src 'none';">
+  <meta http-equiv="Content-Security-Policy"
+  content="default-src 'self' https:; 
+           script-src 'unsafe-inline' 'unsafe-eval' https: https://dev.tutorlix.com https://uilake.xtute.com blob:; 
+           script-src-elem 'unsafe-inline' https: https://dev.tutorlix.com https://uilake.xtute.com blob:;
+           connect-src https: https://uilake.xtute.com ws:; 
+           style-src 'unsafe-inline' https:; 
+           object-src 'none';">
 
   <meta name="importmap-type" content="use-injector" />
 
