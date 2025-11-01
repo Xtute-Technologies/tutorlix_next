@@ -118,10 +118,10 @@ const applications = constructApplications({
   loadApp({ name }) {
     // adjust this mapping to load correct bundles per app name
     if (name === "@ui-lake/productList1" || name === "@ui-lake/productList2") {
-      return import(/* webpackIgnore: true */ "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.10006d1339df12c97075.js");
+      return import(/* webpackIgnore: true */ "https://uilake.xtute.com/ui-lake/ui-lake-productList.js");
     }
     // fallback or other apps — update URLs as needed
-    return import(/* webpackIgnore: true */ "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.10006d1339df12c97075.js");
+    return import(/* webpackIgnore: true */ "https://uilake.xtute.com/ui-lake/ui-lake-productList.js");
   },
 });
 
