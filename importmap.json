@@ -1,12 +1,13 @@
 {
     "imports": {
-      "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js",
-      "react": "https://esm.sh/react@18.2.0",
-      "react-dom": "https://esm.sh/react-dom@18.2.0",
-      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-      "@tutorlix/root-config": "/tutorlix-root-config.js",
-      "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
-      "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.4969b3b341eae138cc47.js",
-      "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime"
+        "single-spa": "https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/esm/single-spa.min.js",
+        "single-spa-layout": "https://cdn.jsdelivr.net/npm/single-spa-layout@5.0.0/lib/es2015/single-spa-layout.min.js",
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+        "@tutorlix/root-config": "/tutorlix-root-config.js",
+        "@single-spa/welcome": "https://cdn.jsdelivr.net/npm/single-spa-welcome/dist/single-spa-welcome.min.js",
+        "@ui-lake/productList": "https://uilake.xtute.com/ui-lake/ui-lake-productList.module.4969b3b341eae138cc47.js"
     }
-  }
+}
