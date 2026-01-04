@@ -49,11 +49,9 @@ pipeline {
                 sh '''
                     cd frontend
 
-                    # Ensure required lint deps exist (no globals)
-                    npm install --no-save eslint eslint-config-next
+                    npm install --save-dev eslint eslint-config-next @eslint/eslintrc
 
-                    # Use Next.js-managed lint (stable)
-                    npx next lint
+                    npx eslint . --max-warnings=0
                 '''
             }
         }
