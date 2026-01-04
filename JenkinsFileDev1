@@ -2,15 +2,12 @@ pipeline {
   agent any
 
   environment {
-    # Jenkins workspace paths
     FRONTEND_DIR = "${WORKSPACE}/frontend"
     BACKEND_DIR  = "${WORKSPACE}/backend"
 
-    # Next.js
     NEXT_APP_NAME = "tutorlix-next"
     NEXT_PORT     = "3000"
 
-    # Django
     DJANGO_SETTINGS_MODULE = "core.settings.production"
   }
 
