@@ -55,9 +55,7 @@ pipeline {
                     set -e
                     cd frontend
 
-                    echo "🔍 Running ESLint (force legacy config)"
-                    export ESLINT_USE_FLAT_CONFIG=false
-                    npx eslint . --max-warnings=0
+                    npm run lint
                 '''
             }
         }
