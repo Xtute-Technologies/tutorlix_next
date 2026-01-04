@@ -33,7 +33,9 @@ pipeline {
 
           echo "📦 Installing deps"
           npm install
-
+          sudo npm install -g pm2
+          pm2 -v
+          which pm2
           echo "🏗️ Building Next.js"
           npm run build
         '''
@@ -63,22 +65,25 @@ pipeline {
     /* ================= START SERVICES ================= */
 
     stage('Start / Restart Next.js (PM2)') {
-      steps {
-        sh '''
-          cd $FRONTEND_DIR
+        steps {
+            sh '''
+                cd $FRONTEND_DIR
 
-          echo "🔁 Restarting Next.js with PM2"
+                echo "🔁 Restarting Next.js with PM2"
 
-          if pm2 describe $NEXT_APP_NAME > /dev/null; then
-            pm2 reload $NEXT_APP_NAME --update-env
-          else
-            pm2 start npm --name "$NEXT_APP_NAME" -- start
-          fi
+                PM2=/usr/local/bin/pm2
 
-          pm2 save
-        '''
-      }
+                if $PM2 describe tutorlix-next > /dev/null; then
+                $PM2 reload tutorlix-next --update-env
+                else
+                $PM2 start npm --name tutorlix-next -- start
+                fi
+
+                $PM2 save
+            '''
+        }
     }
+
 
     stage('Start / Restart Gunicorn') {
       steps {
