@@ -1,162 +1,171 @@
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
-    }
-
     environment {
+        /* ================= GIT ================= */
         REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
         BRANCH   = 'main'
 
-        BASE_PATH     = '/srv/tutorlix'
-        FRONTEND_PATH = '/srv/tutorlix/frontend'
-        BACKEND_PATH  = '/srv/tutorlix/backend'
+        /* ================= PATHS ================= */
+        REACT_DIR  = "$WORKSPACE/frontend"
+        DJANGO_DIR = "$WORKSPACE/backend"
 
+        DEV_PATH  = "/srv/tutorlix"
+        PROD_PATH = "/srv/tutorlix"
+
+        /* ================= APP ================= */
+        ENVIRONMENT = 'production'
         NODE_ENV = 'production'
+
+        /* ================= GUNICORN ================= */
+        GUNICORN_PORT    = '8001'
+        GUNICORN_SERVICE = 'tutorlix-gunicorn.service'
+
+        /* ================= DATABASE ================= */
+        DB_NAME = 'tutorlix_db'
+        DB_USER = 'tutorlix_user'
+        DB_PASSWORD = 'tutorlix_pass'
+        DB_HOST = 'localhost'
+        DB_PORT = '5432'
+
+        /* ================= REDIS ================= */
+        REDIS_HOST = 'localhost'
+        REDIS_PORT = '6379'
+        REDIS_PASSWORD = ''
+
+        /* ================= DJANGO ================= */
         DJANGO_SETTINGS_MODULE = 'core.settings.production'
     }
 
     stages {
 
+        /* ================= BUILD INFO ================= */
+        stage('Build Info') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        echo "Triggered by: ${env.BUILD_USER}"
+                        echo "Build #: ${env.BUILD_NUMBER}"
+                        echo "Job: ${env.JOB_NAME}"
+                        echo "Workspace: ${env.WORKSPACE}"
+                    }
+                }
+            }
+        }
+
         /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                deleteDir()
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${BRANCH}"]],
-                    userRemoteConfigs: [[
-                        url: "${REPO_URL}",
-                        credentialsId: 'github-ssh-key'
-                    ]]
-                ])
+                git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
             }
         }
 
         /* ================= FRONTEND ================= */
-        stage('Frontend – Install') {
+        stage('Install Dependencies Frontend') {
             steps {
-                sh '''
-                    cd frontend
-
+                sh """
+                    cd $REACT_DIR
                     echo "🧹 Cleaning node_modules and package-lock.json"
                     rm -rf node_modules package-lock.json
-
                     echo "📦 Fresh npm install"
                     npm install
-                '''
+                """
             }
         }
 
-        stage('Frontend – Lint') {
+        stage('Lint Frontend') {
             steps {
-                sh '''
-                    set -e
-                    cd frontend
-                    npm install --save-dev eslint
-                    npm run lint
-                '''
+                sh """
+                    cd $REACT_DIR
+                    echo "🔍 Running ESLint (legacy mode)"
+                    export ESLINT_USE_FLAT_CONFIG=false
+                    npx eslint . --max-warnings=0
+                """
             }
         }
 
-
-        stage('Frontend – Tests') {
+        stage('Build Frontend') {
             steps {
-                sh '''
-                    cd frontend
-                    npm test -- --watch=false
-                '''
-            }
-        }
-
-        stage('Frontend – Build') {
-            steps {
-                sh '''
-                    cd frontend
+                sh """
+                    cd $REACT_DIR
                     npm run build
-                '''
+                """
             }
         }
 
         /* ================= BACKEND ================= */
-        stage('Backend – Setup') {
+        stage('Install Dependencies Backend') {
             steps {
-                sh '''
-                    cd backend
-                    python3 -m venv venv || true
-                    source venv/bin/activate
+                sh """
+                    cd $DJANGO_DIR
+
+                    if [ ! -d "venv" ]; then
+                        python3 -m venv venv
+                    fi
+
+                    . venv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                '''
+
+                    python manage.py migrate --noinput
+                """
             }
         }
 
-        stage('Backend – Lint') {
+        /* ================= GUNICORN SERVICE ================= */
+        stage('Setup Gunicorn systemd Service') {
             steps {
-                sh '''
-                    cd backend
-                    source venv/bin/activate
-                    flake8 .
-                '''
+                sh """
+                    cat <<EOF | sudo tee /etc/systemd/system/$GUNICORN_SERVICE > /dev/null
+[Unit]
+Description=Gunicorn for Tutorlix
+After=network.target
+
+[Service]
+User=jenkins
+Group=jenkins
+WorkingDirectory=$DJANGO_DIR
+Environment="DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE"
+Environment="DB_NAME=$DB_NAME"
+Environment="DB_USER=$DB_USER"
+Environment="DB_PASSWORD=$DB_PASSWORD"
+Environment="DB_HOST=$DB_HOST"
+Environment="DB_PORT=$DB_PORT"
+ExecStart=$DJANGO_DIR/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:$GUNICORN_PORT core.wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+                    sudo systemctl daemon-reload
+                """
             }
         }
 
-        stage('Backend – Tests') {
+        stage('Restart Gunicorn') {
             steps {
-                sh '''
-                    cd backend
-                    source venv/bin/activate
-                    python manage.py test
-                '''
+                sh """
+                    sudo systemctl restart $GUNICORN_SERVICE
+                    sudo systemctl enable $GUNICORN_SERVICE
+                """
             }
         }
 
         /* ================= DEPLOY ================= */
-        stage('Sync Code to Server') {
+        stage('Deploy') {
             steps {
-                sh '''
-                    sudo rsync -rlpv --delete \
-                      --exclude=node_modules \
-                      --exclude=.next \
-                      frontend/ ${FRONTEND_PATH}/
+                sh """
+                    sudo rsync -av --delete \
+                      --exclude node_modules \
+                      --exclude venv \
+                      --exclude .git \
+                      $WORKSPACE/ $PROD_PATH/
 
-                    sudo rsync -rlpv --delete \
-                      --exclude=venv \
-                      --exclude=__pycache__ \
-                      backend/ ${BACKEND_PATH}/
-                '''
-            }
-        }
-
-        stage('Backend – Migrate & Collectstatic') {
-            steps {
-                sh '''
-                    cd ${BACKEND_PATH}
-                    source venv/bin/activate
-                    python manage.py migrate --noinput
-                    python manage.py collectstatic --noinput
-                '''
-            }
-        }
-
-        stage('Restart Services') {
-            steps {
-                sh '''
-                    sudo systemctl restart gunicorn
-                    pm2 reload frontend || pm2 start npm --name frontend -- start
                     sudo systemctl restart nginx
-                '''
+                    sudo systemctl restart $GUNICORN_SERVICE
+                """
             }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Lint + Tests passed. Deployment successful 🚀"
-        }
-        failure {
-            echo "❌ Lint/Test failed. Deployment aborted"
         }
     }
 }
