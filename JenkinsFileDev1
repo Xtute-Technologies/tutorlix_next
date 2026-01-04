@@ -56,6 +56,9 @@ pipeline {
 
           pip install --upgrade pip
           pip install -r requirements.txt
+          
+          # FIXED: Explicitly install gunicorn to prevent service crash
+          pip install gunicorn
 
           export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
           python manage.py migrate || true
@@ -72,20 +75,16 @@ pipeline {
 
                 echo "🔁 Restarting Next.js as ROOT on Port 3701"
 
-                # We use absolute path for safety
                 PM2_PATH=/usr/bin/pm2
 
-                # Check if process exists as ROOT (using sudo)
                 if sudo $PM2_PATH describe tutorlix-next > /dev/null; then
                     echo "Process found. Reloading..."
-                    # Pass PORT=3701 explicitly to the sudo environment
                     sudo PORT=3701 $PM2_PATH reload tutorlix-next --update-env
                 else
                     echo "Starting new process as ROOT..."
                     sudo PORT=3701 $PM2_PATH start npm --name tutorlix-next -- start
                 fi
 
-                # Save the list so it survives reboot
                 sudo $PM2_PATH save
             '''
         }
