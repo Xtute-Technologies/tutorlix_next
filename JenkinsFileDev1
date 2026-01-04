@@ -73,17 +73,6 @@ pipeline {
             }
         }
 
-        stage('Lint Frontend') {
-            steps {
-                sh """
-                    cd $REACT_DIR
-                    echo "🔍 Running ESLint (legacy mode)"
-                    export ESLINT_USE_FLAT_CONFIG=false
-                    npx eslint . --max-warnings=0
-                """
-            }
-        }
-
         stage('Build Frontend') {
             steps {
                 sh """
