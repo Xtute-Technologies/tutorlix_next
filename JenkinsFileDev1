@@ -50,11 +50,12 @@ pipeline {
                     set -e
                     cd frontend
 
-                    echo "🔍 Running ESLint v8 (CI safe mode)"
-                    npx eslint@8 . --max-warnings=0
+                    echo "🔍 Running ESLint (project-local, CI safe)"
+                    npx eslint . --max-warnings=0
                 '''
             }
         }
+
 
         stage('Frontend – Tests') {
             steps {
