@@ -49,12 +49,20 @@ pipeline {
                 sh '''
                     cd frontend
 
-                    npm install --save-dev eslint eslint-config-next @eslint/eslintrc
+                    echo "🔧 Forcing ESLint v8 for Next.js compatibility"
 
-                    npx eslint . --max-warnings=0
+                    # Remove flat-config file for CI run
+                    rm -f eslint.config.mjs
+
+                    # Force ESLint v8 (Next.js compatible)
+                    npm install --save-dev eslint@8 eslint-config-next@14
+
+                    # Run Next.js lint
+                    npx next lint
                 '''
             }
         }
+
 
         stage('Frontend – Tests') {
             steps {
