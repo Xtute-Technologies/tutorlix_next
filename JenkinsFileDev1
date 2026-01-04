@@ -1,159 +1,54 @@
 pipeline {
     agent any
 
-    environment {
-        /* ================= GIT ================= */
-        REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
-        BRANCH   = 'main'
-
-        /* ================= PATHS ================= */
-        REACT_DIR  = "$WORKSPACE/frontend"
-        DJANGO_DIR = "$WORKSPACE/backend"
-
-        DEV_PATH  = "/srv/tutorlix"
-        PROD_PATH = "/srv/tutorlix"
-
-        /* ================= APP ================= */
-        ENVIRONMENT = 'production'
-        NODE_ENV = 'production'
-
-        /* ================= GUNICORN ================= */
-        GUNICORN_PORT    = '8001'
-        GUNICORN_SERVICE = 'tutorlix-gunicorn.service'
-
-        /* ================= DATABASE ================= */
-        DB_NAME = 'tutorlix_db'
-        DB_USER = 'tutorlix_user'
-        DB_PASSWORD = 'tutorlix_pass'
-        DB_HOST = 'localhost'
-        DB_PORT = '5432'
-
-        /* ================= REDIS ================= */
-        REDIS_HOST = 'localhost'
-        REDIS_PORT = '6379'
-        REDIS_PASSWORD = ''
-
-        /* ================= DJANGO ================= */
-        DJANGO_SETTINGS_MODULE = 'core.settings.production'
-    }
-
     stages {
 
-        /* ================= BUILD INFO ================= */
-        stage('Build Info') {
-            steps {
-                script {
-                    wrap([$class: 'BuildUser']) {
-                        echo "Triggered by: ${env.BUILD_USER}"
-                        echo "Build #: ${env.BUILD_NUMBER}"
-                        echo "Job: ${env.JOB_NAME}"
-                        echo "Workspace: ${env.WORKSPACE}"
-                    }
-                }
-            }
-        }
-
-        /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
+                checkout scm
             }
         }
 
-        /* ================= FRONTEND ================= */
-        stage('Install Dependencies Frontend') {
+        stage('Frontend Install & Build') {
             steps {
-                sh """
-                    cd $REACT_DIR
-                    echo "🧹 Cleaning node_modules and package-lock.json"
-                    rm -rf node_modules package-lock.json
-                    echo "📦 Fresh npm install"
+                sh '''
+                    cd frontend
                     npm install
-                """
-            }
-        }
-
-        stage('Build Frontend') {
-            steps {
-                sh """
-                    cd $REACT_DIR
                     npm run build
-                """
+                '''
             }
         }
 
-        /* ================= BACKEND ================= */
-        stage('Install Dependencies Backend') {
+        stage('Backend Setup') {
             steps {
-                sh """
-                    cd $DJANGO_DIR
+                sh '''
+                    cd backend
 
-                    if [ ! -d "venv" ]; then
-                        python3 -m venv venv
-                    fi
-
+                    python3 -m venv venv || true
                     . venv/bin/activate
-                    pip install --upgrade pip
+
                     pip install -r requirements.txt
-
-                    python manage.py migrate --noinput
-                """
+                    python manage.py migrate || true
+                '''
             }
         }
 
-        /* ================= GUNICORN SERVICE ================= */
-        stage('Setup Gunicorn systemd Service') {
+        stage('Start Gunicorn') {
             steps {
-                sh """
-                    cat <<EOF | sudo tee /etc/systemd/system/$GUNICORN_SERVICE > /dev/null
-[Unit]
-Description=Gunicorn for Tutorlix
-After=network.target
+                sh '''
+                    cd backend
+                    . venv/bin/activate
 
-[Service]
-User=jenkins
-Group=jenkins
-WorkingDirectory=$DJANGO_DIR
-Environment="DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE"
-Environment="DB_NAME=$DB_NAME"
-Environment="DB_USER=$DB_USER"
-Environment="DB_PASSWORD=$DB_PASSWORD"
-Environment="DB_HOST=$DB_HOST"
-Environment="DB_PORT=$DB_PORT"
-ExecStart=$DJANGO_DIR/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:$GUNICORN_PORT core.wsgi:application
-Restart=always
+                    echo "Starting Gunicorn..."
 
-[Install]
-WantedBy=multi-user.target
-EOF
+                    pkill gunicorn || true
 
-                    sudo systemctl daemon-reload
-                """
-            }
-        }
-
-        stage('Restart Gunicorn') {
-            steps {
-                sh """
-                    sudo systemctl restart $GUNICORN_SERVICE
-                    sudo systemctl enable $GUNICORN_SERVICE
-                """
-            }
-        }
-
-        /* ================= DEPLOY ================= */
-        stage('Deploy') {
-            steps {
-                sh """
-                    sudo rsync -av --delete \
-                      --exclude node_modules \
-                      --exclude venv \
-                      --exclude .git \
-                      $WORKSPACE/ $PROD_PATH/
-
-                    sudo systemctl restart nginx
-                    sudo systemctl restart $GUNICORN_SERVICE
-                """
+                    nohup gunicorn \
+                      --workers 3 \
+                      --bind 0.0.0.0:8000 \
+                      core.wsgi:application \
+                      > gunicorn.log 2>&1 &
+                '''
             }
         }
     }
