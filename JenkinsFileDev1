@@ -64,26 +64,25 @@ pipeline {
 
     /* ================= START SERVICES ================= */
 
-    stage('Start / Restart Next.js (PM2)') {
+   stage('Start / Restart Next.js (PM2)') {
         steps {
             sh '''
                 cd $FRONTEND_DIR
 
                 echo "🔁 Restarting Next.js with PM2"
 
-                PM2=/usr/local/bin/pm2
+                PM2=/usr/bin/pm2
 
                 if $PM2 describe tutorlix-next > /dev/null; then
-                $PM2 reload tutorlix-next --update-env
+                    $PM2 reload tutorlix-next --update-env
                 else
-                $PM2 start npm --name tutorlix-next -- start
+                    $PM2 start npm --name tutorlix-next -- start
                 fi
 
                 $PM2 save
             '''
         }
     }
-
 
     stage('Start / Restart Gunicorn') {
       steps {
