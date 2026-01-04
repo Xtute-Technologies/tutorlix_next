@@ -54,7 +54,7 @@ pipeline {
                 sh '''
                     set -e
                     cd frontend
-
+                    npm install --save-dev eslint
                     npm run lint
                 '''
             }
