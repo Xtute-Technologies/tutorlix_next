@@ -6,7 +6,7 @@ pipeline {
     BACKEND_DIR  = "${WORKSPACE}/backend"
 
     NEXT_APP_NAME = "tutorlix-next"
-    NEXT_PORT     = "3000"
+    NEXT_PORT     = "3701" 
 
     DJANGO_SETTINGS_MODULE = "tutorlix.settings"
   }
@@ -33,9 +33,10 @@ pipeline {
 
           echo "📦 Installing deps"
           npm install
+          
+          # Install PM2 globally (as root) just in case
           sudo npm install -g pm2
-          pm2 -v
-          which pm2
+          
           echo "🏗️ Building Next.js"
           npm run build
         '''
@@ -64,22 +65,28 @@ pipeline {
 
     /* ================= START SERVICES ================= */
 
-   stage('Start / Restart Next.js (PM2)') {
+    stage('Start / Restart Next.js (PM2 as ROOT)') {
         steps {
             sh '''
                 cd $FRONTEND_DIR
 
-                echo "🔁 Restarting Next.js with PM2"
+                echo "🔁 Restarting Next.js as ROOT on Port 3701"
 
-                PM2=/usr/bin/pm2
+                # We use absolute path for safety
+                PM2_PATH=/usr/bin/pm2
 
-                if $PM2 describe tutorlix-next > /dev/null; then
-                    $PM2 reload tutorlix-next --update-env
+                # Check if process exists as ROOT (using sudo)
+                if sudo $PM2_PATH describe tutorlix-next > /dev/null; then
+                    echo "Process found. Reloading..."
+                    # Pass PORT=3701 explicitly to the sudo environment
+                    sudo PORT=3701 $PM2_PATH reload tutorlix-next --update-env
                 else
-                    $PM2 start npm --name tutorlix-next -- start
+                    echo "Starting new process as ROOT..."
+                    sudo PORT=3701 $PM2_PATH start npm --name tutorlix-next -- start
                 fi
 
-                $PM2 save
+                # Save the list so it survives reboot
+                sudo $PM2_PATH save
             '''
         }
     }
@@ -90,8 +97,8 @@ pipeline {
           cd $BACKEND_DIR
           . venv/bin/activate
 
-          echo "🔁 Restarting Gunicorn"
-        sudo systemctl restart tutorlix-gunicorn
+          echo "🔁 Restarting Tutorlix Gunicorn"
+          sudo systemctl restart tutorlix-gunicorn
         '''
       }
     }
