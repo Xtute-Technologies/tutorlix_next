@@ -50,21 +50,8 @@ pipeline {
                     set -e
                     cd frontend
 
-                    echo "🔧 Preparing ESLint config for CI"
-
-                    # Remove flat config to avoid ESLint v9
-                    rm -f eslint.config.mjs
-
-                    # Ensure a non-interactive ESLint config exists
-                    if [ ! -f .eslintrc.json ]; then
-                    echo '{ "extends": ["next/core-web-vitals"] }' > .eslintrc.json
-                    fi
-
-                    # Force Next.js-compatible ESLint
-                    npm install --save-dev eslint@8 eslint-config-next@14
-
-                    # Run lint non-interactively
-                    npx next lint
+                    echo "🔍 Running ESLint (CI mode)"
+                    npx eslint . --max-warnings=0
                 '''
             }
         }
