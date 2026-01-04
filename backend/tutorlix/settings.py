@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-s87kpawfg$ke2#jk*z!fcu50j^i1+v5&009r8!cirr%mz^6i_f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['back.tutorlix.com']
 
 
 # Application definition
@@ -190,6 +190,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://dev.tutorlix.com",
+    "http://dev.tutorlix.com"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
