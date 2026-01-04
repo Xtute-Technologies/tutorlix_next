@@ -49,14 +49,11 @@ pipeline {
                 sh '''
                     cd frontend
 
-                    # Ensure eslint exists locally (CI-safe)
-                    if ! npx --yes eslint --version >/dev/null 2>&1; then
-                      echo "ESLint not found, installing locally..."
-                      npm install --save-dev eslint eslint-config-next
-                    fi
+                    # Ensure required lint deps exist (no globals)
+                    npm install --no-save eslint eslint-config-next
 
-                    # Run lint via eslint CLI (future-proof)
-                    npx eslint .
+                    # Use Next.js-managed lint (stable)
+                    npx next lint
                 '''
             }
         }
