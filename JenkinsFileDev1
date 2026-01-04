@@ -9,6 +9,9 @@ pipeline {
     NEXT_PORT     = "3701" 
 
     DJANGO_SETTINGS_MODULE = "tutorlix.settings"
+
+    // FIXED: Add your API URL here so Next.js embeds it during build
+    NEXT_PUBLIC_API_URL = "https://back.tutorlix.com"
   }
 
   stages {
@@ -37,8 +40,10 @@ pipeline {
           # Install PM2 globally (as root) just in case
           sudo npm install -g pm2
           
-          echo "🏗️ Building Next.js"
-          npm run build
+          echo "🏗️ Building Next.js with API URL: $NEXT_PUBLIC_API_URL"
+          
+          # We pass the variable explicitly just to be safe, though the env block handles it
+          NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
         '''
       }
     }
@@ -57,7 +62,7 @@ pipeline {
           pip install --upgrade pip
           pip install -r requirements.txt
           
-          # FIXED: Explicitly install gunicorn to prevent service crash
+          # FIXED: Explicitly install gunicorn
           pip install gunicorn
 
           export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
