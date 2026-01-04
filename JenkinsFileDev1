@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)   // 🔥 important
+    }
+
     environment {
         REPO_URL = 'git@github.com:Xtute-Technologies/tutorlix_next.git'
         BRANCH   = 'main'
@@ -18,51 +22,59 @@ pipeline {
         /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                git branch: "${BRANCH}", credentialsId: 'github-ssh-key', url: "${REPO_URL}"
+                deleteDir()    // ✅ deletes ONLY this job workspace
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${BRANCH}"]],
+                    userRemoteConfigs: [[
+                        url: "${REPO_URL}",
+                        credentialsId: 'github-ssh-key'
+                    ]]
+                ])
             }
         }
 
         /* ================= FRONTEND ================= */
         stage('Frontend – Install') {
             steps {
-                sh """
+                sh '''
                     cd frontend
                     npm ci
-                """
+                '''
             }
         }
 
         stage('Frontend – Lint') {
             steps {
-                sh """
+                sh '''
                     cd frontend
                     npm run lint
-                """
+                '''
             }
         }
 
         stage('Frontend – Tests') {
             steps {
-                sh """
+                sh '''
                     cd frontend
                     npm test -- --watch=false
-                """
+                '''
             }
         }
 
         stage('Frontend – Build') {
             steps {
-                sh """
+                sh '''
                     cd frontend
                     npm run build
-                """
+                '''
             }
         }
 
         /* ================= BACKEND ================= */
         stage('Backend – Setup') {
             steps {
-                sh """
+                sh '''
                     cd backend
 
                     python3 -m venv venv || true
@@ -70,60 +82,66 @@ pipeline {
 
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                """
+                '''
             }
         }
 
         stage('Backend – Lint') {
             steps {
-                sh """
+                sh '''
                     cd backend
                     source venv/bin/activate
 
                     flake8 .
-                """
+                '''
             }
         }
 
         stage('Backend – Tests') {
             steps {
-                sh """
+                sh '''
                     cd backend
                     source venv/bin/activate
 
                     python manage.py test
-                """
+                '''
             }
         }
 
         /* ================= DEPLOY ================= */
         stage('Sync Code to Server') {
             steps {
-                sh """
+                sh '''
                     echo "📦 Syncing frontend..."
-                    sudo rsync -rlpv --delete ./frontend/ ${FRONTEND_PATH}/
+                    sudo rsync -rlpv --delete \
+                      --exclude=node_modules \
+                      --exclude=.next \
+                      frontend/ ${FRONTEND_PATH}/
 
                     echo "📦 Syncing backend..."
-                    sudo rsync -rlpv --delete ./backend/ ${BACKEND_PATH}/
-                """
+                    sudo rsync -rlpv --delete \
+                      --exclude=venv \
+                      --exclude=__pycache__ \
+                      backend/ ${BACKEND_PATH}/
+                '''
             }
         }
 
         stage('Backend – Migrate & Collectstatic') {
             steps {
-                sh """
+                sh '''
                     cd ${BACKEND_PATH}
                     source venv/bin/activate
 
                     python manage.py migrate --noinput
                     python manage.py collectstatic --noinput
-                """
+                '''
             }
         }
 
         stage('Restart Services') {
             steps {
-                sh """
+                sh '''
                     echo "🔄 Restarting backend..."
                     sudo systemctl restart gunicorn
 
@@ -132,7 +150,7 @@ pipeline {
 
                     echo "🌐 Restarting nginx..."
                     sudo systemctl restart nginx
-                """
+                '''
             }
         }
     }
