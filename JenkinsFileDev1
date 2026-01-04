@@ -110,7 +110,7 @@ pipeline {
       steps {
         sh '''
           echo "🔄 Reloading nginx"
-          sudo nginx -t && systemctl reload nginx
+          sudo nginx -t && sudo systemctl reload nginx
         '''
       }
     }
