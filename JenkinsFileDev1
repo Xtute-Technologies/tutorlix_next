@@ -35,16 +35,21 @@ pipeline {
         }
 
         /* ================= FRONTEND ================= */
-        stage('Frontend – Install') {
+       stage('Frontend – Install') {
             steps {
                 sh '''
                     cd frontend
-                    npm ci
+
+                    echo "🧹 Cleaning node_modules and package-lock.json"
+                    rm -rf node_modules package-lock.json
+
+                    echo "📦 Fresh npm install"
+                    npm install
                 '''
             }
         }
-
-       stage('Frontend – Lint') {
+        
+        stage('Frontend – Lint') {
             steps {
                 sh '''
                     set -e
@@ -55,7 +60,6 @@ pipeline {
                 '''
             }
         }
-
 
         stage('Frontend – Tests') {
             steps {
