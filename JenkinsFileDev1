@@ -49,20 +49,28 @@ pipeline {
                 sh '''
                     cd frontend
 
-                    echo "🔧 Forcing ESLint v8 for Next.js compatibility"
+                    echo "🔧 Preparing ESLint config for CI"
 
-                    # Remove flat-config file for CI run
+                    # Remove flat config to avoid ESLint v9
                     rm -f eslint.config.mjs
 
-                    # Force ESLint v8 (Next.js compatible)
+                    # Create minimal ESLint config if none exists (non-interactive)
+                    if [ ! -f .eslintrc.json ]; then
+                    cat > .eslintrc.json << 'EOF'
+        {
+        "extends": ["next/core-web-vitals"]
+        }
+        EOF
+                    fi
+
+                    # Ensure compatible ESLint version
                     npm install --save-dev eslint@8 eslint-config-next@14
 
-                    # Run Next.js lint
-                    npx next lint
+                    # Run lint NON-interactively
+                    npx next lint --no-interactive
                 '''
             }
         }
-
 
         stage('Frontend – Tests') {
             steps {
