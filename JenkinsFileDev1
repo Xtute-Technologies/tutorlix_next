@@ -35,7 +35,7 @@ pipeline {
         }
 
         /* ================= FRONTEND ================= */
-       stage('Frontend – Install') {
+        stage('Frontend – Install') {
             steps {
                 sh '''
                     cd frontend
@@ -48,18 +48,20 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Frontend – Lint') {
             steps {
                 sh '''
                     set -e
                     cd frontend
 
-                    echo "🔍 Running ESLint (project-local, CI safe)"
+                    echo "🔍 Running ESLint (force legacy config)"
+                    export ESLINT_USE_FLAT_CONFIG=false
                     npx eslint . --max-warnings=0
                 '''
             }
         }
+
 
         stage('Frontend – Tests') {
             steps {
