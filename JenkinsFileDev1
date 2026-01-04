@@ -64,7 +64,7 @@ pipeline {
                     npm install --save-dev eslint@8 eslint-config-next@14
 
                     # Run lint non-interactively
-                    npx next lint --no-interactive
+                    npx next lint
                 '''
             }
         }
