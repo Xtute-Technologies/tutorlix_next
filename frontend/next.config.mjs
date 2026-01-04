@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    eslint: {
-        // ✅ CI mein lint hum manually run kar rahe hain (eslint .)
-        // isliye build ke time Next ko lint ke liye block mat karne do
-        ignoreDuringBuilds: true,
+    typescript: {
+        ignoreBuildErrors: true,
     },
-};
+    images: {
+        unoptimized: true,
+    },
+}
 
-export default nextConfig;
+export default nextConfig

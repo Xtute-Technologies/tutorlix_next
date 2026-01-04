@@ -1,55 +1,126 @@
 pipeline {
-    agent any
+  agent any
 
-    stages {
+  environment {
+    # Jenkins workspace paths
+    FRONTEND_DIR = "${WORKSPACE}/frontend"
+    BACKEND_DIR  = "${WORKSPACE}/backend"
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
+    # Next.js
+    NEXT_APP_NAME = "tutorlix-next"
+    NEXT_PORT     = "3000"
 
-        stage('Frontend Install & Build') {
-            steps {
-                sh '''
-                    cd frontend
-                    npm install
-                    npm run build
-                '''
-            }
-        }
+    # Django
+    DJANGO_SETTINGS_MODULE = "core.settings.production"
+  }
 
-        stage('Backend Setup') {
-            steps {
-                sh '''
-                    cd backend
+  stages {
 
-                    python3 -m venv venv || true
-                    . venv/bin/activate
+    /* ================= CHECKOUT ================= */
 
-                    pip install -r requirements.txt
-                    python manage.py migrate || true
-                '''
-            }
-        }
-
-        stage('Start Gunicorn') {
-            steps {
-                sh '''
-                    cd backend
-                    . venv/bin/activate
-
-                    echo "Starting Gunicorn..."
-
-                    pkill gunicorn || true
-
-                    nohup gunicorn \
-                      --workers 3 \
-                      --bind 0.0.0.0:8000 \
-                      core.wsgi:application \
-                      > gunicorn.log 2>&1 &
-                '''
-            }
-        }
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
+
+    /* ================= FRONTEND ================= */
+
+    stage('Build Next.js (CI)') {
+      steps {
+        sh '''
+          cd $FRONTEND_DIR
+
+          echo "🧹 Cleaning old build"
+          rm -rf node_modules .next
+
+          echo "📦 Installing deps"
+          npm install
+
+          echo "🏗️ Building Next.js"
+          npm run build
+        '''
+      }
+    }
+
+    /* ================= BACKEND ================= */
+
+    stage('Backend Setup') {
+      steps {
+        sh '''
+          cd $BACKEND_DIR
+
+          echo "🐍 Backend setup"
+          python3 -m venv venv || true
+          . venv/bin/activate
+
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+          export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+          python manage.py migrate || true
+        '''
+      }
+    }
+
+    /* ================= START SERVICES ================= */
+
+    stage('Start / Restart Next.js (PM2)') {
+      steps {
+        sh '''
+          cd $FRONTEND_DIR
+
+          echo "🔁 Restarting Next.js with PM2"
+
+          if pm2 describe $NEXT_APP_NAME > /dev/null; then
+            pm2 reload $NEXT_APP_NAME --update-env
+          else
+            pm2 start npm --name "$NEXT_APP_NAME" -- start
+          fi
+
+          pm2 save
+        '''
+      }
+    }
+
+    stage('Start / Restart Gunicorn') {
+      steps {
+        sh '''
+          cd $BACKEND_DIR
+          . venv/bin/activate
+
+          echo "🔁 Restarting Gunicorn"
+          pkill gunicorn || true
+
+          export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+
+          nohup gunicorn \
+            --workers 3 \
+            --bind 127.0.0.1:8000 \
+            core.wsgi:application \
+            > gunicorn.log 2>&1 &
+        '''
+      }
+    }
+
+    /* ================= NGINX ================= */
+
+    stage('Reload Nginx') {
+      steps {
+        sh '''
+          echo "🔄 Reloading nginx"
+          nginx -t && systemctl reload nginx
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '✅ Jenkins deploy succeeded'
+    }
+    failure {
+      echo '❌ Jenkins deploy failed'
+    }
+  }
 }
