@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     options {
-        skipDefaultCheckout(true)   // 🔥 important
+        skipDefaultCheckout(true)
     }
 
     environment {
@@ -22,7 +22,7 @@ pipeline {
         /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                deleteDir()    // ✅ deletes ONLY this job workspace
+                deleteDir()
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: "*/${BRANCH}"]],
@@ -48,7 +48,15 @@ pipeline {
             steps {
                 sh '''
                     cd frontend
-                    npm run lint
+
+                    # Ensure eslint exists locally (CI-safe)
+                    if ! npx --yes eslint --version >/dev/null 2>&1; then
+                      echo "ESLint not found, installing locally..."
+                      npm install --save-dev eslint eslint-config-next
+                    fi
+
+                    # Run lint via eslint CLI (future-proof)
+                    npx eslint .
                 '''
             }
         }
@@ -76,10 +84,8 @@ pipeline {
             steps {
                 sh '''
                     cd backend
-
                     python3 -m venv venv || true
                     source venv/bin/activate
-
                     pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
@@ -91,7 +97,6 @@ pipeline {
                 sh '''
                     cd backend
                     source venv/bin/activate
-
                     flake8 .
                 '''
             }
@@ -102,7 +107,6 @@ pipeline {
                 sh '''
                     cd backend
                     source venv/bin/activate
-
                     python manage.py test
                 '''
             }
@@ -112,13 +116,11 @@ pipeline {
         stage('Sync Code to Server') {
             steps {
                 sh '''
-                    echo "📦 Syncing frontend..."
                     sudo rsync -rlpv --delete \
                       --exclude=node_modules \
                       --exclude=.next \
                       frontend/ ${FRONTEND_PATH}/
 
-                    echo "📦 Syncing backend..."
                     sudo rsync -rlpv --delete \
                       --exclude=venv \
                       --exclude=__pycache__ \
@@ -132,7 +134,6 @@ pipeline {
                 sh '''
                     cd ${BACKEND_PATH}
                     source venv/bin/activate
-
                     python manage.py migrate --noinput
                     python manage.py collectstatic --noinput
                 '''
@@ -142,13 +143,8 @@ pipeline {
         stage('Restart Services') {
             steps {
                 sh '''
-                    echo "🔄 Restarting backend..."
                     sudo systemctl restart gunicorn
-
-                    echo "🔄 Restarting frontend..."
                     pm2 reload frontend || pm2 start npm --name frontend -- start
-
-                    echo "🌐 Restarting nginx..."
                     sudo systemctl restart nginx
                 '''
             }
