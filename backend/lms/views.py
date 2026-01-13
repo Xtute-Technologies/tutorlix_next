@@ -296,6 +296,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         
         # Admin can see all
         return queryset
+
     
     def perform_create(self, serializer):
         # Auto-assign sales representative if not provided
@@ -367,7 +368,10 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
              return Response({"product": "Invalid product ID."}, status=status.HTTP_400_BAD_REQUEST)
         
         price = product.price # Use base price
-        
+
+        # Use discounted price if available
+        effective_price = product.discounted_price if product.discounted_price else product.price
+        price = effective_price
         # Apply Coupon if present
         coupon_code = data.get('coupon_code')
         discount_amount = 0
@@ -502,7 +506,49 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         except CourseBooking.DoesNotExist:
              return Response({"detail": "Booking not found for this payment ID."}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='preview_price')
+    def preview_price(self, request):
+        """
+        Preview price for a booking (no DB write). Returns effective price, discount, and final amount.
+        """
+        data = request.data
+        product_id = data.get('product')
+        coupon_code = data.get('coupon_code')
+        if not product_id:
+            return Response({"product": "Product is required."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({"product": "Invalid product ID."}, status=status.HTTP_400_BAD_REQUEST)
 
+        effective_price = product.discounted_price if product.discounted_price else product.price
+        price = effective_price
+        discount_amount = 0
+        offer = None
+        offer_valid = False
+        offer_message = None
+        if coupon_code:
+            try:
+                offer = Offer.objects.get(code=coupon_code, product=product, is_active=True)
+                if offer.is_valid():
+                    discount_amount = offer.amount_off
+                    offer_valid = True
+                else:
+                    offer_message = "Coupon is invalid or expired."
+            except Offer.DoesNotExist:
+                offer_message = "Invalid coupon code."
+
+        final_amount = max(price - discount_amount, 0)
+
+        return Response({
+            "effective_price": str(effective_price),
+            "discount_amount": str(discount_amount),
+            "final_amount": str(final_amount),
+            "offer_message": offer_message,
+            "has_discount": bool(product.discounted_price),
+            "original_price": str(product.price),
+            "discounted_price": str(product.discounted_price) if product.discounted_price else None
+        })
 
 
 # ============= Main Course ViewSet =============

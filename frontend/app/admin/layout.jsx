@@ -8,7 +8,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation" 
 import { useEffect } from "react"
 import {
   Breadcrumb,
@@ -18,10 +18,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import React from "react"
 
 export default function AdminRootLayout({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname(); 
 
   useEffect(() => {
     if (!loading) {
@@ -41,6 +43,36 @@ export default function AdminRootLayout({ children }) {
     return null;
   }
 
+  const generateBreadcrumbs = () => {
+    const pathSegments = pathname.split('/').filter(Boolean);
+
+    return pathSegments.map((segment, index) => {
+      const href = `/${pathSegments.slice(0, index + 1).join('/')}`;
+      
+      // Format the title: "create-booking" -> "Create Booking"
+      const title = segment
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+
+      const isLast = index === pathSegments.length - 1;
+
+      return (
+        <React.Fragment key={href}>
+          <BreadcrumbItem className={isLast ? "" : "hidden md:block"}>
+            {isLast ? (
+              <BreadcrumbPage>{title}</BreadcrumbPage>
+            ) : (
+              <BreadcrumbLink href={href}>
+                {title}
+              </BreadcrumbLink>
+            )}
+          </BreadcrumbItem>
+          {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -52,15 +84,7 @@ export default function AdminRootLayout({ children }) {
             <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="/admin">
-                    Admin
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                </BreadcrumbItem>
+                {generateBreadcrumbs()}
               </BreadcrumbList>
             </Breadcrumb>
           </div>

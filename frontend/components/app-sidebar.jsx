@@ -44,68 +44,8 @@ const data = {
   },
 
   navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
+
+
     {
       title: "Settings",
       url: "#",
@@ -130,23 +70,7 @@ const data = {
       ],
     },
   ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+ 
 };
 
 export function AppSidebar({ ...props }) {
@@ -221,13 +145,13 @@ export function AppSidebar({ ...props }) {
         },
         {
            title: "Seller Dashboard",
-           url: "/admin/seller",
+           url: "/admin/seller/bookings",
            icon: LayoutDashboard,
            isActive: true,
            items: [
-             { title: "Dashboard", url: "/admin/seller" },
-             { title: "New Booking", url: "/admin/seller/create-booking" },
-             { title: "View Bookings", url: "/admin/seller/bookings" },
+            //  { title: "Dashboard", url: "/admin/seller" },
+            //  { title: "New Booking", url: "/admin/seller/create-booking" },
+             { title: "Bookings", url: "/admin/seller/bookings" },
            ]
         }
       ];
