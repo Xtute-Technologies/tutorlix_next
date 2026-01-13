@@ -984,3 +984,92 @@ class RazorpayWebhookView(APIView):
         except Exception as e:
             logger.error(f"Error processing webhook: {str(e)}")
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+# --- Add these imports to your existing imports in views.py ---
+from django.db.models import Sum
+from .models import SellerExpense
+from .serializers import SellerExpenseSerializer
+
+# --- Add this Class to the end of your views.py ---
+
+class SellerExpenseViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Seller Expense (Money given to sellers).
+    - Admin: Full access (Create, Read, Update, Delete)
+    - Seller: Read-only access to their own received expenses
+    """
+    queryset = SellerExpense.objects.all()
+    serializer_class = SellerExpenseSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['seller', 'date', 'created_by']
+    search_fields = ['description', 'seller__email', 'seller__first_name', 'seller__last_name']
+    ordering_fields = ['date', 'amount', 'created_at']
+    ordering = ['-date']
+
+    def get_permissions(self):
+        """
+        Custom permissions:
+        - Create/Update/Delete: Admin only
+        - List/Retrieve: Authenticated users (filtered by role in get_queryset)
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        """
+        - Admin: Sees all expenses
+        - Seller: Sees only expenses where they are the 'seller' (recipient)
+        """
+        user = self.request.user
+        queryset = super().get_queryset()
+        
+        if user.role == 'admin':
+            return queryset
+        
+        if user.role == 'seller':
+            return queryset.filter(seller=user)
+        
+        # Other roles (e.g. students) shouldn't see these
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        """
+        Auto-assign the creator
+        """
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """
+        Get total amount given to sellers.
+        Supports filtering by date range and specific seller.
+        """
+        queryset = self.get_queryset()
+        
+        # Apply filters manually or rely on filter_backends if configured for the action
+        # Here we manually apply basic filters for the summary calculation
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        seller_id = request.query_params.get('seller')
+
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+        
+        # If admin wants to sum up for a specific seller
+        if seller_id and request.user.role == 'admin':
+            queryset = queryset.filter(seller_id=seller_id)
+
+        total = queryset.aggregate(total=Sum('amount'))['total'] or 0
+        count = queryset.count()
+        
+        return Response({
+            'total_amount': total,
+            'transaction_count': count,
+            'start_date': start_date,
+            'end_date': end_date
+        })

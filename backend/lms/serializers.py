@@ -4,7 +4,7 @@ from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage
+    Expense, ContactFormMessage,SellerExpense
 )
 
 User = get_user_model()
@@ -326,3 +326,29 @@ class ContactFormMessageSerializer(serializers.ModelSerializer):
             'assigned_to', 'assigned_to_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+
+
+class SellerExpenseSerializer(serializers.ModelSerializer):
+    # Read-only fields to display names instead of just IDs
+    seller_name = serializers.CharField(source='seller.get_full_name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = SellerExpense
+        fields = [
+            'id', 
+            'seller', 
+            'seller_name', 
+            'amount', 
+            'date', 
+            'description', 
+            'created_by', 
+            'created_by_name', 
+            'created_at', 
+            'updated_at'
+        ]
+        # The 'seller' field is writable (for Admins to select the seller), 
+        # but 'created_by' is auto-filled by the view.
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']

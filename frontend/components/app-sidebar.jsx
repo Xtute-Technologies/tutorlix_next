@@ -44,8 +44,6 @@ const data = {
   },
 
   navMain: [
-
-
     {
       title: "Settings",
       url: "#",
@@ -70,7 +68,6 @@ const data = {
       ],
     },
   ],
- 
 };
 
 export function AppSidebar({ ...props }) {
@@ -78,24 +75,22 @@ export function AppSidebar({ ...props }) {
 
   const navItems = React.useMemo(() => {
     // Seller Specific Navigation
-    if (user?.role === 'seller' ) {
+    if (user?.role === "seller") {
       return [
         {
-           title: "Seller Dashboard",
-           url: "/admin/seller",
-           icon: LayoutDashboard,
-           isActive: true,
-           items: [
-             { title: "Dashboard", url: "/admin/seller" },
-             { title: "New Booking", url: "/admin/seller/create-booking" },
-             { title: "View Bookings", url: "/admin/seller/bookings" },
-           ]
-        }
+          title: "Seller Dashboard",
+          url: "/admin/seller",
+          icon: LayoutDashboard,
+          isActive: true,
+          items: [
+            { title: "View Bookings", url: "/admin/seller/bookings" },
+          ],
+        },
       ];
     }
 
     // Admin Navigation
-    if (user?.role === 'admin') {
+    if (user?.role === "admin") {
       return [
         {
           title: "Dashboard",
@@ -134,7 +129,10 @@ export function AppSidebar({ ...props }) {
           url: "#",
           icon: DollarSign,
           isActive: true,
-          items: [{ title: "Expenses", url: "/admin/expenses", icon: DollarSign }],
+          items: [
+            { title: "Expenses", url: "/admin/expenses", icon: DollarSign },
+            { title: "Seller Expenses", url: "/admin/seller-expenses", icon: DollarSign },
+          ],
         },
         {
           title: "Communication",
@@ -144,16 +142,12 @@ export function AppSidebar({ ...props }) {
           items: [{ title: "Messages", url: "/admin/messages", icon: MessageSquare }],
         },
         {
-           title: "Seller Dashboard",
-           url: "/admin/seller/bookings",
-           icon: LayoutDashboard,
-           isActive: true,
-           items: [
-            //  { title: "Dashboard", url: "/admin/seller" },
-            //  { title: "New Booking", url: "/admin/seller/create-booking" },
-             { title: "Bookings", url: "/admin/seller/bookings" },
-           ]
-        }
+          title: "Seller Dashboard",
+          url: "/admin/seller/bookings",
+          icon: LayoutDashboard,
+          isActive: true,
+          items: [{ title: "Bookings", url: "/admin/seller/bookings" }],
+        },
       ];
     }
 
@@ -161,14 +155,12 @@ export function AppSidebar({ ...props }) {
     return data.navMain;
   }, [user]);
 
-
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
           <div className="font-black bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-            <Lightbulb className="size-4"/>
+            <Lightbulb className="size-4" />
           </div>
           <div className="grid flex-1 text-left text-lg leading-tight">
             <span className="truncate font-medium">Tutorlix</span>

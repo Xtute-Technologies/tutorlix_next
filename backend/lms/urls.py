@@ -15,6 +15,7 @@ router.register(r'attendance', views.AttendanceViewSet, basename='attendance')
 router.register(r'test-scores', views.TestScoreViewSet, basename='test-score')
 router.register(r'expenses', views.ExpenseViewSet, basename='expense')
 router.register(r'contact-messages', views.ContactFormMessageViewSet, basename='contact-message')
+router.register(r'seller-expenses', views.SellerExpenseViewSet, basename='seller-expense')
 
 # The API URLs are now determined automatically by the router
 urlpatterns = [

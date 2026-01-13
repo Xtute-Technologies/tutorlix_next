@@ -415,3 +415,38 @@ class ContactFormMessage(models.Model):
         verbose_name = 'Contact Form Message'
         verbose_name_plural = 'Contact Form Messages'
         ordering = ['-created_at']
+
+
+class SellerExpense(models.Model):
+    """
+    Expenses/Money given to Sellers
+    """
+    seller = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='seller_expenses_received',
+        limit_choices_to={'role': 'seller'},
+        help_text="Select the seller who received this money"
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    date = models.DateField(default=timezone.now)
+    description = models.TextField(blank=True, null=True, help_text="Reason for the expense")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='seller_expenses_created',
+        help_text="Who created this record"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        # Using getattr to safely handle cases where seller might not have get_full_name
+        seller_name = getattr(self.seller, 'get_full_name', lambda: self.seller.username)()
+        return f"{seller_name} - {self.amount}"
+    
+    class Meta:
+        verbose_name = 'Seller Expense'
+        verbose_name_plural = 'Seller Expenses'
+        ordering = ['-date']

@@ -310,6 +310,46 @@ export const expenseAPI = {
   },
 };
 
+
+
+export const sellerExpenseAPI = {
+  // Get all seller expenses (Admin sees all, Seller sees theirs)
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/seller-expenses/', { params });
+    // Handle pagination results if present, or raw array
+    return response.data.results ? response.data.results : response.data;
+  },
+
+  // Get single seller expense
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/seller-expenses/${id}/`);
+    return response.data;
+  },
+
+  // Create seller expense (Admin only)
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/seller-expenses/', data);
+    return response.data;
+  },
+
+  // Update seller expense (Admin only)
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/seller-expenses/${id}/`, data);
+    return response.data;
+  },
+
+  // Delete seller expense (Admin only)
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/seller-expenses/${id}/`);
+    return response.data;
+  },
+
+  // Get summary
+  getSummary: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/seller-expenses/summary/', { params });
+    return response.data;
+  },
+};
 // ============= Contact Message APIs =============
 
 export const contactMessageAPI = {
