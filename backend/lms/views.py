@@ -308,6 +308,32 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """
+        Get aggregated statistics for dashboard.
+        Endpoint: /api/lms/bookings/statistics/
+        """
+        # queryset is already filtered by role via get_queryset
+        queryset = self.get_queryset()
+        
+        total_bookings = queryset.count()
+        paid_bookings = queryset.filter(payment_status='paid').count()
+        pending_bookings = queryset.filter(payment_status='pending').count()
+        
+        # Calculate total revenue (sum of final_amount for paid bookings)
+        revenue_data = queryset.filter(payment_status='paid').aggregate(
+            total_revenue=Sum('final_amount')
+        )
+        total_revenue = revenue_data['total_revenue'] or 0
+        
+        return Response({
+            'total_bookings': total_bookings,
+            'paid_bookings': paid_bookings,
+            'pending_bookings': pending_bookings,
+            'total_revenue': total_revenue
+        })
+
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def seller_create_booking(self, request):
         """
