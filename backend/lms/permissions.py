@@ -10,17 +10,24 @@ class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'admin'
 
-
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
-    Permission to only allow admin to edit, but anyone to view.
+    Allow anyone to read.
+    Allow only admin users to write.
     """
     message = "Only admin users can perform this action."
-    
+
     def has_permission(self, request, view):
+        # READ permissions for everyone
         if request.method in permissions.SAFE_METHODS:
-            return request.user and request.user.is_authenticated
-        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+            return True
+
+        # WRITE permissions only for admin users
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == 'admin'
+        )
 
 
 class IsAdminOrTeacher(permissions.BasePermission):

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import AdminLayout from '@/components/AdminLayout';
+
 import DataTable from '@/components/DataTable';
 import FormBuilder from '@/components/FormBuilder';
 import { Card } from '@/components/ui/card';
@@ -231,7 +231,7 @@ export default function ExpensesPage() {
   ];
 
   return (
-    <AdminLayout>
+    
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -304,6 +304,6 @@ export default function ExpensesPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLayout>
+    
   );
 }

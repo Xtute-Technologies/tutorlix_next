@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+import uuid
 
 
 # Create your models here.
@@ -146,6 +147,12 @@ class CourseBooking(models.Model):
     payment_link = models.URLField(blank=True, null=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_date = models.DateTimeField(null=True, blank=True)
+
+    # Razorpay Details
+    booking_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
     
     # Sales and tracking
     sales_representative = models.ForeignKey(

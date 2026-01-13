@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminLayout from '@/components/AdminLayout';
+
 import DataTable from '@/components/DataTable';
 import FormBuilder from '@/components/FormBuilder';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -227,16 +227,16 @@ export default function CategoriesPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </AdminLayout>
+
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -254,8 +254,8 @@ export default function CategoriesPage() {
         {message.text && (
           <div
             className={`p-4 rounded-lg ${message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
               }`}
           >
             {message.text}
@@ -368,6 +368,7 @@ export default function CategoriesPage() {
           )}
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
+
   );
 }

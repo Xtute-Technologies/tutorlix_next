@@ -1,10 +1,19 @@
 from rest_framework import viewsets, status, filters
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Sum
 from django.utils import timezone
+from django.contrib.auth import get_user_model
+import json
+import logging
+from .payment import PaymentService
+from django.conf import settings
+logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
@@ -32,7 +41,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     - Create/Update/Delete: Admin only
     """
     queryset = Category.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [ IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'heading', 'description']
     ordering_fields = ['name', 'created_at']
@@ -61,7 +70,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     - Create/Update/Delete: Admin only
     """
     queryset = Product.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [ IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'is_active']
     search_fields = ['name', 'description']
@@ -297,6 +306,203 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 serializer.save()
         else:
             serializer.save()
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def seller_create_booking(self, request):
+        """
+        Custom endpoint for Seller/Admin to create booking for a student.
+        If student doesn't exist, create one.
+        Generate Razorpay payment link.
+        """
+        user = request.user
+        if user.role not in ['admin', 'seller']:
+             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data
+        
+        # 1. Get or Create Student
+        email = data.get('email')
+        student_name = data.get('student_name')
+        if not email:
+            return Response({"email": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            student = User.objects.get(email=email)
+            if student.role != 'student':
+                 return Response({"email": "User exists but is not a student."}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            # Create new student
+            password = data.get('password')
+            phone = data.get('phone')
+            state = data.get('state')
+            
+            if not password:
+                return Response({"password": "Password is required for new student."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Split name
+            names = student_name.split(' ', 1)
+            first_name = names[0]
+            last_name = names[1] if len(names) > 1 else ''
+            
+            try:
+                student = User.objects.create_user(
+                    username=email, # Use email as username
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone=phone,
+                    state=state,
+                    role='student',
+                    student_status='in_process'
+                )
+            except Exception as e:
+                return Response({"detail": f"Error creating student: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Get Product and Calculate Price
+        product_id = data.get('product')
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+             return Response({"product": "Invalid product ID."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        price = product.price # Use base price
+        
+        # Apply Coupon if present
+        coupon_code = data.get('coupon_code')
+        discount_amount = 0
+        offer = None
+        
+        if coupon_code:
+            try:
+                offer = Offer.objects.get(code=coupon_code, is_active=True)
+                # Basic validation
+                if offer.is_valid():
+                    discount_amount = offer.amount_off
+                else:
+                    return Response({"coupon_code": "Coupon is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+            except Offer.DoesNotExist:
+                 return Response({"coupon_code": "Invalid coupon code."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        final_amount = max(price - discount_amount, 0)
+        
+        # 3. Create Booking Record
+        booking_data = {
+            "student": student,
+            "product": product,
+            "course_name": product.name,
+            "price": price,
+            "coupon_code": offer,
+            "discount_amount": discount_amount,
+            "final_amount": final_amount,
+            "sales_representative": user,
+            "booked_by": user.get_full_name(),
+            "payment_status": "pending",
+            "student_status": "in_process"
+        }
+        
+        booking = CourseBooking.objects.create(**booking_data)
+        
+            # 4. Generate Payment Link (Custom Frontend Page)
+        booking.payment_link = f"{settings.FRONTEND_URL}/public-payment/{booking.booking_id}"
+        booking.save()
+        
+        serializer = self.get_serializer(booking)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        # except Exception as e:
+        #     return Response({
+        #         "detail": "Booking created but error occurred.", 
+        #         "error": str(e),
+        #         "booking_id": booking.id
+        #     }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='details_public/(?P<uuid>[^/.]+)')
+    def get_payment_details(self, request, uuid=None):
+        try:
+            booking = CourseBooking.objects.get(booking_id=uuid)
+        except CourseBooking.DoesNotExist:
+            return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if booking.payment_status == 'paid':
+             return Response({
+                 "booking": CourseBookingSerializer(booking).data,
+                 "status": "paid"
+             })
+
+        service = PaymentService()
+        order_id = booking.razorpay_order_id
+        
+        if not order_id:
+            try:
+                # Create Razorpay Order
+                order = service.create_order(
+                    amount=booking.final_amount, 
+                    receipt=str(booking.id),
+                    notes={"booking_uuid": str(booking.booking_id)}
+                )
+                booking.razorpay_order_id = order['id']
+                booking.save()
+                order_id = order['id']
+            except Exception as e:
+                logger.error(f"Error creating Razorpay order: {e}")
+                return Response({"detail": "Error initializing payment."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            "booking": CourseBookingSerializer(booking).data,
+            "razorpay_order_id": order_id,
+            "razorpay_key_id": settings.RAZORPAY_SECRET_ID, 
+            "status": booking.payment_status
+        })
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='verify_payment')
+    def verify_payment(self, request):
+        booking_uuid = request.data.get('booking_id')
+        payment_id = request.data.get('razorpay_payment_id')
+        order_id = request.data.get('razorpay_order_id')
+        signature = request.data.get('razorpay_signature')
+        
+        if not all([booking_uuid, payment_id, order_id, signature]):
+             return Response({"detail": "Missing parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            booking = CourseBooking.objects.get(booking_id=booking_uuid)
+        except CourseBooking.DoesNotExist:
+            return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+        service = PaymentService()
+        params = {
+            'razorpay_order_id': order_id,
+            'razorpay_payment_id': payment_id,
+            'razorpay_signature': signature
+        }
+        
+        if service.verify_order_signature(params):
+            booking.payment_status = 'paid'
+            booking.razorpay_payment_id = payment_id
+            booking.razorpay_signature = signature
+            booking.payment_date = timezone.now()
+            booking.save()
+            return Response({"status": "success"})
+        else:
+            booking.payment_status = 'failed'
+            booking.save()
+            return Response({"detail": "Signature verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check_payment_status')
+    def check_payment_status(self, request):
+        payment_id = request.query_params.get('payment_id')
+        if not payment_id:
+             return Response({"detail": "Payment ID required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            booking = CourseBooking.objects.get(razorpay_payment_id=payment_id)
+            serializer = self.get_serializer(booking)
+            return Response(serializer.data)
+        except CourseBooking.DoesNotExist:
+             return Response({"detail": "Booking not found for this payment ID."}, status=status.HTTP_404_NOT_FOUND)
+
+
 
 
 # ============= Main Course ViewSet =============
@@ -669,3 +875,66 @@ class ContactFormMessageViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(message)
         return Response(serializer.data)
+
+
+class RazorpayWebhookView(APIView):
+    """
+    Webhook handler for Razorpay events
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        signature = request.headers.get('X-Razorpay-Signature')
+        if not signature:
+            logger.warning("Razorpay webhook called without signature")
+            return Response({'error': 'No signature provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify signature
+        payment_service = PaymentService()
+        # Request body as string is needed for verification
+        body_str = request.body.decode('utf-8')
+        
+        if not payment_service.verify_webhook_signature(body_str, signature):
+            logger.error("Invalid Razorpay Webhook Signature")
+            return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = json.loads(body_str)
+            event = data.get('event')
+            
+            logger.info(f"Received Razorpay webhook event: {event}")
+            
+            if event == 'payment_link.paid':
+                payload = data.get('payload', {})
+                payment_link = payload.get('payment_link', {}).get('entity', {})
+                
+                # reference_id matches our Booking ID
+                booking_ref = payment_link.get('reference_id')
+                if booking_ref:
+                    try:
+                        booking = CourseBooking.objects.get(id=booking_ref)
+                        
+                        # Update status only if not already paid
+                        if booking.payment_status != 'paid':
+                            booking.payment_status = 'paid'
+                            booking.payment_date = timezone.now()
+                            
+                            if booking.student_status == 'in_process':
+                                booking.student_status = 'active'
+                                
+                            booking.save()
+                            logger.info(f"Booking {booking_ref} marked as paid via webhook.")
+                        else:
+                            logger.info(f"Booking {booking_ref} was already paid.")
+                            
+                    except CourseBooking.DoesNotExist:
+                        logger.error(f"Booking with ref {booking_ref} not found.")
+                else:
+                    logger.warning("No booking reference_id found in payment_link entity")
+            
+            return Response({'status': 'ok'})
+            
+        except Exception as e:
+            logger.error(f"Error processing webhook: {str(e)}")
+            return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

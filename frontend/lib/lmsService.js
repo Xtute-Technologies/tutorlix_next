@@ -207,6 +207,12 @@ export const bookingAPI = {
     return response.data;
   },
 
+  // Seller Create Booking with Payment Link
+  sellerCreate: async (data) => {
+    const response = await axiosInstance.post('/api/lms/bookings/seller_create_booking/', data);
+    return response.data;
+  },
+
   // Update payment status
   updatePaymentStatus: async (id, paymentStatus) => {
     const response = await axiosInstance.patch(

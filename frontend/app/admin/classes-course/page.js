@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import AdminLayout from '@/components/AdminLayout';
+
 import DataTable from '@/components/DataTable';
 import FormBuilder from '@/components/FormBuilder';
 import { Card } from '@/components/ui/card';
@@ -268,16 +268,16 @@ export default function CourseClassesPage() {
 
     if (loading) {
         return (
-            <AdminLayout>
+            
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-            </AdminLayout>
+            
         );
     }
 
     return (
-        <AdminLayout>
+        
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -337,6 +337,6 @@ export default function CourseClassesPage() {
                     </DialogContent>
                 </Dialog>
             </div>
-        </AdminLayout>
+        
     );
 }

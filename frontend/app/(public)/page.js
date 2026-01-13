@@ -168,12 +168,12 @@ export default function HomePage() {
                         <CardDescription>{category.heading}</CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent>
+                    {/* <CardContent>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <BookOpen className="h-4 w-4" />
                         <span>{category.products_count || 0} courses available</span>
                       </div>
-                    </CardContent>
+                    </CardContent> */}
                   </Card>
                 </Link>
               ))}

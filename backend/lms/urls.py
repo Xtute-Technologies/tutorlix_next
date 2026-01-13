@@ -19,5 +19,6 @@ router.register(r'contact-messages', views.ContactFormMessageViewSet, basename='
 # The API URLs are now determined automatically by the router
 urlpatterns = [
     path('', include(router.urls)),
+    path('webhook/payment-status/', views.RazorpayWebhookView.as_view(), name='razorpay-webhook'),
 ]
 

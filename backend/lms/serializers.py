@@ -163,9 +163,11 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'product', 'product_name', 'course_name', 'price', 'coupon_code', 'coupon_code_text',
             'discount_amount', 'final_amount', 'payment_link', 'payment_status', 'payment_date',
             'sales_representative', 'sales_rep_name', 'booked_by', 'student_status',
-            'booking_date', 'course_expiry_date', 'created_at', 'updated_at'
+            'booking_date', 'course_expiry_date', 'created_at', 'updated_at',
+            'booking_id', 'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'
         ]
-        read_only_fields = ['id', 'discount_amount', 'final_amount', 'booking_date', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'discount_amount', 'final_amount', 'booking_date', 'created_at', 'updated_at',
+                            'booking_id', 'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature']
     
     def validate(self, data):
         # Validate student role
