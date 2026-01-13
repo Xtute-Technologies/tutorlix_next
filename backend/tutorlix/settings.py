@@ -10,7 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,13 +25,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-s87kpawfg$ke2#jk*z!fcu50j^i1+v5&009r8!cirr%mz^6i_f"
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s87kpawfg$ke2#jk*z!fcu50j^i1+v5&009r8!cirr%mz^6i_f')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() in ['true', '1', 'yes']
 
-ALLOWED_HOSTS = ['back.tutorlix.com']
+# Allow comma-separated hosts in env, fallback to defaults
+_default_hosts = ['back.tutorlix.com', 'localhost']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS')
+if ALLOWED_HOSTS:
+    ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(',') if h.strip()]
+    for h in _default_hosts:
+        if h not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(h)
+else:
+    ALLOWED_HOSTS = _default_hosts
 
 
 # Application definition
@@ -197,13 +213,13 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 # Email Settings (for password reset)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Change in production
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = ''  # Add your email
-EMAIL_HOST_PASSWORD = ''  # Add your password
-DEFAULT_FROM_EMAIL = 'noreply@tutorlix.com'
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ['true', '1', 'yes']
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@tutorlix.com')
 
 # Django Allauth Configuration
 AUTHENTICATION_BACKENDS = [
@@ -239,3 +255,8 @@ REST_AUTH_REGISTER_SERIALIZERS = {
 
 # Allow login with email or phone
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
+
+RAZORPAY_SECRET_ID = os.getenv('RAZORPAY_SECRET_ID', '')
+RAZORPAY_SECRET_KEY = os.getenv('RAZORPAY_SECRET_KEY', '')
+RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://dev.tutorlix.com')
