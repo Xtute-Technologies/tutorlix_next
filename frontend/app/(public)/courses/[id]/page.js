@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productAPI } from '@/lib/lmsService';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,13 +12,18 @@ import {
   ArrowLeft,
   BookOpen,
   Users,
-  Tag,
-  CheckCircle,
+  CheckCircle2,
   Calendar,
   Star,
   Share2,
-  Heart
+  Heart,
+  ShieldCheck,
+  Globe,
+  PlayCircle,
+  Loader2
 } from 'lucide-react';
+
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -46,31 +50,29 @@ export default function CourseDetailPage() {
     }
   }, [params.id]);
 
-
-
   const handleEnroll = () => {
     if (!user) {
       router.push(`/login?redirect=/courses/${params.id}`);
       return;
     }
-    // TODO: Implement enrollment logic
     alert('Enrollment functionality coming soon!');
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-900" />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Course not found</h2>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Course not found</h2>
+        <p className="text-slate-500 mb-6">The course you are looking for might have been removed.</p>
         <Link href="/courses">
-          <Button>Browse All Courses</Button>
+          <Button variant="outline">Back to Courses</Button>
         </Link>
       </div>
     );
@@ -78,276 +80,246 @@ export default function CourseDetailPage() {
 
   const images = product.images || [];
   const currentImage = images[selectedImageIndex] || null;
+  const mainImageSrc = currentImage?.image_url || currentImage?.image || product.primary_image || FALLBACK_IMAGE;
 
   return (
-    <div className="bg-gray-50">
-      {/* Breadcrumb */}
-      <div className="bg-white border-b">
+    <div className="min-h-screen bg-white font-sans text-slate-900">
+      
+      {/* --- MINIMAL BREADCRUMB --- */}
+      <div className="border-b border-slate-100 bg-white sticky top-0 z-30 backdrop-blur-md bg-white/80 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link href="/" className="hover:text-primary">Home</Link>
-            <span>/</span>
-            <Link href="/courses" className="hover:text-primary">Courses</Link>
-            <span>/</span>
-            <span className="text-gray-900">{product.name}</span>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Link href="/courses" className="hover:text-slate-900 flex items-center gap-1 transition-colors">
+               <ArrowLeft className="h-3 w-3" /> Back
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-900 font-medium truncate max-w-[200px] sm:max-w-md">
+                {product.name}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Course Header */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="mb-4">
-                <Badge className="mb-2">{product.category_name}</Badge>
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                  {product.name}
-                </h1>
-                <p className="text-lg text-gray-600">{product.description}</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          
+          {/* --- LEFT: MAIN CONTENT (8 Cols) --- */}
+          <div className="lg:col-span-8 space-y-10">
+            
+            {/* Header Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-4">
+                 <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-md px-3 font-medium">
+                    {product.category_name || "Development"}
+                 </Badge>
+                 {/* <div className="flex items-center gap-1 text-sm font-medium text-amber-500">
+                   <Star className="h-4 w-4 fill-current" />
+                   <span>4.8</span>
+                   <span className="text-slate-300 mx-1">•</span>
+                   <span className="text-slate-500 font-normal">120 reviews</span>
+                 </div> */}
               </div>
+              
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+                {product.name}
+              </h1>
+              
+              <p className="text-lg text-slate-600 leading-relaxed max-w-2xl">
+                {product.description || "Master the skills required to excel in this field with our comprehensive curriculum designed by industry experts."}
+              </p>
 
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span>{product.total_seats} seats available</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span>4.5 (120 reviews)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Self-paced</span>
-                </div>
-              </div>
+              {/* <div className="flex flex-wrap items-center gap-6 text-sm text-slate-500 pt-2">
+                 <div className="flex items-center gap-2">
+                   <Globe className="h-4 w-4" />
+                   <span>English</span>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <Calendar className="h-4 w-4" />
+                   <span>Last updated Jan 2026</span>
+                 </div>
+              </div> */}
             </div>
 
-            {/* Image Gallery */}
-            {images.length > 0 && (
-              <Card>
-                <CardContent className="p-6">
-                  {/* Main Image */}
-                  <div className="mb-4">
-                    <img
-                      src={currentImage?.image_url || currentImage?.image}
-                      alt={product.name}
-                      className="w-full h-96 object-cover rounded-lg"
-                    />
-                  </div>
+            {/* Main Media / Image */}
+            <div className="rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video relative group">
+                <img
+                    src={mainImageSrc}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
+                />
+                {/* Optional: Play Button Overlay if it was a video preview */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 backdrop-blur-[2px]">
+                   {/* <PlayCircle className="h-16 w-16 text-white drop-shadow-lg" /> */}
+                </div>
+            </div>
 
-                  {/* Thumbnails */}
-                  {images.length > 1 && (
-                    <div className="grid grid-cols-5 gap-2">
-                      {images.map((image, index) => (
-                        <button
-                          key={image.id}
-                          onClick={() => setSelectedImageIndex(index)}
-                          className={`relative aspect-video rounded overflow-hidden border-2 transition ${index === selectedImageIndex
-                              ? 'border-primary'
-                              : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                        >
-                          <img
-                            src={image.image_url || image.image}
-                            alt={`${product.name} ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Thumbnail Strip (if multiple) */}
+            {images.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                {images.map((image, index) => (
+                  <button
+                    key={image.id || index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`relative w-24 aspect-video rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                      index === selectedImageIndex ? 'border-slate-900 opacity-100' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={image.image_url || image.image}
+                      alt="Thumbnail"
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
             )}
 
-            {/* Course Details Tabs */}
-            <Card>
-              <CardContent className="p-6">
-                <Tabs defaultValue="overview">
-                  <TabsList className="mb-6">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-                    <TabsTrigger value="instructor">Instructor</TabsTrigger>
-                    <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="overview" className="space-y-4">
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">About This Course</h3>
-                      <p className="text-gray-700 whitespace-pre-wrap">{product.description}</p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">What You will Learn</h3>
-                      <div className="grid md:grid-cols-2 gap-3">
-                        {[
-                          'Master the fundamentals',
-                          'Build real-world projects',
-                          'Industry best practices',
-                          'Hands-on experience',
-                          'Certificate of completion',
-                          'Lifetime access'
-                        ].map((item, index) => (
-                          <div key={index} className="flex items-start gap-2">
-                            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-gray-700">{item}</span>
-                          </div>
+            {/* Tabs for Details */}
+            <div className="pt-8">
+                <Tabs defaultValue="curriculum" className="w-full">
+                    <TabsList className="w-full justify-start bg-transparent border-b border-slate-200 rounded-none h-auto p-0 mb-8 gap-8">
+                        {['Curriculum', 'Overview', 'Instructor'].map((tab) => (
+                             <TabsTrigger 
+                                key={tab}
+                                value={tab.toLowerCase()}
+                                className="rounded-none border-b-2 border-transparent px-0 py-3 data-[state=active]:border-slate-900 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none text-slate-500 hover:text-slate-700 text-base font-medium transition-colors"
+                             >
+                                {tab}
+                             </TabsTrigger>
                         ))}
-                      </div>
-                    </div>
-                  </TabsContent>
+                    </TabsList>
 
-                  <TabsContent value="curriculum">
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-semibold">Course Curriculum</h3>
-                      <p className="text-gray-600">
-                        Detailed curriculum information will be available once you enroll.
-                      </p>
-                      <div className="space-y-2">
-                        {[
-                          'Introduction to the Course',
-                          'Core Concepts and Fundamentals',
-                          'Advanced Topics',
-                          'Practical Projects',
-                          'Final Assessment'
-                        ].map((module, index) => (
-                          <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">Module {index + 1}: {module}</span>
-                              <BookOpen className="h-4 w-4 text-gray-400" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="instructor">
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-semibold">Your Instructor</h3>
-                      <div className="flex items-start gap-4">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                          T
-                        </div>
+                    <TabsContent value="curriculum" className="space-y-8 animate-in fade-in-50 duration-500">
                         <div>
-                          <h4 className="font-semibold text-lg">Expert Instructor</h4>
-                          <p className="text-gray-600 text-sm mb-2">Professional Educator</p>
-                          <p className="text-gray-700">
-                            With years of experience in the field, our instructors are dedicated to helping
-                            you achieve your learning goals.
-                          </p>
+                            <h3 className="text-xl font-bold mb-6">What you'll learn</h3>
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                {[
+                                    'Master core concepts and fundamentals',
+                                    'Build 3+ real-world industry projects',
+                                    'Understand best practices & design patterns',
+                                    'Get lifetime access to course materials',
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-start gap-3 text-slate-600">
+                                        <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                                        <span className="leading-snug">{item}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                      </div>
-                    </div>
-                  </TabsContent>
 
-                  <TabsContent value="reviews">
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-semibold">Student Reviews</h3>
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="text-center">
-                          <div className="text-4xl font-bold">4.5</div>
-                          <div className="flex items-center gap-1 mt-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-4 w-4 ${star <= 4 ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                                  }`}
-                              />
-                            ))}
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1">120 reviews</div>
+                        <div>
+                            <h3 className="text-xl font-bold mb-4">Course Content</h3>
+                            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                                {['Introduction & Setup', 'Core Fundamentals', 'Advanced Concepts', 'Final Project'].map((module, i) => (
+                                    <div key={i} className="p-4 bg-white hover:bg-slate-50 transition-colors flex items-center justify-between cursor-default">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                {i + 1}
+                                            </div>
+                                            <span className="font-medium text-slate-800">{module}</span>
+                                        </div>
+                                        <div className="text-xs text-slate-400 font-medium">
+                                            3 Lessons
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                      </div>
-                      <p className="text-gray-600">Reviews will be visible after enrollment.</p>
-                    </div>
-                  </TabsContent>
+                    </TabsContent>
+
+                    <TabsContent value="overview" className="space-y-6 text-slate-600 leading-relaxed animate-in fade-in-50 duration-500">
+                         <p>{product.description}</p>
+                         <p>
+                            This course provides a deep dive into the subject matter, ensuring you not only understand the "how" but also the "why". 
+                            Suitable for beginners and intermediate learners alike.
+                         </p>
+                    </TabsContent>
+
+                    <TabsContent value="instructor" className="animate-in fade-in-50 duration-500">
+                        <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                             <div className="h-16 w-16 rounded-full bg-slate-200 flex items-center justify-center text-xl font-bold text-slate-500">
+                                T
+                             </div>
+                             <div>
+                                <h4 className="text-lg font-bold text-slate-900">Lead Instructor</h4>
+                                <p className="text-sm text-slate-500">Senior Engineer @ TechGiant</p>
+                                <p className="text-sm text-slate-600 mt-2">
+                                    Passionate about teaching and helping students break into the tech industry.
+                                </p>
+                             </div>
+                        </div>
+                    </TabsContent>
                 </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-4">
-              {/* Price Card */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-4xl font-bold text-primary">
-                        ₹{product.effective_price}
-                      </span>
-                      {product.discounted_price && (
-                        <span className="text-xl text-gray-500 line-through">
-                          ₹{product.price}
-                        </span>
-                      )}
-                    </div>
-                    {product.discounted_price && (
-                      <Badge className="bg-red-500">
-                        Save {product.discount_percentage}%
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <Button onClick={handleEnroll} className="w-full" size="lg">
-                      Enroll Now
-                    </Button>
-                    <Button variant="outline" className="w-full">
-                      <Heart className="h-4 w-4 mr-2" />
-                      Add to Wishlist
-                    </Button>
-                    <Button variant="ghost" className="w-full">
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share Course
-                    </Button>
-                  </div>
-
-                  <div className="mt-6 pt-6 border-t space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Available Seats</span>
-                      <span className="font-semibold">{product.total_seats}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Duration</span>
-                      <span className="font-semibold">Self-paced</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Level</span>
-                      <span className="font-semibold">All Levels</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Language</span>
-                      <span className="font-semibold">English</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Category Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Course Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Link href={`/categories/${product.category}`}>
-                    <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-                      {product.category_name}
-                    </Badge>
-                  </Link>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Explore more courses in this category
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
+
+          {/* --- RIGHT: STICKY SIDEBAR (4 Cols) --- */}
+          <div className="lg:col-span-4 relative">
+             <div className="sticky top-24 space-y-6">
+                
+                {/* Price Card */}
+                <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+                   <div className="mb-6">
+                      <p className="text-sm text-slate-500 font-medium mb-1">Total Price</p>
+                      <div className="flex items-end gap-3">
+                         <span className="text-4xl font-extrabold text-slate-900">
+                           ₹{product.effective_price?.toLocaleString()}
+                         </span>
+                         {product.discounted_price && (
+                             <span className="text-lg text-slate-400 line-through mb-1">
+                               ₹{product.price?.toLocaleString()}
+                             </span>
+                         )}
+                      </div>
+                      {product.discount_percentage > 0 && (
+                          <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                              {product.discount_percentage}% Discount Applied
+                          </div>
+                      )}
+                   </div>
+
+                   <Button onClick={handleEnroll} size="lg" className="w-full text-base font-bold bg-slate-900 hover:bg-slate-800 h-12 rounded-xl mb-3">
+                      Enroll Now
+                   </Button>
+                   
+                   <p className="text-xs text-center text-slate-400 mb-6">
+                      30-Day Money-Back Guarantee
+                   </p>
+
+                   <div className="space-y-4 pt-6 border-t border-slate-100">
+                      <FeatureRow icon={PlayCircle} label="Self-Paced Learning" />
+                      <FeatureRow icon={BookOpen} label="Full Lifetime Access" />
+                      <FeatureRow icon={Users} label={`${product.total_seats} Enrolled Students`} />
+                      <FeatureRow icon={ShieldCheck} label="Certificate of Completion" />
+                   </div>
+                </div>
+
+                {/* Wishlist / Share Actions */}
+                {/* <div className="flex gap-4">
+                   <Button variant="outline" className="flex-1 rounded-xl border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-11">
+                      <Heart className="h-4 w-4 mr-2" /> Wishlist
+                   </Button>
+                   <Button variant="outline" className="flex-1 rounded-xl border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-11">
+                      <Share2 className="h-4 w-4 mr-2" /> Share
+                   </Button>
+                </div> */}
+
+             </div>
+          </div>
+
         </div>
       </div>
     </div>
   );
+}
+
+// Minimal Helper for Sidebar Features
+function FeatureRow({ icon: Icon, label }) {
+    return (
+        <div className="flex items-center gap-3 text-sm text-slate-600">
+            <Icon className="h-4 w-4 text-slate-400" />
+            <span>{label}</span>
+        </div>
+    )
 }

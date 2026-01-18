@@ -1,154 +1,131 @@
 'use client';
 
 import Link from 'next/link';
-import { Github, Twitter, Linkedin, Mail, Heart } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube, Sparkles, Lightbulb } from 'lucide-react';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
-  const footerLinks = {
-    product: [
-      { label: 'Features', href: '/features' },
-      { label: 'Courses', href: '/courses' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'FAQ', href: '/faq' },
-    ],
-    company: [
-      { label: 'About Us', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Contact', href: '/contact' },
-    ],
-    legal: [
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Cookie Policy', href: '/cookies' },
-      { label: 'Refund Policy', href: '/refund' },
-    ],
-    support: [
-      { label: 'Help Center', href: '/help' },
-      { label: 'Documentation', href: '/docs' },
-      { label: 'Community', href: '/community' },
-      { label: 'Status', href: '/status' },
-    ],
-  };
+  const legalLinks = [
+    { label: 'Terms and Conditions', href: '/terms' },
+    { label: 'Privacy Policy', href: '/privacy' },
+    { label: 'Cancellation Policy', href: '/cancellation' },
+    { label: 'Sitemaps', href: '/sitemap' },
+  ];
 
   const socialLinks = [
-    { icon: Twitter, href: 'https://twitter.com/tutorlix', label: 'Twitter' },
-    { icon: Github, href: 'https://github.com/tutorlix', label: 'GitHub' },
-    { icon: Linkedin, href: 'https://linkedin.com/company/tutorlix', label: 'LinkedIn' },
-    { icon: Mail, href: 'mailto:contact@tutorlix.com', label: 'Email' },
+    { icon: Facebook, href: 'https://facebook.com', label: 'Facebook' },
+    { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
+    { icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
+    { icon: Youtube, href: 'https://youtube.com', label: 'YouTube' },
   ];
 
   return (
-    <footer className="border-t bg-background">
-      <div className="mx-auto px-2 md:px-8 container py-12 md:py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-          {/* Brand Column */}
-          <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center space-x-2 mb-4">
-              <div className="font-bold text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Tutorlix
+    <footer className="bg-black text-neutral-400 pt-20 pb-10 border-t border-neutral-900 font-sans relative overflow-hidden flex flex-col justify-between">
+      
+      {/* CSS for Shimmer Effect */}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% { background-position: 200% center; }
+          100% { background-position: -200% center; }
+        }
+        .text-shimmer {
+          background: linear-gradient(
+            120deg, 
+            #1a1a1a 40%, 
+            #404040 50%, 
+            #1a1a1a 60%
+          );
+          background-size: 200% auto;
+          color: #1a1a1a;
+          background-clip: text;
+          text-fill-color: transparent;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmer 8s linear infinite;
+        }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10">
+        
+        {/* --- TOP: LOGO ONLY --- */}
+        <div className="mb-16">
+           <Link href="/" className="inline-flex items-center gap-2 group">
+              <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white text-black group-hover:bg-neutral-200 transition-colors">
+                <Lightbulb className="h-5 w-5 fill-current" />
               </div>
-            </Link>
-            <p className="text-sm text-muted-foreground mb-4">
-              Empowering learners worldwide with quality education and innovative learning solutions.
+              <span className="font-bold text-2xl tracking-tight text-white">
+                Tutorlix
+              </span>
+           </Link>
+        </div>
+
+        {/* --- MIDDLE: GRID CONTENT --- */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 lg:gap-16 mb-24">
+          
+          {/* Description */}
+          <div className="md:col-span-6 space-y-6">
+            <h3 className="text-white font-medium tracking-wide text-sm uppercase opacity-80">About</h3>
+            <p className="text-sm leading-7 text-neutral-500 max-w-md hover:text-neutral-300 transition-colors duration-500">
+              Discover a world of opportunities with our Maths and Computer Science learning platform. 
+              Get hands-on experience with interactive lessons, challenges and projects. 
             </p>
-            {/* Social Links */}
-            <div className="flex gap-3">
+          </div>
+
+          {/* Links */}
+          <div className="md:col-span-3">
+            <h3 className="text-white font-medium tracking-wide text-sm uppercase opacity-80 mb-6">Legal</h3>
+            <ul className="space-y-4">
+              {legalLinks.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-neutral-500 hover:text-white transition-all duration-300 block w-fit"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Socials */}
+          <div className="md:col-span-3">
+            <h3 className="text-white font-medium tracking-wide text-sm uppercase opacity-80 mb-6">Connect</h3>
+            <div className="flex flex-col space-y-4">
               {socialLinks.map((social) => (
                 <Link
                   key={social.label}
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  aria-label={social.label}
+                  className="group flex items-center gap-3 text-sm text-neutral-500 hover:text-white transition-colors duration-300 w-fit"
                 >
-                  <social.icon className="h-5 w-5" />
+                  <span className="group-hover:text-white transition-transform duration-300">
+                     <social.icon strokeWidth={1.5} className="h-4 w-4" />
+                  </span>
+                  {social.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* Links Columns */}
-          <div>
-            <h3 className="font-semibold mb-4">Product</h3>
-            <ul className="space-y-3">
-              {footerLinks.product.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-4">Company</h3>
-            <ul className="space-y-3">
-              {footerLinks.company.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-4">Legal</h3>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-4">Support</h3>
-            <ul className="space-y-3">
-              {footerLinks.support.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground text-center md:text-left">
-              © {currentYear} Tutorlix. All rights reserved.
-            </p>
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              Made with <Heart className="h-4 w-4 text-red-500 fill-current" /> by Tutorlix Team
-            </p>
-          </div>
+        {/* --- COPYRIGHT LINE --- */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-700 font-medium border-t border-neutral-900 pt-8 mb-12">
+          <p>&copy; {currentYear} XTUTE TECHNOLOGIES PVT LTD.</p>
+          <p>All Rights Reserved.</p>
         </div>
       </div>
+
+      {/* --- BOTTOM: GIANT SHIMMER TEXT --- */}
+      <div className="w-full overflow-hidden select-none pointer-events-none opacity-80">
+         <h1 className="text-[13vw] leading-[0.8] font-black tracking-tighter text-center text-shimmer">
+            TUTORLIX
+         </h1>
+      </div>
+
     </footer>
   );
 }
