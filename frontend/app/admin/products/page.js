@@ -1,47 +1,63 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-
 import DataTable from '@/components/DataTable';
 import FormBuilder from '@/components/FormBuilder';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { productAPI, categoryAPI } from '@/lib/lmsService';
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, Eye, X } from 'lucide-react';
+import { authService } from '@/lib/authService';
+import {
+  Plus, Pencil, Trash2, Upload, Image as ImageIcon, Eye, X,
+  GripVertical, Video, FileText, CheckCircle2, PlayCircle,
+  BookOpen, Users, ShieldCheck
+} from 'lucide-react';
 import { z } from 'zod';
-import Image from 'next/image';
 
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
+
+// --- Validation Schema ---
 const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   total_seats: z.coerce.number().min(1, 'Total seats must be at least 1'),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().min(1, 'Short description is required'),
+  overview: z.string().optional(),
   category: z.string().min(1, 'Category is required'),
-  price: z.coerce.number().positive('Price must be greater than 0'),
-  discounted_price: z.coerce.number().positive('Discounted price must be greater than 0').optional().or(z.literal('')),
+  instructors: z.array(z.number()).optional(),
+  price: z.coerce.number().min(0, 'Price must be 0 or greater'),
+  discounted_price: z.coerce.number().min(0).optional().or(z.literal('')),
   is_active: z.boolean().optional(),
 });
 
 export default function ProductsPage() {
+  // --- State ---
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]); // Initialize as empty array
+  const [categories, setCategories] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
-  // Image upload states
+
+  // Image State
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [uploadingImages, setUploadingImages] = useState(false);
-  
-  // Preview dialog states
+
+  // Complex Data State
+  const [featuresList, setFeaturesList] = useState([]);
+  const [curriculumData, setCurriculumData] = useState([]);
+
+  // Preview State
   const [previewProduct, setPreviewProduct] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -52,65 +68,91 @@ export default function ProductsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, teachersData] = await Promise.all([
         productAPI.getAll(),
         categoryAPI.getAll(),
+        authService.getAllUsers('teacher'),
       ]);
-      // Ensure data is always an array
       setProducts(Array.isArray(productsData) ? productsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setTeachers(Array.isArray(teachersData?.results) ? teachersData.results : []);
     } catch (error) {
       console.error('Fetch error:', error);
       setMessage({ type: 'error', text: 'Failed to fetch data' });
-      setProducts([]);
-      setCategories([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (data) => {
+  // --- Handlers ---
+
+  const handleEdit = async (product) => {
+    try {
+      setLoading(true);
+      const fullProduct = await productAPI.getById(product.id);
+      setEditingProduct({
+        ...fullProduct,
+        category: fullProduct.category?.toString(),
+        instructors: fullProduct.instructors?.map(i => i.id) || [],
+      });
+
+      // Load complex data
+      setExistingImages(fullProduct.images || []);
+      setFeaturesList(fullProduct.features || []);
+      setCurriculumData(fullProduct.curriculum || []);
+
+      setShowForm(true);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to load details' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePreview = async (product) => {
+    try {
+      // Fetch full details for preview (to get curriculum/instructors populated)
+      const fullDetails = await productAPI.getById(product.id);
+      setPreviewProduct(fullDetails);
+      setShowPreview(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSubmit = async (formData) => {
     try {
       setSubmitting(true);
       setMessage({ type: '', text: '' });
 
-      // Convert string prices to numbers
-      const productData = {
-        ...data,
-        total_seats: Number(data.total_seats),
-        price: data.price,
-        discounted_price: data.discounted_price || null,
-        is_active: data.is_active !== undefined ? data.is_active : true,
+      const payload = {
+        ...formData,
+        total_seats: Number(formData.total_seats),
+        price: Number(formData.price),
+        discounted_price: formData.discounted_price ? Number(formData.discounted_price) : null,
+        is_active: formData.is_active !== undefined ? formData.is_active : true,
+        features: featuresList,
+        curriculum: curriculumData,
       };
 
+      let productId;
       if (editingProduct) {
-        await productAPI.update(editingProduct.id, productData);
-        
-        // Upload new images if any
-        if (selectedImages.length > 0) {
-          await uploadImages(editingProduct.id);
-        }
-        
+        await productAPI.update(editingProduct.id, payload);
+        productId = editingProduct.id;
         setMessage({ type: 'success', text: 'Product updated successfully!' });
       } else {
-        const newProduct = await productAPI.create(productData);
-        
-        // Upload images for new product
-        if (selectedImages.length > 0) {
-          await uploadImages(newProduct.id);
-        }
-        
+        const newProduct = await productAPI.create(payload);
+        productId = newProduct.id;
         setMessage({ type: 'success', text: 'Product created successfully!' });
       }
 
-      setShowForm(false);
-      setEditingProduct(null);
-      setSelectedImages([]);
-      setImagePreviews([]);
-      setExistingImages([]);
+      if (selectedImages.length > 0) {
+        await uploadImages(productId);
+      }
+
+      handleCancel();
       fetchData();
     } catch (error) {
-      console.error('Submit error:', error);
       setMessage({
         type: 'error',
         text: error.response?.data?.detail || 'Failed to save product',
@@ -120,627 +162,347 @@ export default function ProductsPage() {
     }
   };
 
-  const handleEdit = async (product) => {
-    try {
-      setLoading(true);
-      // Fetch full product details including images
-      const fullProduct = await productAPI.getById(product.id);
-      setEditingProduct(fullProduct);
-      setExistingImages(fullProduct.images || []);
-      setShowForm(true);
-    } catch (err) {
-      console.error('Error fetching product details:', err);
-      setMessage({ type: 'error', text: 'Failed to load product details' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePreview = async (product) => {
-    try {
-      setLoading(true);
-      const fullProduct = await productAPI.getById(product.id);
-      setPreviewProduct(fullProduct);
-      setShowPreview(true);
-    } catch (err) {
-      console.error('Error fetching product details:', err);
-      setMessage({ type: 'error', text: 'Failed to load product details' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length + existingImages.length + selectedImages.length > 5) {
-      setMessage({ type: 'error', text: 'Maximum 5 images allowed per product' });
-      return;
-    }
-
-    setSelectedImages([...selectedImages, ...files]);
-
-    // Create previews
-    const newPreviews = files.map(file => ({
-      file,
-      url: URL.createObjectURL(file),
-      name: file.name
-    }));
-    setImagePreviews([...imagePreviews, ...newPreviews]);
-  };
-
-  const removeSelectedImage = (index) => {
-    const newImages = selectedImages.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-    
-    // Revoke URL to free memory
-    URL.revokeObjectURL(imagePreviews[index].url);
-    
-    setSelectedImages(newImages);
-    setImagePreviews(newPreviews);
-  };
-
-  const removeExistingImage = async (imageId) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
-    
-    try {
-      await productAPI.deleteImage(editingProduct.id, imageId);
-      setExistingImages(existingImages.filter(img => img.id !== imageId));
-      setMessage({ type: 'success', text: 'Image deleted successfully' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (err) {
-      console.error('Error deleting image:', err);
-      setMessage({ type: 'error', text: 'Failed to delete image' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    }
-  };
-
-  const setPrimaryImage = async (imageId) => {
-    if (!editingProduct) return;
-    
-    try {
-      await productAPI.setPrimaryImage(editingProduct.id, imageId);
-      
-      // Update local state
-      setExistingImages(existingImages.map(img => ({
-        ...img,
-        is_primary: img.id === imageId
-      })));
-      
-      setMessage({ type: 'success', text: 'Primary image updated successfully' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (err) {
-      console.error('Error setting primary image:', err);
-      setMessage({ type: 'error', text: 'Failed to set primary image' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    }
-  };
-
-  const uploadImages = async (productId) => {
-    if (selectedImages.length === 0) return;
-
-    setUploadingImages(true);
-    try {
-      // Upload all images at once
-      await productAPI.uploadImages(productId, selectedImages);
-      
-      setMessage({ type: 'success', text: 'Images uploaded successfully' });
-      setSelectedImages([]);
-      setImagePreviews([]);
-      
-      // Refresh product data to show new images
-      const updatedProduct = await productAPI.getById(productId);
-      setExistingImages(updatedProduct.images || []);
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } catch (err) {
-      console.error('Error uploading images:', err);
-      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to upload images' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    } finally {
-      setUploadingImages(false);
-    }
-  };
-
   const handleCancel = () => {
     setShowForm(false);
     setEditingProduct(null);
     setSelectedImages([]);
     setImagePreviews([]);
     setExistingImages([]);
-    
-    // Cleanup preview URLs
+    setFeaturesList([]);
+    setCurriculumData([]);
     imagePreviews.forEach(preview => URL.revokeObjectURL(preview.url));
-  };
-
-  const handleImageUpload = async (productId, files) => {
-    if (!files || files.length === 0) return;
-
-    try {
-      setUploadingImages(true);
-      setMessage({ type: '', text: '' });
-
-      await productAPI.uploadImages(productId, Array.from(files));
-      setMessage({ type: 'success', text: 'Images uploaded successfully!' });
-      fetchData();
-      setSelectedProduct(null);
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.error || 'Failed to upload images',
-      });
-    } finally {
-      setUploadingImages(false);
-    }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
-
     try {
       await productAPI.delete(id);
       setMessage({ type: 'success', text: 'Product deleted successfully!' });
       fetchData();
     } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.error || 'Failed to delete product',
-      });
+      setMessage({ type: 'error', text: 'Failed to delete product' });
     }
   };
 
-  // Use useMemo to ensure categories is always an array before mapping
+  // --- Complex Builders (Curriculum/Features) ---
+  const addFeature = () => setFeaturesList([...featuresList, ""]);
+  const updateFeature = (index, val) => { const n = [...featuresList]; n[index] = val; setFeaturesList(n); };
+  const removeFeature = (i) => setFeaturesList(featuresList.filter((_, idx) => idx !== i));
+
+  const addModule = () => setCurriculumData([...curriculumData, { title: "New Module", lessons: [] }]);
+  const updateModule = (i, f, v) => { const n = [...curriculumData]; n[i][f] = v; setCurriculumData(n); };
+  const removeModule = (i) => setCurriculumData(curriculumData.filter((_, idx) => idx !== i));
+  const addLesson = (mI) => { const n = [...curriculumData]; n[mI].lessons.push({ title: "Lesson", type: "video" }); setCurriculumData(n); };
+  const updateLesson = (mI, lI, f, v) => { const n = [...curriculumData]; n[mI].lessons[lI][f] = v; setCurriculumData(n); };
+  const removeLesson = (mI, lI) => { const n = [...curriculumData]; n[mI].lessons = n[mI].lessons.filter((_, idx) => idx !== lI); setCurriculumData(n); };
+
+  // --- Image Helpers ---
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + existingImages.length + selectedImages.length > 5) return alert('Max 5 images');
+    setSelectedImages([...selectedImages, ...files]);
+    setImagePreviews([...imagePreviews, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]);
+  };
+  const removeSelectedImage = (i) => {
+    URL.revokeObjectURL(imagePreviews[i].url);
+    setSelectedImages(selectedImages.filter((_, idx) => idx !== i));
+    setImagePreviews(imagePreviews.filter((_, idx) => idx !== i));
+  };
+  const removeExistingImage = async (id) => {
+    if (!confirm('Delete?')) return;
+    try { await productAPI.deleteImage(editingProduct.id, id); setExistingImages(existingImages.filter(i => i.id !== id)); } catch (e) { }
+  };
+  const setPrimaryImage = async (id) => {
+    try { await productAPI.setPrimaryImage(editingProduct.id, id); setExistingImages(existingImages.map(i => ({ ...i, is_primary: i.id === id }))); } catch (e) { }
+  };
+  const uploadImages = async (pid) => {
+    setUploadingImages(true);
+    try { await productAPI.uploadImages(pid, selectedImages); } catch (e) { } finally { setUploadingImages(false); }
+  };
+
+  // --- Configs ---
   const productFields = useMemo(() => [
-    {
-      name: 'name',
-      label: 'Product Name',
-      type: 'text',
-      placeholder: 'Enter product name',
-      required: true,
-    },
-    {
-      name: 'category',
-      label: 'Category',
-      type: 'select',
-      placeholder: 'Select category',
-      options: Array.isArray(categories) ? categories.map((cat) => ({
-        label: cat.name,
-        value: cat.id?.toString() || '',
-      })) : [],
-      required: true,
-    },
-    {
-      name: 'total_seats',
-      label: 'Total Seats',
-      type: 'number',
-      placeholder: 'Enter total seats',
-      required: true,
-    },
-    {
-      name: 'price',
-      label: 'Price (₹)',
-      type: 'number',
-      placeholder: 'Enter price',
-      required: true,
-    },
-    {
-      name: 'discounted_price',
-      label: 'Discounted Price (₹)',
-      type: 'number',
-      placeholder: 'Enter discounted price (optional)',
-    },
-    {
-      name: 'description',
-      label: 'Description',
-      type: 'textarea',
-      placeholder: 'Enter product description',
-      required: true,
-    },
-    {
-      name: 'is_active',
-      label: 'Active',
-      type: 'checkbox',
-    },
-  ], [categories]); // Recalculate when categories changes
+    { name: 'name', label: 'Name', type: 'text', required: true },
+    { name: 'category', label: 'Category', type: 'select', required: true, options: categories.map(c => ({ label: c.name, value: c.id?.toString() })) },
+    { name: 'instructors', label: 'Instructors', type: 'multiselect', options: teachers.map(t => ({ label: `${t.first_name} ${t.last_name}`, value: t.id })) },
+    { name: 'total_seats', label: 'Seats', type: 'number', required: true },
+    { name: 'price', label: 'Price', type: 'number', required: true },
+    { name: 'discounted_price', label: 'Discount Price', type: 'number' },
+    { name: 'description', label: 'Short Desc', type: 'textarea', required: true },
+    { name: 'overview', label: 'Rich Overview', type: 'textarea', rows: 5 },
+    { name: 'is_active', label: 'Active', type: 'checkbox' },
+  ], [categories, teachers]);
 
   const columns = [
     {
-      accessorKey: 'name',
-      header: 'Product',
-      cell: ({ row }) => (
+      accessorKey: 'name', header: 'Product', cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          {row.original.primary_image ? (
-            <img
-              src={row.original.primary_image}
-              alt={row.original.name}
-              className="w-12 h-12 rounded object-cover"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center">
-              <ImageIcon className="h-6 w-6 text-gray-400" />
-            </div>
-          )}
-          <div>
-            <div className="font-medium">{row.original.name}</div>
-            <div className="text-sm text-gray-500">{row.original.category_name}</div>
-          </div>
+          <img src={row.original.primary_image || FALLBACK_IMAGE} className="w-10 h-10 rounded object-cover" />
+          <div><div className="font-medium truncate w-40">{row.original.name}</div><div className="text-xs text-gray-500">{row.original.category_name}</div></div>
         </div>
-      ),
+      )
     },
+    { accessorKey: 'effective_price', header: 'Price', cell: ({ row }) => `₹${row.original.effective_price}` },
+    { accessorKey: 'is_active', header: 'Status', cell: ({ row }) => <Badge variant={row.original.is_active ? 'default' : 'secondary'}>{row.original.is_active ? 'Active' : 'Draft'}</Badge> },
     {
-      accessorKey: 'price',
-      header: 'Price',
-      cell: ({ row }) => (
-        <div>
-          <div className="font-medium">₹{row.original.effective_price}</div>
-          {row.original.discounted_price && (
-            <div className="text-sm text-gray-500 line-through">
-              ₹{row.original.price}
-            </div>
-          )}
+      id: 'actions', header: 'Actions', cell: ({ row }) => (
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => handlePreview(row.original)}><Eye className="h-4 w-4 text-blue-500" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}><Pencil className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
         </div>
-      ),
-    },
-    {
-      accessorKey: 'total_seats',
-      header: 'Seats',
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.total_seats} seats</Badge>
-      ),
-    },
-    {
-      accessorKey: 'is_active',
-      header: 'Status',
-      cell: ({ row }) => (
-        <Badge
-          className={
-            row.original.is_active
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
-          }
-        >
-          {row.original.is_active ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handlePreview(row.original)}
-            title="Preview Product"
-            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleEdit(row.original)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleDelete(row.original.id)}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
+      )
+    }
   ];
 
-  if (loading) {
-    return (
-      
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      
-    );
-  }
-
   return (
-    
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-            <p className="text-gray-600 mt-1">Manage products and courses</p>
-          </div>
-          <Button onClick={() => setShowForm(!showForm)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
-        </div>
-
-        {/* Message */}
-        {message.text && (
-          <div
-            className={`p-4 rounded-lg ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        {/* Form */}
-        {showForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </CardTitle>
-              <CardDescription>
-                {editingProduct ? 'Update product information and images' : 'Create a new product with up to 5 images'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="details" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="details">Product Details</TabsTrigger>
-                  <TabsTrigger value="images">
-                    Images ({existingImages.length + selectedImages.length}/5)
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details">
-                  <FormBuilder
-                    fields={productFields}
-                    validationSchema={productSchema}
-                    onSubmit={handleSubmit}
-                    submitLabel={editingProduct ? 'Update Product' : 'Create Product'}
-                    isSubmitting={submitting}
-                    defaultValues={
-                      editingProduct
-                        ? {
-                            ...editingProduct,
-                            category: editingProduct.category?.toString(),
-                          }
-                        : { is_active: true }
-                    }
-                    onCancel={handleCancel}
-                  />
-                </TabsContent>
-
-                <TabsContent value="images">
-                  <div className="space-y-6">
-                    {/* Existing Images */}
-                    {existingImages.length > 0 && (
-                      <div>
-                        <Label className="text-base">Current Images</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-                          {existingImages.map((image) => (
-                            <div key={image.id} className="relative group">
-                              <img
-                                src={image.image_url || image.image}
-                                alt="Product"
-                                className="w-full h-32 object-cover rounded-lg border-2 border-border"
-                              />
-                              {image.is_primary && (
-                                <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
-                                  Primary
-                                </span>
-                              )}
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                                {!image.is_primary && (
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setPrimaryImage(image.id)}
-                                    className="text-xs"
-                                  >
-                                    Set Primary
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => removeExistingImage(image.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* New Images Preview */}
-                    {imagePreviews.length > 0 && (
-                      <div>
-                        <Label className="text-base">New Images (Not yet uploaded)</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-                          {imagePreviews.map((preview, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={preview.url}
-                                alt={preview.name}
-                                className="w-full h-32 object-cover rounded-lg border-2 border-dashed border-primary"
-                              />
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-2 right-2"
-                                onClick={() => removeSelectedImage(index)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Upload Section */}
-                    {existingImages.length + selectedImages.length < 5 && (
-                      <div>
-                        <Label htmlFor="images" className="text-base">
-                          Add Images (Max 5 total)
-                        </Label>
-                        <div className="mt-4 flex items-center gap-4">
-                          <Input
-                            id="images"
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImageSelect}
-                            className="flex-1"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            {5 - existingImages.length - selectedImages.length} remaining
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Upload Button */}
-                    {selectedImages.length > 0 && editingProduct && (
-                      <Button
-                        onClick={() => uploadImages(editingProduct.id)}
-                        disabled={uploadingImages}
-                        className="w-full"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {uploadingImages ? 'Uploading...' : `Upload ${selectedImages.length} Image(s)`}
-                      </Button>
-                    )}
-
-                    {!editingProduct && (
-                      <div className="p-4 bg-blue-50 text-blue-700 rounded-lg">
-                        <p className="text-sm">
-                          💡 Save the product details first, then you can upload images.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Data Table */}
-
-            <DataTable
-              columns={columns}
-              data={products}
-              searchPlaceholder="Search products..."
-            />
-
-
-        {/* Preview Dialog */}
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Product Preview</DialogTitle>
-              <DialogDescription>Complete product information</DialogDescription>
-            </DialogHeader>
-            {previewProduct && (
-              <div className="space-y-6">
-                {/* Images Gallery */}
-                {previewProduct.images && previewProduct.images.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-3">Product Images</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {previewProduct.images.map((image) => (
-                        <div key={image.id} className="relative">
-                          <img
-                            src={image.image_url || image.image}
-                            alt="Product"
-                            className="w-full h-48 object-cover rounded-lg"
-                          />
-                          {image.is_primary && (
-                            <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Product Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Name</Label>
-                    <p className="font-semibold">{previewProduct.name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Category</Label>
-                    <p className="font-semibold">{previewProduct.category_name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Price</Label>
-                    <p className="font-semibold">₹{previewProduct.price}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Discounted Price</Label>
-                    <p className="font-semibold">
-                      {previewProduct.discounted_price ? `₹${previewProduct.discounted_price}` : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Effective Price</Label>
-                    <p className="font-semibold text-green-600">₹{previewProduct.effective_price}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Total Seats</Label>
-                    <p className="font-semibold">{previewProduct.total_seats}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Discount</Label>
-                    <p className="font-semibold">
-                      {previewProduct.discount_percentage ? `${previewProduct.discount_percentage}%` : '0%'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Status</Label>
-                    <p>
-                      <Badge
-                        className={
-                          previewProduct.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }
-                      >
-                        {previewProduct.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground">Description</Label>
-                  <p className="mt-2 text-sm whitespace-pre-wrap">{previewProduct.description}</p>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline" onClick={() => setShowPreview(false)}>
-                    Close
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowPreview(false);
-                      handleEdit(previewProduct);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit Product
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Products</h1>
+        <Button onClick={() => setShowForm(!showForm)}><Plus className="mr-2 h-4 w-4" /> Add Product</Button>
       </div>
 
+      {message.text && <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{message.text}</div>}
+
+      {showForm && (
+        <Card>
+          <CardHeader><CardTitle>{editingProduct ? 'Edit' : 'Create'} Product</CardTitle></CardHeader>
+          <CardContent>
+            <Tabs defaultValue="details">
+              <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+                <TabsTrigger value="features">Highlights</TabsTrigger>
+                <TabsTrigger value="images">Images</TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
+                <FormBuilder fields={productFields} validationSchema={productSchema} onSubmit={handleSubmit} isSubmitting={submitting} defaultValues={editingProduct || { is_active: true }} onCancel={handleCancel} />
+              </TabsContent>
+              <TabsContent value="curriculum" className="space-y-4">
+                <Button onClick={addModule} size="sm" variant="outline" className="mb-2"><Plus className="h-4 w-4 mr-2" /> Add Module</Button>
+                <Accordion type="single" collapsible className="w-full space-y-2">
+                  {curriculumData.map((m, mi) => (
+                    <AccordionItem key={mi} value={`m-${mi}`} className="border rounded px-2">
+                      <div className="flex items-center gap-2 py-2">
+                        <Input value={m.title} onChange={(e) => updateModule(mi, 'title', e.target.value)} className="h-8 font-bold" placeholder="Module Name" />
+                        <AccordionTrigger />
+                        <Button size="icon" variant="ghost" onClick={() => removeModule(mi)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                      </div>
+                      <AccordionContent className="space-y-2 pl-4">
+                        {m.lessons.map((l, li) => (
+                          <div key={li} className="flex gap-2 items-center">
+                            <Input value={l.title} onChange={(e) => updateLesson(mi, li, 'title', e.target.value)} className="h-8 text-sm" placeholder="Lesson" />
+                            <Button size="icon" variant="ghost" onClick={() => removeLesson(mi, li)}><X className="h-3 w-3" /></Button>
+                          </div>
+                        ))}
+                        <Button size="sm" variant="ghost" onClick={() => addLesson(mi)} className="text-blue-600 text-xs">+ Add Lesson</Button>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </TabsContent>
+              <TabsContent value="features" className="space-y-2">
+                <Button onClick={addFeature} size="sm" variant="outline" className="mb-2"><Plus className="h-4 w-4 mr-2" /> Add Highlight</Button>
+                {featuresList.map((f, i) => (
+                  <div key={i} className="flex gap-2"><Input value={f} onChange={(e) => updateFeature(i, e.target.value)} /><Button size="icon" variant="ghost" onClick={() => removeFeature(i)}><Trash2 className="h-4 w-4 text-red-500" /></Button></div>
+                ))}
+              </TabsContent>
+              <TabsContent value="images">
+                {/* Existing Image Logic... */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4">
+                    {existingImages.map(img => (
+                      <div key={img.id} className="relative group h-24 border rounded overflow-hidden">
+                        <img src={img.image_url || img.image} className="w-full h-full object-cover" />
+                        {img.is_primary && <div className="absolute top-0 left-0 bg-blue-600 text-white text-[10px] px-1">Main</div>}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1">
+                          <Button size="icon" className="h-6 w-6" onClick={() => setPrimaryImage(img.id)}><Eye className="h-3 w-3" /></Button>
+                          <Button size="icon" className="h-6 w-6 bg-red-600" onClick={() => removeExistingImage(img.id)}><Trash2 className="h-3 w-3" /></Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2"><Input type="file" multiple onChange={handleImageSelect} />{selectedImages.length > 0 && <Button onClick={() => uploadImages(editingProduct.id)}>Upload</Button>}</div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+
+      <DataTable columns={columns} data={products} loading={loading} searchKey="name" searchPlaceholder="Search products..." />
+
+      {/* --- PREVIEW DIALOG (Mimics Public Page) --- */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto p-0 gap-0">
+
+          {/* 1. Simple Header */}
+          <div className="bg-slate-50 border-b px-6 py-4 sticky top-0 z-10 flex justify-between items-start">
+            <div>
+              <Badge variant="secondary" className="mb-2 bg-white border shadow-sm">
+                {previewProduct?.category_name}
+              </Badge>
+              <DialogTitle>
+
+                <h2 className="text-2xl font-bold text-slate-900">{previewProduct?.name}</h2>
+              </DialogTitle>
+              <div className="flex items-center gap-3 mt-2 text-sm text-slate-600">
+                <span className="font-bold text-slate-900 text-lg">
+                  ₹{previewProduct?.effective_price}
+                </span>
+                {previewProduct?.discounted_price && (
+                  <span className="line-through decoration-slate-400">
+                    ₹{previewProduct?.price}
+                  </span>
+                )}
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4" /> {previewProduct?.total_seats} Seats
+                </span>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowPreview(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
+          {/* 2. Content Body */}
+          {previewProduct && (
+            <div className="p-6 space-y-6">
+
+              {/* Simple Description Text */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-2">
+                  Description
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
+                  {previewProduct.description}
+                </p>
+              </div>
+
+              {/* Beautiful Tabs for Complex Data */}
+              <Tabs defaultValue="curriculum" className="w-full border rounded-xl p-1 shadow-sm">
+                <TabsList className="w-full grid grid-cols-3 bg-slate-100/50 p-1">
+                  <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+                  <TabsTrigger value="highlights">Highlights</TabsTrigger>
+                  <TabsTrigger value="instructor">Instructor</TabsTrigger>
+                </TabsList>
+
+                <div className="p-4 bg-white min-h-[300px]">
+
+                  {/* Curriculum Tab */}
+                  <TabsContent value="curriculum" className="mt-0 space-y-4">
+                    {(!previewProduct.curriculum || previewProduct.curriculum.length === 0) ? (
+                      <div className="text-center py-10 text-slate-400 italic">
+                        No curriculum added yet.
+                      </div>
+                    ) : (
+                      <Accordion type="single" collapsible className="w-full space-y-2">
+                        {previewProduct.curriculum.map((mod, i) => (
+                          <AccordionItem key={i} value={`preview-mod-${i}`} className="border rounded-lg px-3 bg-slate-50/50">
+                            <AccordionTrigger className="hover:no-underline py-3">
+                              <div className="flex items-center gap-3 text-left">
+                                <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                  {i + 1}
+                                </div>
+                                <span className="font-medium text-slate-800">{mod.title}</span>
+                                <span className="text-xs text-slate-400 font-normal ml-2">
+                                  ({mod.lessons?.length || 0} lessons)
+                                </span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-0 pb-3 pl-11">
+                              <div className="space-y-2">
+                                {mod.lessons?.map((lesson, l) => (
+                                  <div key={l} className="flex items-center gap-3 text-sm text-slate-600">
+                                    {lesson.type === 'video' ? (
+                                      <PlayCircle className="h-4 w-4 text-blue-500" />
+                                    ) : (
+                                      <FileText className="h-4 w-4 text-orange-500" />
+                                    )}
+                                    {lesson.title}
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                    )}
+                  </TabsContent>
+
+                  {/* Highlights Tab */}
+                  <TabsContent value="highlights" className="mt-0">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {previewProduct.features?.map((f, i) => (
+                        <div key={i} className="flex items-start gap-2 text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          <span>{f}</span>
+                        </div>
+                      ))}
+                      {(!previewProduct.features || previewProduct.features.length === 0) && (
+                        <p className="text-slate-400 italic col-span-2 text-center py-8">
+                          No highlights added.
+                        </p>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  {/* Instructor Tab */}
+                  <TabsContent value="instructor" className="mt-0">
+                    <div className="grid gap-4">
+                      {previewProduct.instructors?.length > 0 ? (
+                        previewProduct.instructors.map((inst) => (
+                          <div key={inst.id} className="flex items-center gap-4 p-4 border rounded-xl bg-slate-50">
+                            <div className="h-12 w-12 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                              {inst.profile_image ? (
+                                <img src={inst.profile_image} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center font-bold text-slate-500">
+                                  {inst.first_name?.[0] || 'T'}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900">
+                                {inst.full_name || inst.username}
+                              </h4>
+                              <p className="text-sm text-slate-500">{inst.email}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-slate-400 italic text-center py-8">
+                          No instructors assigned.
+                        </p>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                </div>
+              </Tabs>
+
+              {/* Render Overview HTML if exists */}
+              {previewProduct.overview && (
+                <div className="pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">
+                    Detailed Overview
+                  </h3>
+                  <div
+                    className="prose prose-sm max-w-none text-slate-600"
+                    dangerouslySetInnerHTML={{ __html: previewProduct.overview }}
+                  />
+                </div>
+              )}
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
+}
+
+function FeatureRow({ icon: Icon, label }) {
+  return <div className="flex gap-3 text-sm text-slate-600"><Icon className="h-4 w-4 text-slate-400" /><span>{label}</span></div>
 }

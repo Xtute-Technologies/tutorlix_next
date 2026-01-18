@@ -105,6 +105,7 @@ export function AppSidebar({ ...props }) {
           icon: Settings2,
           isActive: true,
           items: [
+            { title: "Users", url: "/admin/users-management", icon: Users },
             { title: "Products", url: "/admin/products", icon: Package },
             { title: "Categories", url: "/admin/categories", icon: Tag },
             { title: "Offers", url: "/admin/offers", icon: Percent },

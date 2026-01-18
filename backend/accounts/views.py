@@ -1,12 +1,11 @@
-from rest_framework import status, generics
+from rest_framework import status, generics,filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
-from .serializers import UserDetailSerializer, ChangePasswordSerializer
-
+from .serializers import UserDetailSerializer,CreateUserSerializer, ChangePasswordSerializer
 User = get_user_model()
 
 
@@ -54,23 +53,42 @@ class ChangePasswordView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-class UserListView(generics.ListAPIView):
+class UserListCreateView(generics.ListCreateAPIView):
     """
-    Get list of users, optionally filtered by role
-    GET /api/auth/users/?role=teacher
-    Available roles: student, teacher, seller, admin
+    GET: List all users (with filters)
+    POST: Create a new user (Admin only)
     """
-    serializer_class = UserDetailSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['created_at', 'role']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         queryset = User.objects.all()
-        
-        # Filter by role if provided
         role = self.request.query_params.get('role', None)
-        if role:
+        if role and role != 'all':
             queryset = queryset.filter(role=role)
-        
-        # Order by first name
-        return queryset.order_by('first_name', 'last_name')
+        return queryset
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CreateUserSerializer # Needs password handling
+        return UserDetailSerializer
+
+
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET, PATCH, DELETE operations for a specific user ID
+    /api/auth/users/<id>/
+    """
+    queryset = User.objects.all()
+    serializer_class = UserDetailSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    lookup_field = 'pk'
+    
+    def perform_destroy(self, instance):
+        # Optional: Prevent deleting yourself
+        if instance.id == self.request.user.id:
+            raise ValidationError("You cannot delete your own account.")
+        instance.delete()

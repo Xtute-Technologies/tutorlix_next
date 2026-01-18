@@ -31,7 +31,6 @@ from .permissions import (
     IsAdmin, IsAdminOrReadOnly, IsAdminOrTeacher, IsAdminOrTeacherOrReadOnly
 )
 
-
 # ============= Category ViewSet =============
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -61,30 +60,40 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-# ============= Product ViewSet =============
 
 class ProductViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Product CRUD operations.
-    - List/Retrieve: All authenticated users
+    - List/Retrieve: Public/Authenticated
     - Create/Update/Delete: Admin only
     """
     queryset = Product.objects.all()
-    permission_classes = [ IsAdminOrReadOnly]
+    serializer_class = ProductSerializer
+    permission_classes = [IsAdminOrReadOnly]
+    
+    # Filtering & Searching
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'is_active']
-    search_fields = ['name', 'description']
-    ordering_fields = ['name', 'price', 'created_at']
+    search_fields = ['name', 'slug', 'description', 'overview', 'features']
+    ordering_fields = ['name', 'price', 'created_at', 'total_seats']
     ordering = ['-created_at']
     
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return ProductListSerializer
-        return ProductSerializer
-    
+    # Allow lookup by ID (default) or Slug if you prefer
+    lookup_field = 'pk' 
+
     def get_queryset(self):
-        queryset = super().get_queryset()
-        # Filter by price range
+        """
+        Optimized queryset with relationship prefetching
+        """
+        # Base query with optimizations
+        queryset = Product.objects.select_related('category') \
+                                  .prefetch_related('images', 'instructors')
+
+        # Logic: Admins see all, others see only active products
+        if self.action == 'list' and not (self.request.user.is_authenticated and self.request.user.role == 'admin'):
+            queryset = queryset.filter(is_active=True)
+
+        # Custom filtering for price range
         min_price = self.request.query_params.get('min_price')
         max_price = self.request.query_params.get('max_price')
         
@@ -94,7 +103,28 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(price__lte=max_price)
         
         return queryset
-    
+
+    def get_serializer_class(self):
+        """Use lightweight serializer for lists to improve performance"""
+        if self.action == 'list' or self.action == 'featured':
+            return ProductListSerializer
+        return ProductSerializer
+
+    # --- Custom Actions ---
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def featured(self, request):
+        """Get featured products (active & has discount)"""
+        featured = self.get_queryset().filter(
+            is_active=True,
+            discounted_price__isnull=False
+        ).exclude(
+            discounted_price__exact=0
+        )[:10]
+        
+        serializer = self.get_serializer(featured, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsAdmin])
     def upload_images(self, request, pk=None):
         """Upload multiple images for a product (max 5)"""
@@ -123,7 +153,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         
         uploaded_images = []
         for idx, image_file in enumerate(images):
-            is_primary = current_count == 0 and idx == 0  # First image is primary if no images exist
+            # First image is primary if no images exist
+            is_primary = (current_count == 0 and idx == 0)
+            
             product_image = ProductImage.objects.create(
                 product=product,
                 image=image_file,
@@ -131,9 +163,13 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
             uploaded_images.append(product_image)
         
-        serializer = ProductImageSerializer(uploaded_images, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+        # We need a serializer for ProductImage if you want to return the data properly
+        # Assuming you have one, or return simple success message
+        return Response(
+            {'message': f'{len(uploaded_images)} images uploaded successfully'}, 
+            status=status.HTTP_201_CREATED
+        )
+
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdmin])
     def set_primary_image(self, request, pk=None):
         """Set a specific image as primary"""
@@ -141,26 +177,19 @@ class ProductViewSet(viewsets.ModelViewSet):
         image_id = request.data.get('image_id')
         
         if not image_id:
-            return Response(
-                {'error': 'image_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'image_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Remove primary from all images
-            product.images.update(is_primary=False)
-            # Set new primary
+            # Atomic update to ensure only one primary exists
             image = product.images.get(id=image_id)
+            product.images.exclude(id=image_id).update(is_primary=False)
             image.is_primary = True
             image.save()
             
             return Response({'message': 'Primary image updated successfully'})
         except ProductImage.DoesNotExist:
-            return Response(
-                {'error': 'Image not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
+            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated, IsAdmin])
     def delete_image(self, request, pk=None):
         """Delete a specific product image"""
@@ -168,10 +197,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         image_id = request.data.get('image_id')
         
         if not image_id:
-            return Response(
-                {'error': 'image_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'image_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             image = product.images.get(id=image_id)
@@ -187,22 +213,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             
             return Response({'message': 'Image deleted successfully'})
         except ProductImage.DoesNotExist:
-            return Response(
-                {'error': 'Image not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=False, methods=['get'])
-    def featured(self, request):
-        """Get featured products (with discounts)"""
-        featured = self.get_queryset().filter(
-            is_active=True,
-            discounted_price__isnull=False
-        )[:10]
-        serializer = ProductListSerializer(featured, many=True, context={'request': request})
-        return Response(serializer.data)
-
-
+            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
 # ============= Offer ViewSet =============
 
 class OfferViewSet(viewsets.ModelViewSet):

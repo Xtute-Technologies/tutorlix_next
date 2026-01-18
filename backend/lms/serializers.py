@@ -60,55 +60,153 @@ class ProductImageSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.image.url)
         return None
+            # Fallback: returns relative path if request context is missing
 
+class InstructorSerializer(serializers.ModelSerializer):
+    """
+    Minimal user serializer to show instructor details in course pages.
+    """
+    full_name = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'profile_image', 'bio']
+        
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+    
+    def get_profile_image(self, obj):
+        if obj.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_image.url)
+            # Fallback: returns relative path if request context is missing
+            return obj.profile_image.url
+        return None
+
+# --- Main Product Serializers ---
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     effective_price = serializers.DecimalField(source='get_effective_price', max_digits=10, decimal_places=2, read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
+    
+    instructors = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        queryset=User.objects.filter(role='teacher'),
+        required=False
+    )
+    
     discount_percentage = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'total_seats', 'description', 'category', 'category_name',
+            'id', 'name', 'slug',
+            'category', 'category_name',
+            'total_seats', 
+            'description',
+            'overview',
+            'curriculum',
+            'features',
             'price', 'discounted_price', 'effective_price', 'discount_percentage',
-            'is_active', 'images', 'created_at', 'updated_at'
+            'instructors', 
+            'is_active', 
+            'images', 
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'slug']
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response['instructors'] = InstructorSerializer(instance.instructors.all(), many=True,context=self.context).data
+        return response
     
     def get_discount_percentage(self, obj):
+        """Use the model method or fallback logic"""
+        if hasattr(obj, 'get_discount_percentage'):
+            return obj.get_discount_percentage()
+        # Fallback if model method is missing
         if obj.discounted_price and obj.price > 0:
-            return round(((obj.price - obj.discounted_price) / obj.price) * 100, 2)
+            return round(((obj.price - obj.discounted_price) / obj.price) * 100)
         return 0
     
-    def validate_discounted_price(self, value):
-        if value and value > self.initial_data.get('price', 0):
-            raise serializers.ValidationError("Discounted price cannot be greater than regular price.")
-        return value
+    def validate(self, data):
+        """
+        Validate discounted price against regular price.
+        Handles both Create (POST) and Update (PATCH/PUT) scenarios safely.
+        """
+        # Get values from input data or fallback to existing instance data
+        price = data.get('price')
+        discounted_price = data.get('discounted_price')
+
+        if self.instance:
+            # If updating, use existing values if not provided in payload
+            price = price if price is not None else self.instance.price
+            discounted_price = discounted_price if discounted_price is not None else self.instance.discounted_price
+
+        # Perform the check
+        if discounted_price is not None and price is not None:
+            if discounted_price > price:
+                raise serializers.ValidationError({
+                    "discounted_price": "Discounted price cannot be greater than regular price."
+                })
+        
+        return data
 
 
 class ProductListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views"""
+    """
+    Lightweight serializer for list views / cards.
+    Includes only what is needed for the Course Card UI.
+    """
     category_name = serializers.CharField(source='category.name', read_only=True)
     effective_price = serializers.DecimalField(source='get_effective_price', max_digits=10, decimal_places=2, read_only=True)
+    discount_percentage = serializers.SerializerMethodField()
     primary_image = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category_name', 'price', 'discounted_price', 'effective_price', 'total_seats', 'is_active', 'primary_image']
+        fields = [
+            'id', 'name', 'slug', 
+            'category_name', 
+            'price', 'discounted_price', 'effective_price', 'discount_percentage',
+            'total_seats', 
+            'description', # Needed for the card preview text
+            'is_active', 
+            'primary_image'
+        ]
+    
+    def get_discount_percentage(self, obj):
+        if hasattr(obj, 'get_discount_percentage'):
+            return obj.get_discount_percentage()
+        if obj.discounted_price and obj.price > 0:
+            return round(((obj.price - obj.discounted_price) / obj.price) * 100)
+        return 0
     
     def get_primary_image(self, obj):
-        primary = obj.images.filter(is_primary=True).first()
-        if not primary:
-            primary = obj.images.first()
+        # Optimized to avoid N+1 queries if you use prefetch_related('images') in the view
+        primary = None
+        
+        # Check if 'images' is prefetched to avoid DB hits
+        if hasattr(obj, '_prefetched_objects_cache') and 'images' in obj._prefetched_objects_cache:
+            images = obj.images.all()
+            primary = next((img for img in images if img.is_primary), None)
+            if not primary and images:
+                primary = images[0]
+        else:
+            # Fallback to DB query
+            primary = obj.images.filter(is_primary=True).first()
+            if not primary:
+                primary = obj.images.first()
+        
         if primary and primary.image:
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(primary.image.url)
+            return primary.image.url
         return None
-
-
 # ============= Offer Serializers =============
 
 class OfferSerializer(serializers.ModelSerializer):

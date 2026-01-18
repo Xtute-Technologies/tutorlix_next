@@ -27,16 +27,98 @@ class Category(models.Model):
         ordering = ['name']
 
 
+
+# 1. Curriculum JSON Example: When saving data to the curriculum field, you can structure it like this:
+
+# JSON
+
+# [
+#   {
+#     "title": "Module 1: Introduction",
+#     "duration": "45 mins",
+#     "lessons": [
+#       { "title": "Welcome to the course", "type": "video" },
+#       { "title": "Setting up environment", "type": "article" }
+#     ]
+#   },
+#   {
+#     "title": "Module 2: Core Concepts",
+#     "duration": "2 hours",
+#     "lessons": [
+#       { "title": "Variables and Data Types", "type": "video" }
+#     ]
+#   }
+# ]
+
+# Features JSON Example:
+[
+  "Full Lifetime Access",
+  "Certificate of Completion",
+  "15 Downloadable Resources",
+  "Access on Mobile and TV"
+]
 class Product(models.Model):
     """
     Products/Courses offered
     """
     name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True, blank=True, null=True) # Recommended for SEO friendly URLs
+    
+    # Basic Info
+    category = models.ForeignKey(
+        'Category', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='products'
+    )
     total_seats = models.IntegerField(validators=[MinValueValidator(1)])
-    description = models.TextField()
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
+    
+    # Pricing
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    discounted_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, validators=[MinValueValidator(0)])
+    discounted_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True, 
+        validators=[MinValueValidator(0)]
+    )
+    
+    # Content Fields
+    description = models.TextField(help_text="Short description for cards/previews")
+    
+    # 1. Overview (Rich Text)
+    # in templates use: {{ product.overview|safe }}
+    overview = models.TextField(
+        blank=True, 
+        help_text="Full HTML/Rich text content for the course overview tab"
+    )
+
+    # 2. Curriculum (JSON Structure)
+    # Stores nested data like: [{'title': 'Module 1', 'lessons': ['Intro', 'Setup']}]
+    curriculum = models.JSONField(
+        default=list, 
+        blank=True, 
+        help_text="JSON structure containing modules and lessons"
+    )
+
+    # 3. Features / Key Highlights
+    # Stores simple list: ["Self-Paced Learning", "Certificate of Completion", "Lifetime Access"]
+    features = models.JSONField(
+        default=list, 
+        blank=True, 
+        help_text="List of course features/highlights"
+    )
+
+    # 4. Teachers (Many-to-Many)
+    # Allows multiple instructors per course
+    instructors = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='courses_taught',
+        limit_choices_to={'role': 'teacher'},
+        blank=True
+    )
+
+    # Meta
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -46,8 +128,15 @@ class Product(models.Model):
     
     def get_effective_price(self):
         """Returns discounted price if available, otherwise regular price"""
-        return self.discounted_price if self.discounted_price else self.price
+        return self.discounted_price if self.discounted_price is not None else self.price
     
+    def get_discount_percentage(self):
+        """Calculate discount percentage for UI badges"""
+        if self.discounted_price and self.price > 0:
+            discount = ((self.price - self.discounted_price) / self.price) * 100
+            return round(discount)
+        return 0
+
     class Meta:
         verbose_name = 'Product'
         verbose_name_plural = 'Products'

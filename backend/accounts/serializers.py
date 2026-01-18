@@ -16,8 +16,8 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'phone', 'role']
-        read_only_fields = ['id', 'username']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'phone', 'role','is_active']
+        read_only_fields = ['id', 'username','is_active']
     
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -34,9 +34,9 @@ class UserDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'state', 'role', 'student_status',
-            'profile_image', 'bio', 'created_at', 'updated_at'
+            'profile_image', 'bio', 'created_at', 'updated_at','is_active'
         ]
-        read_only_fields = ['id', 'username', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'username', 'created_at', 'updated_at','is_active']
     
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -252,3 +252,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'phone', 'state', 'profile_image', 'bio']
+
+
+class CreateUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Admins to create new users with a password.
+    """
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'phone', 'role', 'password', 'is_active', 'profile_image'
+        ]
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        # Create user instance
+        user = User.objects.create(**validated_data)
+        # Set password properly (hashes it)
+        user.set_password(password)
+        user.save()
+        return user
