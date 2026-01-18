@@ -48,9 +48,11 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const data = await authService.register(userData);
-      setUser(data.user);
-      router.push('/dashboard');
-      return { success: true };
+      if (data.user && data.access) {
+        setUser(data.user);
+        router.push('/dashboard');
+      }
+      return { success: true, data };
     } catch (error) {
       console.error('Registration error:', error);
       return {

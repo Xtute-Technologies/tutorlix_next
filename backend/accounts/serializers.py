@@ -275,3 +275,31 @@ class CreateUserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+    
+
+from dj_rest_auth.serializers import PasswordResetSerializer
+from django.conf import settings
+from django.contrib.auth.forms import PasswordResetForm
+
+class CustomPasswordResetSerializer(PasswordResetSerializer):
+    """
+    Custom serializer to inject the Frontend URL into the reset email.
+    """
+    password_reset_form_class = PasswordResetForm
+
+    def save(self):
+        request = self.context.get('request')
+        # Set up options for the Email
+        opts = {
+            'use_https': request.is_secure(),
+            'from_email': getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@tutorlix.com'),
+            'request': request,
+            # Point to your custom email template
+            'email_template_name': 'password_reset_email.html',
+            # Pass the frontend URL to the template
+            'extra_email_context': {
+                'frontend_url': getattr(settings, 'FRONTEND_URL', 'https://dev.tutorlix.com')
+            }
+        }
+        # Save the form (sends the email)
+        self.reset_form.save(**opts)

@@ -1,5 +1,5 @@
 from allauth.account.adapter import DefaultAccountAdapter
-
+from django.conf import settings
 
 class CustomAccountAdapter(DefaultAccountAdapter):
     """
@@ -28,3 +28,10 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             user.save()
         
         return user
+
+    def get_email_confirmation_url(self, request, emailconfirmation):
+        """
+        Constructs the email confirmation (activation) url.
+        """
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        return f"{frontend_url}/verify-email/{emailconfirmation.key}/"

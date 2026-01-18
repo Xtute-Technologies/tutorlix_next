@@ -1,0 +1,12 @@
+Hello,
+
+Thanks for signing up for Tutorlix! We're excited to have you on board.
+
+Please click the link below to verify your email address and activate your account:
+
+{{ activate_url }}
+
+If you didn't create an account with Tutorlix, please ignore this email.
+
+Best regards,
+The Tutorlix Team

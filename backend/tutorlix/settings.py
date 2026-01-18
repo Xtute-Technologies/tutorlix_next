@@ -98,7 +98,7 @@ ROOT_URLCONF = "tutorlix.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / 'templates'],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -231,11 +231,11 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = 'none'  # Disable for API-only (no web-based email confirmation URLs)
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
-ACCOUNT_CONFIRM_EMAIL_ON_GET = False  # Disable GET-based email confirmation
+ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 
 # Dj-Rest-Auth Configuration
 REST_AUTH = {
@@ -247,11 +247,9 @@ REST_AUTH = {
     'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer',
     'LOGIN_SERIALIZER': 'accounts.serializers.CustomLoginSerializer',
     'SESSION_LOGIN': False,  # Disable session-based auth (use JWT only)
+    'PASSWORD_RESET_SERIALIZER': 'accounts.serializers.CustomPasswordResetSerializer',
 }
 
-REST_AUTH_REGISTER_SERIALIZERS = {
-    'REGISTER_SERIALIZER': 'accounts.serializers.CustomRegisterSerializer',
-}
 
 # Allow login with email or phone
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'

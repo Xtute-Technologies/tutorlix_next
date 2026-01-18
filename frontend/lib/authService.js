@@ -50,6 +50,12 @@ export const authService = {
     return response.data;
   },
 
+  // Verify email
+  verifyEmail: async (key) => {
+    const response = await axiosInstance.post('/api/auth/registration/verify-email/', { key });
+    return response.data;
+  },
+
   // Upload avatar/profile picture
   uploadAvatar: async (formData) => {
     const response = await axiosInstance.patch('/api/auth/profile/', formData, {

@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { PasswordInput } from "./ui/password-input";
 
 /**
  * Reusable Form Builder Component
@@ -127,7 +128,7 @@ export function FormBuilder({
     // Render the appropriate input component based on type
     const renderInput = (formField) => {
       // Text Input, Email, Password, Number, etc.
-      if (["text", "email", "password", "tel", "number", "url", "date"].includes(type)) {
+      if (["text", "email", "tel", "number", "url", "date"].includes(type)) {
         return (
           <Input
             type={type}
@@ -137,6 +138,16 @@ export function FormBuilder({
           />
         );
       }
+     if (type === "password") {
+      return (
+        <PasswordInput
+          // ❌ REMOVE THIS LINE: type={type} 
+          placeholder={placeholder}
+          disabled={disabled || isSubmitting}
+          {...formField}
+        />
+      );
+    }
 
       // File Input
       if (type === "file") {
