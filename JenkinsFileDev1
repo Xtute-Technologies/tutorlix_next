@@ -96,16 +96,23 @@ pipeline {
                     cd $BACKEND_DIR
 
                     echo "🐍 Backend setup"
-                    python3 -m venv venv || true
+                    
+                    # Ensure venv exists
+                    if [ ! -d "venv" ]; then
+                        python3 -m venv venv
+                    fi
+                    
+                    # Activate venv explicitly for the subsequent command blocks
                     . venv/bin/activate
 
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install gunicorn
+                    # Use the pip inside the venv
+                    ./venv/bin/pip install --upgrade pip
+                    ./venv/bin/pip install -r requirements.txt
+                    ./venv/bin/pip install gunicorn
 
                     export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-                    python manage.py migrate || true
-                    python manage.py collectstatic --noinput || true
+                    ./venv/bin/python manage.py migrate || true
+                    ./venv/bin/python manage.py collectstatic --noinput || true
                 '''
             }
         }
