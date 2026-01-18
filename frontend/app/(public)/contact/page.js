@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import axios from 'axios';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Mail, Phone, MapPin, Send } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, Clock, ArrowRight } from 'lucide-react';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -18,36 +17,28 @@ export default function ContactPage() {
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [status, setStatus] = useState(null); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.name || !formData.email || !formData.subject || !formData.message) {
-      setMessage({ type: 'error', text: 'Please fill all required fields' });
+      setStatus({ type: 'error', text: 'Please fill in all required fields.' });
       return;
     }
 
     try {
       setSubmitting(true);
-      setMessage({ type: '', text: '' });
-
-      // Use direct axios call without authentication
+      setStatus(null);
+      
+      // Update with your actual backend URL
       await axios.post('http://localhost:8000/api/lms/contact-messages/', formData);
 
-      setMessage({ type: 'success', text: 'Your message has been sent successfully! We will get back to you soon.' });
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        subject: '',
-        message: '',
-      });
+      setStatus({ type: 'success', text: 'Message sent! We\'ll be in touch soon.' });
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
-      console.error('Submit error:', error);
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.detail || 'Failed to send message. Please try again.',
+      setStatus({ 
+        type: 'error', 
+        text: error.response?.data?.detail || 'Something went wrong. Please try again.' 
       });
     } finally {
       setSubmitting(false);
@@ -55,160 +46,158 @@ export default function ContactPage() {
   };
 
   const handleChange = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Have a question or need assistance? We are here to help! Fill out the form below and we will get back to you as soon as possible.
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      
+      <div className="max-w-6xl w-full bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col lg:flex-row">
+        
+        {/* --- LEFT PANEL: Information (Dark) --- */}
+        <div className="lg:w-5/12 bg-slate-900 text-white p-10 flex flex-col justify-between relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full blur-3xl opacity-20 -mr-16 -mt-16 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-900 rounded-full blur-3xl opacity-20 -ml-16 -mb-16 pointer-events-none"></div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Contact Info */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Get in Touch</h2>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-blue-600 mt-1" />
-                  <div>
-                    <h3 className="font-medium">Email</h3>
-                    <p className="text-gray-600">support@tutorlix.com</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-blue-600 mt-1" />
-                  <div>
-                    <h3 className="font-medium">Phone</h3>
-                    <p className="text-gray-600">+1 (555) 123-4567</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-blue-600 mt-1" />
-                  <div>
-                    <h3 className="font-medium">Address</h3>
-                    <p className="text-gray-600">123 Education St, Learning City, LC 12345</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          <div className="relative z-10">
+            <h2 className="text-3xl font-bold mb-6">Contact Information</h2>
+            <p className="text-slate-400 mb-12 leading-relaxed">
+              Have a question about our courses or need support? Fill out the form and our team will get back to you within 24 hours.
+            </p>
 
-            <Card className="p-6 bg-blue-50 border-blue-200">
-              <h3 className="font-semibold mb-2">Business Hours</h3>
-              <p className="text-sm text-gray-700">Monday - Friday: 9:00 AM - 6:00 PM</p>
-              <p className="text-sm text-gray-700">Saturday: 10:00 AM - 4:00 PM</p>
-              <p className="text-sm text-gray-700">Sunday: Closed</p>
-            </Card>
+            <div className="space-y-8">
+              <ContactItem 
+                icon={Mail} 
+                title="Email" 
+                content="info@xtute.com" 
+              />
+              <ContactItem 
+                icon={Phone} 
+                title="Phone" 
+                content="+91-7042462748" 
+              />
+              <ContactItem 
+                icon={MapPin} 
+                title="Office" 
+                content="Shop No. 332, 333, 334 Sector 7a, Faridabad, Haryana 12006" 
+              />
+              <ContactItem 
+                icon={Clock} 
+                title="Hours" 
+                content="Mon-Sat, 9am - 6pm IST" 
+              />
+            </div>
           </div>
 
-          {/* Contact Form */}
-          <div className="lg:col-span-2">
-            <Card className="p-8">
-              <h2 className="text-2xl font-semibold mb-6">Send us a Message</h2>
-
-              {message.text && (
-                <div
-                  className={`p-4 mb-6 rounded-lg ${
-                    message.type === 'error'
-                      ? 'bg-red-50 text-red-800 border border-red-200'
-                      : 'bg-green-50 text-green-800 border border-green-200'
-                  }`}
-                >
-                  {message.text}
+          <div className="relative z-10 mt-12 pt-12 border-t border-slate-800">
+            <div className="flex gap-4">
+              {/* Social Placeholders */}
+              {[1, 2, 3].map((_, i) => (
+                <div key={i} className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-purple-600 transition-colors cursor-pointer">
+                  <ArrowRight className="h-4 w-4 -rotate-45" />
                 </div>
-              )}
+              ))}
+            </div>
+          </div>
+        </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="John Doe"
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="john@example.com"
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
+        {/* --- RIGHT PANEL: Form (Light) --- */}
+        <div className="lg:w-7/12 p-10 lg:p-12 bg-white">
+          <div className="max-w-md mx-auto lg:max-w-none">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Send us a message</h2>
+            <p className="text-slate-500 mb-8 text-sm">We'd love to hear from you. Let's start a conversation.</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="+1 (555) 123-4567"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="subject">Subject *</Label>
-                    <Input
-                      id="subject"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      placeholder="How can we help?"
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
+            {status && (
+              <div className={`p-4 mb-6 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-2 ${
+                status.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+              }`}>
+                {status.text}
+              </div>
+            )}
 
-                <div>
-                  <Label htmlFor="message">Message *</Label>
-                  <Textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    placeholder="Tell us more about your inquiry..."
-                    rows={6}
-                    required
-                    className="mt-1"
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-xs font-bold uppercase text-slate-500 tracking-wider">Full Name</Label>
+                  <Input 
+                    id="name" name="name" 
+                    value={formData.name} onChange={handleChange} 
+                    placeholder="John Doe" 
+                    className="bg-slate-50 border-slate-200 focus:bg-white transition-colors"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-xs font-bold uppercase text-slate-500 tracking-wider">Email Address</Label>
+                  <Input 
+                    id="email" name="email" type="email"
+                    value={formData.email} onChange={handleChange} 
+                    placeholder="john@example.com" 
+                    className="bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
 
-                <Button
-                  type="submit"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-xs font-bold uppercase text-slate-500 tracking-wider">Phone</Label>
+                  <Input 
+                    id="phone" name="phone" type="tel"
+                    value={formData.phone} onChange={handleChange} 
+                    placeholder="+91..." 
+                    className="bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subject" className="text-xs font-bold uppercase text-slate-500 tracking-wider">Subject</Label>
+                  <Input 
+                    id="subject" name="subject"
+                    value={formData.subject} onChange={handleChange} 
+                    placeholder="How can we help?" 
+                    className="bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="message" className="text-xs font-bold uppercase text-slate-500 tracking-wider">Message</Label>
+                <Textarea 
+                  id="message" name="message"
+                  value={formData.message} onChange={handleChange} 
+                  placeholder="Tell us more about your inquiry..." 
+                  rows={5}
+                  className="bg-slate-50 border-slate-200 focus:bg-white transition-colors resize-none"
+                />
+              </div>
+
+              <div className="pt-2">
+                <Button 
+                  type="submit" 
                   disabled={submitting}
-                  className="w-full md:w-auto"
-                  size="lg"
+                  className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white px-8 py-6 rounded-xl text-md font-medium"
                 >
-                  <Send className="h-4 w-4 mr-2" />
                   {submitting ? 'Sending...' : 'Send Message'}
+                  {!submitting && <Send className="ml-2 h-4 w-4" />}
                 </Button>
-              </form>
-            </Card>
+              </div>
+            </form>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper Component for the Left Panel
+function ContactItem({ icon: Icon, title, content }) {
+  return (
+    <div className="flex items-start gap-4">
+      <div className="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 text-purple-400">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="font-semibold text-white">{title}</h3>
+        <p className="text-slate-400 text-sm mt-0.5 max-w-[200px] leading-snug">{content}</p>
       </div>
     </div>
   );
