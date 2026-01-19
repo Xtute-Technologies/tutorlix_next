@@ -425,7 +425,7 @@ export default function HomePage() {
       </section>
 
       {/* --- MINIMAL SOCIAL PROOF --- */}
-      <section className="py-16 bg-slate-50 border-t border-slate-200">
+      {/* <section className="py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-10">
             Trusted by teams at
@@ -438,7 +438,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }

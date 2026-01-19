@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Sparkles, Lightbulb } from "lucide-react";
+import Image from "next/image";
 
 export default function Header() {
   const { user, logout, loading } = useAuth();
@@ -42,10 +43,10 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
         {/* --- LOGO --- */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-900 text-white group-hover:bg-primary transition-colors">
-            <Lightbulb className="h-4 w-4" />
+          <div className="flex items-center justify-center text-white group-hover:bg-primary transition-colors">
+            <img src={"/logo.png"} alt="Tutorlix Logo" className="h-12 w-full rounded-3xl pr-2 pl-1" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900">Tutorlix</span>
+          <span className="sr-only">Tutorlix</span>
         </Link>
 
         {/* --- DESKTOP NAVIGATION --- */}

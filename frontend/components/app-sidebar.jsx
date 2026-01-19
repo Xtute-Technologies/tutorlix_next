@@ -34,6 +34,7 @@ import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton, SidebarRail } from "@/components/ui/sidebar";
 import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 // This is sample data.
 const data = {
@@ -82,9 +83,7 @@ export function AppSidebar({ ...props }) {
           url: "/admin/seller",
           icon: LayoutDashboard,
           isActive: true,
-          items: [
-            { title: "View Bookings", url: "/admin/seller/bookings" },
-          ],
+          items: [{ title: "View Bookings", url: "/admin/seller/bookings" }],
         },
       ];
     }
@@ -159,14 +158,23 @@ export function AppSidebar({ ...props }) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-          <div className="font-black bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-            <Lightbulb className="size-4" />
-          </div>
-          <div className="grid flex-1 text-left text-lg leading-tight">
-            <span className="truncate font-medium">Tutorlix</span>
-            {/* <span className="truncate text-xs">by XDI</span> */}
-          </div>
+        <SidebarMenuButton
+          size="lg"
+          asChild
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-0">
+          <Link href="/">
+            {/* 1. THE ICON (Visible when collapsed) */}
+            {/* Uses 'logo-sq' so it looks perfect as a small square */}
+            <div className="flex aspect-square data-[state=open]:size-11 size-8 mr-0 items-center justify-center rounded-lg text-sidebar-primary-foreground">
+              <img src="/logosq.png" alt="Tutorlix Icon" className="size-full rounded-md object-cover" />
+            </div>
+
+            {/* 2. THE BRANDING (Visible when open) */}
+            {/* Uses 'logo.jpg' (Rectangle) to keep your text style */}
+            <div className="flex flex-1 items-center overflow-hidden">
+              <img src="/logotxt.png" alt="Tutorlix" className="h-11 w-auto object-contain object-left" />
+            </div>
+          </Link>
         </SidebarMenuButton>
       </SidebarHeader>
       <SidebarContent>
