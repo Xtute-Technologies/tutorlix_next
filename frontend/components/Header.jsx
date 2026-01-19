@@ -43,7 +43,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
         {/* --- LOGO --- */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex items-center justify-center text-white group-hover:bg-primary transition-colors">
+          <div className="flex items-center justify-center text-white transition-colors">
             <img src={"/logo.png"} alt="Tutorlix Logo" className="h-12 w-full rounded-3xl pr-2 pl-1" />
           </div>
           <span className="sr-only">Tutorlix</span>
