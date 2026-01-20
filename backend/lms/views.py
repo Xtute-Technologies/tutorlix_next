@@ -466,11 +466,38 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         except CourseBooking.DoesNotExist:
             return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if booking.payment_status == 'paid':
-             return Response({
-                 "booking": CourseBookingSerializer(booking).data,
-                 "status": "paid"
-             })
+        # Logic for creating a new booking if the current one is expired/paid
+        # This allows reusing the same link for renewals or re-purchases
+        if booking.payment_status in ['paid', 'completed', 'cancelled', 'refunded']:
+             # Check for an existing pending booking for this student/product to avoid duplicates
+             recent_pending = CourseBooking.objects.filter(
+                student=booking.student, 
+                product=booking.product, 
+                payment_status='pending'
+            ).order_by('-created_at').first()
+
+             if recent_pending:
+                 booking = recent_pending
+             else:
+                 # Clone and Create New Booking with current pricing
+                 product = booking.product
+                 effective_price = product.discounted_price if product.discounted_price else product.price
+                 
+                 new_booking_data = {
+                     "student": booking.student,
+                     "product": product,
+                     "course_name": product.name, 
+                     "price": effective_price, 
+                     "sales_representative": booking.sales_representative,
+                     "booked_by": booking.sales_representative.get_full_name() if booking.sales_representative else "System",
+                     "payment_status": "pending",
+                     "student_status": "in_process",
+                     "final_amount": effective_price, # Reset final amount to current price
+                     "discount_amount": 0, # Reset discount
+                     "coupon_code": None # Reset coupon
+                 }
+                 
+                 booking = CourseBooking.objects.create(**new_booking_data)
 
         service = PaymentService()
         order_id = booking.razorpay_order_id
@@ -487,6 +514,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 booking.save()
                 order_id = order['id']
             except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
                 logger.error(f"Error creating Razorpay order: {e}")
                 return Response({"detail": "Error initializing payment."}, status=status.HTTP_400_BAD_REQUEST)
         

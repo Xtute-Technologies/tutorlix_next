@@ -253,6 +253,7 @@ class CourseBookingSerializer(serializers.ModelSerializer):
     student_state = serializers.CharField(source='student.state', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     sales_rep_name = serializers.CharField(source='sales_representative.get_full_name', read_only=True)
+    sales_rep_email = serializers.CharField(source='sales_representative.email', read_only=True)
     coupon_code_text = serializers.CharField(source='coupon_code.code', read_only=True)
     
     class Meta:
@@ -261,7 +262,7 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'id', 'student', 'student_name', 'student_email', 'student_phone', 'student_state',
             'product', 'product_name', 'course_name', 'price', 'coupon_code', 'coupon_code_text',
             'discount_amount', 'final_amount', 'payment_link', 'payment_status', 'payment_date',
-            'sales_representative', 'sales_rep_name', 'booked_by', 'student_status',
+            'sales_representative', 'sales_rep_name', 'sales_rep_email', 'booked_by', 'student_status',
             'booking_date', 'course_expiry_date', 'created_at', 'updated_at',
             'booking_id', 'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'
         ]

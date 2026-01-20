@@ -74,8 +74,9 @@ export default function PublicPaymentPage() {
                 contact: bookingData.booking.student_phone
             },
             theme: {
-                color: "#3399cc"
+                color: "#eab308"
             },
+            image: window.location.origin + '/logo.png',
             modal: {
                 ondismiss: function() {
                     setProcessing(false);
@@ -114,6 +115,9 @@ export default function PublicPaymentPage() {
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 <Card className="w-full max-w-lg shadow-lg">
                     <CardHeader className="text-center border-b bg-white rounded-t-lg">
+                        <div className="flex justify-center mb-4">
+                            <img src="/logo.png" alt="Tutorlix Logo" className="h-16 w-auto object-contain" />
+                        </div>
                         <CardTitle className="text-2xl font-bold text-primary">Complete Your Enrollment</CardTitle>
                         <CardDescription>Secure payment for your course</CardDescription>
                     </CardHeader>
@@ -156,6 +160,13 @@ export default function PublicPaymentPage() {
                                 <span>Total To Pay</span>
                                 <span>₹ {booking.final_amount} </span>
                             </div>
+
+                            {booking.sales_rep_email && (
+                                <div className="mt-2 pt-4 border-t border-dashed">
+                                     <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Sales Representative</h3>
+                                     <p className="font-medium text-sm text-gray-600">{booking.sales_rep_email}</p>
+                                </div>
+                            )}
                         </div>
 
                     </CardContent>
