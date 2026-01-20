@@ -31,6 +31,7 @@ from .serializers import (
 from .permissions import (
     IsAdmin, IsAdminOrReadOnly, IsAdminOrTeacher, IsAdminOrTeacherOrReadOnly
 )
+from rest_framework import serializers # Import serializers for ValidationError
 
 # ============= Category ViewSet =============
 
@@ -90,9 +91,20 @@ class ProductViewSet(viewsets.ModelViewSet):
         queryset = Product.objects.select_related('category') \
                                   .prefetch_related('images', 'instructors')
 
+        user = self.request.user
         # Logic: Admins see all, others see only active products
-        if self.action == 'list' and not (self.request.user.is_authenticated and self.request.user.role == 'admin'):
-            queryset = queryset.filter(is_active=True)
+        if self.action == 'list':
+            if user.is_authenticated and user.role == 'admin':
+                pass # Admin sees all
+            elif user.is_authenticated and user.role == 'teacher':
+                 # Teacher sees all active public products + their own products (even if inactive?)
+                 # Use query param to filter for "My Courses" in dashboard
+                 if self.request.query_params.get('my_products') == 'true':
+                     queryset = queryset.filter(instructors=user)
+                 else:
+                     queryset = queryset.filter(is_active=True)
+            else:
+                queryset = queryset.filter(is_active=True)
 
         # Custom filtering for price range
         min_price = self.request.query_params.get('min_price')
@@ -642,6 +654,13 @@ class StudentSpecificClassViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
     
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'teacher':
+             serializer.save(teacher=user, is_active=True)
+        else:
+            serializer.save()
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
@@ -731,12 +750,30 @@ class CourseSpecificClassViewSet(viewsets.ModelViewSet):
             product_ids = paid_bookings.values_list('product_id', flat=True)
             return queryset.filter(product_id__in=product_ids, is_active=True)
 
-        # Teachers can see classes they teach
+        # Teachers can see classes they teach OR classes for products they instruct
         if user.role == 'teacher':
-            return queryset.filter(teacher=user)
+            return queryset.filter(
+                Q(teacher=user) | Q(product__instructors=user)
+            ).distinct()
         
         # Admin can see all
         return queryset
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'teacher':
+             product = serializer.validated_data.get('product')
+             # Validate product ownership
+             if product and not product.instructors.filter(id=user.id).exists():
+                 raise serializers.ValidationError({"product": "You can only create classes for courses you instruct."})
+             
+             # Auto-assign teacher if not provided
+             if not serializer.validated_data.get('teacher'):
+                 serializer.save(teacher=user)
+             else:
+                 serializer.save()
+        else:
+             serializer.save()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -789,6 +826,13 @@ class RecordingViewSet(viewsets.ModelViewSet):
         recording = self.get_object()
         student_ids = request.data.get('student_ids', [])
         
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'teacher':
+             serializer.save(teacher=user)
+        else:
+            serializer.save()
+        
         if not student_ids:
             return Response(
                 {'error': 'student_ids is required'},
@@ -836,13 +880,19 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     """
     queryset = Attendance.objects.all()
     serializer_class = AttendanceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated] # Should be IsAdminOrTeacher for write? Check default
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['date', 'student', 'status']
     search_fields = ['class_name', 'class_time', 'student__email', 'student__username']
     ordering_fields = ['date', 'created_at']
     ordering = ['-date']
     
+    def get_permissions(self):
+        # Allow students to view, but only Admin/Teacher to create/edit
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminOrTeacher()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
@@ -851,8 +901,29 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if user.role == 'student':
             return queryset.filter(student=user)
         
-        # Admin and Teachers can see all
+        # Teachers can see attendance for students in their products
+        if user.role == 'teacher':
+             return queryset.filter(student__course_bookings__product__instructors=user).distinct()
+        
+        # Admin can see all
         return queryset
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'teacher':
+            student = serializer.validated_data.get('student')
+            # Check if student is in any of their courses
+            # We check if there is ANY paid booking for this student in a course taught by this teacher
+            has_booking = CourseBooking.objects.filter(
+                student=student,
+                payment_status='paid',
+                product__instructors=user
+            ).exists()
+            
+            if not has_booking:
+                 raise serializers.ValidationError({"student": "You can only mark attendance for students enrolled in your courses."})
+        
+        serializer.save()
 
 
 # ============= Test Score ViewSet =============
@@ -872,6 +943,12 @@ class TestScoreViewSet(viewsets.ModelViewSet):
     ordering_fields = ['test_date', 'marks_obtained', 'created_at']
     ordering = ['-test_date']
     
+    def get_permissions(self):
+        # Allow students to view, but only Admin/Teacher to create/edit
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsAdminOrTeacher()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
@@ -880,17 +957,31 @@ class TestScoreViewSet(viewsets.ModelViewSet):
         if user.role == 'student':
             return queryset.filter(student=user)
         
-        # Teachers can see scores they graded
+        # Teachers can see scores they graded OR scores for students in their products
         if user.role == 'teacher':
-            return queryset.filter(teacher=user)
+             return queryset.filter(student__course_bookings__product__instructors=user).distinct()
         
         # Admin can see all
         return queryset
     
     def perform_create(self, serializer):
-        # Auto-assign teacher if not provided and user is teacher
-        if not serializer.validated_data.get('teacher') and self.request.user.role == 'teacher':
-            serializer.save(teacher=self.request.user)
+        user = self.request.user
+        if user.role == 'teacher':
+             # Validate student
+            student = serializer.validated_data.get('student')
+            has_booking = CourseBooking.objects.filter(
+                student=student,
+                payment_status='paid',
+                product__instructors=user
+            ).exists()
+            
+            if not has_booking:
+                 raise serializers.ValidationError({"student": "You can only add scores for students enrolled in your courses."})
+
+            if not serializer.validated_data.get('teacher'):
+                 serializer.save(teacher=user)
+            else:
+                 serializer.save()
         else:
             serializer.save()
 

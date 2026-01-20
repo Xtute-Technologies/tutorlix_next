@@ -53,8 +53,8 @@ export default function Header() {
   // Role-based navigation
   const roleBasedLinks = {
     admin: [{ href: "/admin", label: "Admin", icon: Settings }],
-    teacher: [{ href: "/my-classes", label: "Classes", icon: BookOpen }],
-    seller: [{ href: "/my-products", label: "Products", icon: BookOpen }],
+    teacher: [{ href: "/teacher", label: "Dashboard", icon: BookOpen }],
+    seller: [{ href: "/", label: "Dashboard", icon: BookOpen }],
   };
 
   return (
@@ -86,7 +86,7 @@ export default function Header() {
           })}
 
           {/* Role Links integrated cleanly */}
-          {user &&
+          {/* {user &&
             roleBasedLinks[user.role]?.map((link) => (
               <Link
                 key={link.href}
@@ -95,7 +95,7 @@ export default function Header() {
                   }`}>
                 {link.label}
               </Link>
-            ))}
+            ))} */}
         </nav>
 
         {/* --- RIGHT ACTION AREA --- */}

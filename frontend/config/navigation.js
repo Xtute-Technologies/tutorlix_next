@@ -23,7 +23,10 @@ export const getNavItems = (role) => {
         url: "/seller",
         icon: LayoutDashboard,
         isActive: true,
-        items: [{ title: "View Bookings", url: "/seller/bookings" }],
+        items: [
+            { title: "View Bookings", url: "/seller/bookings" },
+            { title: "Finances", url: "/seller/finances" }
+        ],
       },
     ];
   }
@@ -111,6 +114,30 @@ export const getNavItems = (role) => {
           { title: "Recordings", url: "/student/recordings", icon: Video },
           { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/student/scores", icon: GraduationCap },
+        ],
+      },
+    ];
+  }
+  if (role === "teacher") {
+    return [
+      {
+        title: "Dashboard",
+        url: "/teacher",
+        icon: LayoutDashboard,
+        isActive: true,
+        items: [{ title: "Overview", url: "/teacher" }],
+      },
+      {
+        title: "Academic",
+        url: "#",
+        icon: BookOpen,
+        isActive: true,
+        items: [
+          { title: "Course Classes", url: "/teacher/classes-course", icon: BookOpen },
+          { title: "Student Classes", url: "/teacher/classes-student", icon: Users },
+          { title: "Recordings", url: "/teacher/recordings", icon: Video },
+          { title: "Attendance", url: "/teacher/attendance", icon: CheckSquare },
+          { title: "Test Scores", url: "/teacher/test-scores", icon: GraduationCap },
         ],
       },
     ];

@@ -31,6 +31,9 @@ export default function Page() {
       if (user.role === "student") {
         router.push("/student");
       }
+      if (user.role === "teacher") {
+        router.push("/teacher");
+      }
       // Students stay here, so no redirect for them
     } else if (!loading && !user) {
       // Optional: Redirect to login if not authenticated

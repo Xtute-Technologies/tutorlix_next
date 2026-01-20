@@ -58,14 +58,43 @@ class UserListCreateView(generics.ListCreateAPIView):
     GET: List all users (with filters)
     POST: Create a new user (Admin only)
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated] # Changed from [IsAuthenticated, IsAdminUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering_fields = ['created_at', 'role']
     ordering = ['-created_at']
 
+    def create(self, request, *args, **kwargs):
+        # Explicitly restrict creation to Admins
+        if request.user.role != 'admin' and not request.user.is_staff:
+            return Response(
+                {"detail": "You do not have permission to create users."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
     def get_queryset(self):
+        user = self.request.user
         queryset = User.objects.all()
+
+        # Role-based access control
+        if user.role == 'teacher':
+            # Teachers can only see students enrolled in their courses
+            from lms.models import CourseBooking
+            
+            # Find students with paid bookings in courses taught by this teacher
+            # filtering based on expired courses also int that api (TODO for later)
+            student_ids = CourseBooking.objects.filter(
+                product__instructors=user,
+                payment_status='paid'
+            ).values_list('student', flat=True).distinct()
+            
+            queryset = queryset.filter(id__in=student_ids)
+            
+        elif user.role != 'admin' and not user.is_staff:
+            # Regular students cannot list users
+            return User.objects.none()
+
         role = self.request.query_params.get('role', None)
         if role and role != 'all':
             queryset = queryset.filter(role=role)
