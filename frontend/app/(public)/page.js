@@ -10,12 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  CheckCircle2, ArrowRight, Loader2, BookOpen, Rocket, 
-  Code2, Users, Star, ArrowUpRight, Quote, BrainCircuit, Target 
+import {
+  CheckCircle2, ArrowRight, Loader2, BookOpen, Rocket,
+  Code2, Users, Star, ArrowUpRight, Quote, BrainCircuit, Target
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
+import { useProfile } from "@/context/ProfileContext";
 
 // Fallback image constant
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
@@ -51,6 +52,7 @@ export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const { profileType } = useProfile();
 
   useEffect(() => {
     fetchData();
@@ -84,6 +86,133 @@ export default function HomePage() {
     );
   }
 
+  const profileContent = {
+    school: {
+      tag: "For School Students",
+      headline: (
+        <>
+          Build strong foundations <br />
+          early. <span className="text-slate-400">The right way.</span>
+        </>
+      ),
+      bullets: [
+        "Concept clarity with expert teachers",
+        "Maths & science made easy",
+        "Learn at your own pace",
+      ],
+      formRole: "student",
+      cta: "Get Academic Guidance",
+    },
+
+    college: {
+      tag: "For College Students",
+      headline: (
+        <>
+          Become job-ready <br />
+          before graduation.
+        </>
+      ),
+      bullets: [
+        "Industry-aligned curriculum",
+        "Internship & placement support",
+        "Hands-on project learning",
+      ],
+      formRole: "student",
+      cta: "Get Career Guidance",
+    },
+
+    professional: {
+      tag: "For Working Professionals",
+      headline: (
+        <>
+          Switch or grow your <br />
+          tech career <span className="text-slate-400">faster.</span>
+        </>
+      ),
+      bullets: [
+        "Upskill with real-world projects",
+        "Mentorship from senior engineers",
+        "Designed for busy professionals",
+      ],
+      formRole: "professional",
+      cta: "Get Upskilling Plan",
+    },
+  };
+
+  const benefitsByProfile = {
+    school: {
+      title: "Why students love Tutorlix",
+      subtitle: "Strong concepts, clear basics, and learning made fun.",
+      items: [
+        {
+          icon: BookOpen,
+          title: "Concept Clarity",
+          description: "Simple explanations that build strong academic foundations.",
+        },
+        {
+          icon: Users,
+          title: "Expert Teachers",
+          description: "Learn from experienced teachers who understand students.",
+        },
+        {
+          icon: Target,
+          title: "Step-by-Step Learning",
+          description: "Structured lessons designed for school-level success.",
+        },
+      ],
+    },
+
+    college: {
+      title: "Why college students choose us",
+      subtitle: "Learn skills that actually matter in the real world.",
+      items: [
+        {
+          icon: Rocket,
+          title: "Industry-Oriented Learning",
+          description: "Curriculum aligned with internships and placements.",
+        },
+        {
+          icon: Code2,
+          title: "Hands-on Projects",
+          description: "Build real projects to strengthen your portfolio.",
+        },
+        {
+          icon: Users,
+          title: "Mentorship Support",
+          description: "Get guidance from professionals and senior mentors.",
+        },
+      ],
+    },
+
+    professional: {
+      title: "Why professionals trust Tutorlix",
+      subtitle: "Upskill faster and move ahead in your tech career.",
+      items: [
+        {
+          icon: Rocket,
+          title: "Career Acceleration",
+          description: "Designed to help you switch or grow in your role.",
+        },
+        {
+          icon: BrainCircuit,
+          title: "Advanced Skill Paths",
+          description: "Learn modern tech stacks used in real companies.",
+        },
+        {
+          icon: Users,
+          title: "1:1 Mentorship",
+          description: "Solve real-world problems with senior engineers.",
+        },
+      ],
+    },
+  };
+
+
+  const activeProfile = profileContent[profileType] || profileContent.college;
+  const activeBenefits =
+    benefitsByProfile[profileType] || benefitsByProfile.college;
+
+
   return (
     <div className="min-h-screen bg-white font-sans overflow-hidden">
 
@@ -111,16 +240,18 @@ export default function HomePage() {
 
             <div className="space-y-8">
               <div className="space-y-4">
-                <p className="text-green-400 font-medium tracking-wide uppercase text-sm">Restricted by opportunities?</p>
+                <p className="text-green-400 font-medium tracking-wide uppercase text-sm">
+                  {activeProfile.tag}
+                </p>
+
                 <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-white">
-                  Get the tech career <br />
-                  you deserve. <span className="text-slate-400">Faster.</span>
+                  {activeProfile.headline}
                 </h1>
               </div>
               <div className="space-y-6 pt-4">
-                <HeroFeatureItem text="128% average hike via our placement cell" />
-                <HeroFeatureItem text="1.5 Lac+ learners cracked top tech companies" />
-                <HeroFeatureItem text="Practical skills over theoretical knowledge" />
+                {activeProfile.bullets.map((text, i) => (
+                  <HeroFeatureItem key={i} text={text} />
+                ))}
               </div>
             </div>
 
@@ -133,20 +264,47 @@ export default function HomePage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <Label>Current Status</Label>
-                    <RadioGroup defaultValue="student" className="grid grid-cols-2 gap-2">
+                    <RadioGroup
+                      value={activeProfile.formRole}
+                      onValueChange={(value) => {
+                        // 🔥 map radio → profileType
+                        const newProfile =
+                          value === "professional" ? "professional" : profileType === "professional" ? "college" : profileType;
+
+                        setProfileType(newProfile);
+                        localStorage.setItem("tutorlix_profile", newProfile);
+                      }}
+                      className="grid grid-cols-2 gap-2"
+                    >
                       <div>
-                        <RadioGroupItem value="student" id="r2" className="peer sr-only" />
-                        <Label htmlFor="r2" className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:text-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer text-sm font-medium transition-all">
+                        <RadioGroupItem value="student" id="student" className="peer sr-only" />
+                        <Label
+                          htmlFor="student"
+                          className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50
+        peer-data-[state=checked]:border-primary
+        peer-data-[state=checked]:text-primary
+        peer-data-[state=checked]:bg-primary/5
+        cursor-pointer text-sm font-medium transition-all"
+                        >
                           Student
                         </Label>
                       </div>
+
                       <div>
-                        <RadioGroupItem value="professional" id="r1" className="peer sr-only" />
-                        <Label htmlFor="r1" className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:text-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer text-sm font-medium transition-all">
+                        <RadioGroupItem value="professional" id="professional" className="peer sr-only" />
+                        <Label
+                          htmlFor="professional"
+                          className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50
+        peer-data-[state=checked]:border-primary
+        peer-data-[state=checked]:text-primary
+        peer-data-[state=checked]:bg-primary/5
+        cursor-pointer text-sm font-medium transition-all"
+                        >
                           Professional
                         </Label>
                       </div>
                     </RadioGroup>
+
                   </div>
                   <div className="space-y-2">
                     <Select>
@@ -165,7 +323,7 @@ export default function HomePage() {
                     <Input placeholder="Phone Number (+91)" className="h-11 rounded-lg" />
                   </div>
                   <Button className="w-full text-md font-bold h-12 mt-2 bg-primary hover:bg-primary/90 rounded-lg" size="lg">
-                    Get Free Counselling
+                    {activeProfile.cta}
                   </Button>
                 </CardContent>
               </Card>
@@ -299,97 +457,118 @@ export default function HomePage() {
       {/* --- ANIMATED "WHY US" SECTION --- */}
       <section className="py-24 bg-white overflow-hidden border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* HEADER */}
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Why learners choose us</h2>
-            <p className="text-lg text-slate-600">We don't just teach you to code; we teach you how to think like an engineer.</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              {activeBenefits.title}
+            </h2>
+            <p className="text-lg text-slate-600">
+              {activeBenefits.subtitle}
+            </p>
           </div>
 
+          {/* BENEFITS */}
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
             variants={{
               hidden: { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+              visible: { opacity: 1, transition: { staggerChildren: 0.15 } },
             }}
             className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12"
           >
-            {benefitsData.map((benefit, index) => (
-              <motion.div
-                key={index}
-                variants={{
-                  hidden: { opacity: 0, y: 30 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
-                }}
-                className="relative group p-6"
-              >
-                {/* Animated Line */}
-                <div className="absolute top-0 left-6 w-[2px] h-0 bg-primary group-hover:h-full transition-all duration-700 ease-in-out opacity-20 group-hover:opacity-100"></div>
+            {activeBenefits.items.map((benefit, index) => {
+              const Icon = benefit.icon;
 
-                <div className="relative pl-6">
-                  <div className="mb-4 inline-flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 text-slate-900 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                    <benefit.icon className="h-6 w-6" />
+              return (
+                <motion.div
+                  key={index}
+                  variants={{
+                    hidden: { opacity: 0, y: 30 },
+                    visible: {
+                      opacity: 1,
+                      y: 0,
+                      transition: { duration: 0.5, ease: "easeOut" },
+                    },
+                  }}
+                  className="relative group p-6"
+                >
+                  {/* Animated Line */}
+                  <div className="absolute top-0 left-6 w-[2px] h-0 bg-primary group-hover:h-full transition-all duration-700 ease-in-out opacity-20 group-hover:opacity-100" />
+
+                  <div className="relative pl-6">
+                    <div className="mb-4 inline-flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 text-slate-900 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                      <Icon className="h-6 w-6" />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-slate-900 mb-3">
+                      {benefit.title}
+                    </h3>
+                    <p className="text-slate-600 leading-relaxed text-sm">
+                      {benefit.description}
+                    </p>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-3">{benefit.title}</h3>
-                  <p className="text-slate-600 leading-relaxed text-sm">{benefit.description}</p>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </motion.div>
         </div>
       </section>
+
 
       {/* --- ABOUT US SECTION (NEW) --- */}
       <section className="py-24 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            
+
             {/* Text Content */}
             <div className="space-y-8">
               <div>
                 <Badge variant="outline" className="mb-4 bg-white text-slate-900 border-slate-300">About Tutorlix</Badge>
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 leading-tight">
-                  Interactive learning that <br/> actually works.
+                  Interactive learning that <br /> actually works.
                 </h2>
                 <div className="prose prose-slate text-slate-600">
-                   <p className="text-lg mb-4">
-                     Take your math and computer science skills to the next level with Tutorlix. Say goodbye to boring lectures and hello to hands-on lessons and exciting projects. We connect you with a community of ambitious students to unlock your full potential.
-                   </p>
+                  <p className="text-lg mb-4">
+                    Take your math and computer science skills to the next level with Tutorlix. Say goodbye to boring lectures and hello to hands-on lessons and exciting projects. We connect you with a community of ambitious students to unlock your full potential.
+                  </p>
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-6">
-                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                    <Target className="h-8 w-8 text-primary mb-3" />
-                    <h3 className="font-bold text-slate-900 mb-2">Fortnightly Testing</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Track progress with challenging tests designed to apply your problem-solving skills, followed by expert teacher feedback.
-                    </p>
-                 </div>
-                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                    <BrainCircuit className="h-8 w-8 text-purple-500 mb-3" />
-                    <h3 className="font-bold text-slate-900 mb-2">High-Quality Content</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Well-recorded lectures and dynamic resources ensure an informative and accessible learning experience for everyone.
-                    </p>
-                 </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                  <Target className="h-8 w-8 text-primary mb-3" />
+                  <h3 className="font-bold text-slate-900 mb-2">Fortnightly Testing</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Track progress with challenging tests designed to apply your problem-solving skills, followed by expert teacher feedback.
+                  </p>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                  <BrainCircuit className="h-8 w-8 text-purple-500 mb-3" />
+                  <h3 className="font-bold text-slate-900 mb-2">High-Quality Content</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Well-recorded lectures and dynamic resources ensure an informative and accessible learning experience for everyone.
+                  </p>
+                </div>
               </div>
             </div>
 
             {/* Visual/Image Side */}
             <div className="relative">
               <div className="aspect-square md:aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl bg-slate-900 relative">
-                 {/* Abstract visual representation */}
-                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 opacity-80" />
-                 <img 
-                   src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop" 
-                   alt="Students learning" 
-                   className="w-full h-full object-cover mix-blend-overlay opacity-60"
-                 />
-                 <div className="absolute bottom-8 left-8 right-8 text-white">
-                    <p className="font-bold text-2xl mb-2">"Education is not the filling of a pail, but the lighting of a fire."</p>
-                    <p className="text-purple-200">— W.B. Yeats</p>
-                 </div>
+                {/* Abstract visual representation */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 opacity-80" />
+                <img
+                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop"
+                  alt="Students learning"
+                  className="w-full h-full object-cover mix-blend-overlay opacity-60"
+                />
+                <div className="absolute bottom-8 left-8 right-8 text-white">
+                  <p className="font-bold text-2xl mb-2">"Education is not the filling of a pail, but the lighting of a fire."</p>
+                  <p className="text-purple-200">— W.B. Yeats</p>
+                </div>
               </div>
               {/* Decorative dots */}
               <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-[radial-gradient(circle,theme(colors.slate.300)_1px,transparent_1px)] bg-[size:8px_8px] opacity-60 -z-10" />
@@ -410,14 +589,14 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonialsData.map((t, i) => (
               <div key={i} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-shadow relative">
-                 <Quote className="absolute top-8 left-8 h-8 w-8 text-purple-100 fill-purple-100 -z-0" />
-                 <div className="relative z-10 pt-4">
-                   <p className="text-slate-600 italic mb-6 leading-relaxed">"{t.text}"</p>
-                   <div className="border-t border-slate-100 pt-4">
-                     <h4 className="font-bold text-slate-900">{t.name}</h4>
-                     <p className="text-xs text-primary font-medium mt-1 uppercase tracking-wide truncate">{t.course}</p>
-                   </div>
-                 </div>
+                <Quote className="absolute top-8 left-8 h-8 w-8 text-purple-100 fill-purple-100 -z-0" />
+                <div className="relative z-10 pt-4">
+                  <p className="text-slate-600 italic mb-6 leading-relaxed">"{t.text}"</p>
+                  <div className="border-t border-slate-100 pt-4">
+                    <h4 className="font-bold text-slate-900">{t.name}</h4>
+                    <p className="text-xs text-primary font-medium mt-1 uppercase tracking-wide truncate">{t.course}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

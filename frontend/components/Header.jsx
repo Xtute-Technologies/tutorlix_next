@@ -15,10 +15,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Sparkles, Lightbulb } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import ProfileTypeModal from "@/components/ProfileTypeModal";
+import { Repeat } from "lucide-react";
+import { useProfile } from "@/context/ProfileContext";
 
 export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const { updateProfile } = useProfile();
+
+  useEffect(() => {
+    const profile = localStorage.getItem("tutorlix_profile");
+    if (!profile) {
+      setShowProfileModal(true);
+    }
+  }, []);
+
+  const handleProfileSelect = (type) => {
+    updateProfile(type);        // 🔥 GLOBAL CHANGE
+    setShowProfileModal(false);
+  };
+
 
   const userInitials = user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || user.username?.[0] || "U"}`.toUpperCase() : "G";
 
@@ -26,7 +45,7 @@ export default function Header() {
 
   const navLinks = [
     { href: "/", label: "Home", public: true },
-    { href: "/courses", label: "Courses", public: true },
+    { href: "/courses", label: "Live Classes", public: true },
     { href: "/dashboard", label: "Dashboard", auth: true },
     { href: "/contact", label: "Contact", public: true },
   ];
@@ -57,9 +76,8 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`text-sm font-medium transition-colors hover:text-slate-900 ${
-                    isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-600"
-                  }`}>
+                  className={`text-sm font-medium transition-colors hover:text-slate-900 ${isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-600"
+                    }`}>
                   {link.label}
                 </Link>
               );
@@ -73,9 +91,8 @@ export default function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm font-medium transition-colors hover:text-slate-900 ${
-                  isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-500"
-                }`}>
+                className={`text-sm font-medium transition-colors hover:text-slate-900 ${isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-500"
+                  }`}>
                 {link.label}
               </Link>
             ))}
@@ -151,7 +168,21 @@ export default function Header() {
               <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900 hidden sm:inline-flex" asChild>
                 <Link href="/login">Login</Link>
               </Button>
-              <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-6" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-600 hover:text-slate-900"
+                onClick={() => setShowProfileModal(true)}
+              >
+                <Repeat className="h-4 w-4 mr-1" />
+                Switch Profile
+              </Button>
+
+              <Button
+                size="sm"
+                className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-6"
+                asChild
+              >
                 <Link href="/register">Become a Seller</Link>
               </Button>
             </div>
@@ -201,6 +232,10 @@ export default function Header() {
           </DropdownMenu>
         </div>
       </div>
+      <ProfileTypeModal
+        open={showProfileModal}
+        onSelect={handleProfileSelect}
+      />
     </header>
   );
 }
