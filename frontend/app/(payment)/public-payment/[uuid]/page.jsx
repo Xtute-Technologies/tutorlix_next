@@ -76,7 +76,7 @@ export default function PublicPaymentPage() {
             theme: {
                 color: "#eab308"
             },
-            image: window.location.origin + '/logo.png',
+            // image: window.location.origin + '/logo.png',
             modal: {
                 ondismiss: function() {
                     setProcessing(false);
@@ -112,7 +112,7 @@ export default function PublicPaymentPage() {
     return (
         <>
             <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <Card className="w-full max-w-lg shadow-lg">
                     <CardHeader className="text-center border-b bg-white rounded-t-lg">
                         <div className="flex justify-center mb-4">
@@ -170,7 +170,7 @@ export default function PublicPaymentPage() {
                         </div>
 
                     </CardContent>
-                    <CardFooter className="bg-gray-50 p-6 rounded-b-lg">
+                    <CardFooter className="bg-gray-50 rounded-b-lg">
                         <Button 
                             className="w-full text-lg py-6" 
                             size="lg" 
