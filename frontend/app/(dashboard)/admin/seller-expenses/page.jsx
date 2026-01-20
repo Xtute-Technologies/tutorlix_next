@@ -70,7 +70,7 @@ export default function SellerExpensesPage() {
     try {
       // Assuming you have an endpoint to get users by role
       // Adjust endpoint based on your actual User ViewSet
-      const response = await authService.getAllUsers('seller');
+      const response = await authService.getAllUsers({ role: 'seller' });
       const sellers = response.results || response.data;
       
       // Format for Dropdown [{value: id, label: name}]

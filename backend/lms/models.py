@@ -2,6 +2,8 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from datetime import timedelta
+import uuid
 import uuid
 
 
@@ -81,6 +83,15 @@ class Product(models.Model):
         blank=True, 
         null=True, 
         validators=[MinValueValidator(0)]
+    )
+
+    # 0. Duration (Days)
+    duration_days = models.IntegerField(
+        default=30,
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0)],
+        help_text="Duration in days. Leave 0 or empty for lifetime access."
     )
     
     # Content Fields
@@ -317,7 +328,11 @@ class CourseSpecificClass(models.Model):
     """
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='course_classes')
     name = models.CharField(max_length=255)
-    time = models.CharField(max_length=100, help_text="Class time as text")
+    
+    # Scheduling
+    start_time = models.DateTimeField(default=timezone.now, help_text="Class Start Time")
+    end_time = models.DateTimeField(default=timezone.now, help_text="Class End Time")
+    
     link = models.URLField()
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
@@ -378,6 +393,7 @@ class Attendance(models.Model):
     STATUS_CHOICES = (
         ('P', 'Present'),
         ('AB', 'Absent'),
+        ('Partial', 'Partial'),
     )
     
     class_name = models.CharField(max_length=255)

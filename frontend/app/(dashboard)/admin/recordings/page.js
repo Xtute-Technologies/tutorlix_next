@@ -48,8 +48,8 @@ export default function RecordingsPage() {
             setLoading(true);
             const [recordingsData, teachersData, studentsData] = await Promise.all([
                 recordingAPI.getAll(),
-                authService.getAllUsers('teacher'),
-                authService.getAllUsers('student'),
+                authService.getAllUsers({ role: 'teacher' }),
+                authService.getAllUsers({ role: 'student' }),
             ]);
 
             // recordingAPI.getAll() returns array directly (uses extractResults helper)

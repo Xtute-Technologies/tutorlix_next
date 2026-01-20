@@ -80,10 +80,10 @@ export function AppSidebar({ ...props }) {
       return [
         {
           title: "Seller Dashboard",
-          url: "/admin/seller",
+          url: "/seller",
           icon: LayoutDashboard,
           isActive: true,
-          items: [{ title: "View Bookings", url: "/admin/seller/bookings" }],
+          items: [{ title: "View Bookings", url: "/seller/bookings" }],
         },
       ];
     }
@@ -143,10 +143,35 @@ export function AppSidebar({ ...props }) {
         },
         {
           title: "Seller Dashboard",
-          url: "/admin/seller/bookings",
+          url: "/seller/bookings",
           icon: LayoutDashboard,
           isActive: true,
-          items: [{ title: "Bookings", url: "/admin/seller/bookings" }],
+          items: [{ title: "Bookings", url: "/seller/bookings" }],
+        },
+      ];
+    }
+
+    if (user?.role === "student") {
+      return [
+        {
+          title: "Dashboard",
+          url: "/student",
+          icon: LayoutDashboard,
+          isActive: true,
+          items: [{ title: "Overview", url: "/student" }],
+        },
+        {
+          title: "Learning",
+          url: "#",
+          icon: BookOpen,
+          isActive: true,
+          items: [
+            { title: "My Bookings", url: "/student/bookings", icon: ShoppingCart },
+            { title: "Classes", url: "/student/classes", icon: Users },
+            { title: "Recordings", url: "/student/recordings", icon: Video },
+            { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
+            { title: "Test Scores", url: "/student/scores", icon: GraduationCap },
+          ],
         },
       ];
     }

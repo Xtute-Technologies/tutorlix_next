@@ -29,9 +29,7 @@ export default function AdminRootLayout({ children }) {
     if (!loading) {
        if (!user) {
           router.push("/login");
-       } else if (user.role !== "admin" && user.role !== "seller") {
-          router.push("/");
-       }
+       } 
     }
   }, [user, loading, router]);
 
@@ -39,7 +37,7 @@ export default function AdminRootLayout({ children }) {
      return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
-  if (!user || (user.role !== "admin" && user.role !== "seller")) {
+  if (!user) {
     return null;
   }
 

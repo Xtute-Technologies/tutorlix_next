@@ -50,8 +50,8 @@ export default function TestScoresPage() {
             setLoading(true);
             const [scoresData, studentsData, teachersData] = await Promise.all([
                 testScoreAPI.getAll(),
-                authService.getAllUsers('student'),
-                authService.getAllUsers('teacher'),
+                authService.getAllUsers({ role: 'student' }),
+                authService.getAllUsers({ role: 'teacher' }),
             ]);
 
             setTestScores(Array.isArray(scoresData) ? scoresData : []);

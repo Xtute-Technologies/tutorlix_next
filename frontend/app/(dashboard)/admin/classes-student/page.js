@@ -51,8 +51,8 @@ export default function StudentClassesPage() {
       setLoading(true);
       const [classesData, teachersData, studentsData] = await Promise.all([
         studentClassAPI.getAll(),
-        authService.getAllUsers('teacher'),
-        authService.getAllUsers('student'),
+        authService.getAllUsers({ role: 'teacher' }),
+        authService.getAllUsers({ role: 'student' }),
       ]);
       
       // studentClassAPI.getAll() returns array directly (uses extractResults helper)

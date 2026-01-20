@@ -28,7 +28,7 @@ export default function Page() {
     if (!loading && user) {
       // 1. Redirect logic for Admin/Seller
       if (user.role === 'admin' || user.role === 'seller') {
-        router.push('/admin/seller/bookings');
+        router.push('/seller/bookings');
       }
       // Students stay here, so no redirect for them
     } else if (!loading && !user) {

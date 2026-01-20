@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Sum
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib.auth import get_user_model
 import json
 import logging
@@ -523,6 +524,11 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             booking.razorpay_payment_id = payment_id
             booking.razorpay_signature = signature
             booking.payment_date = timezone.now()
+            
+            # Set Course Expiry
+            if booking.product.duration_days and booking.product.duration_days > 0:
+                booking.course_expiry_date = timezone.localdate() + timedelta(days=booking.product.duration_days)
+            
             booking.save()
             return Response({"status": "success"})
         else:
@@ -678,20 +684,42 @@ class CourseSpecificClassViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminOrTeacherOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['product', 'teacher', 'is_active']
-    search_fields = ['name', 'time']
-    ordering_fields = ['name', 'created_at']
-    ordering = ['product', 'name']
+    search_fields = ['name']
+    ordering_fields = ['name', 'start_time', 'created_at']
+    ordering = ['product', 'start_time']
     
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
         
+        # Students can see classes for products they have booked (even if expired)
+        if user.role == 'student':
+            # Get all paid bookings regardless of expiry
+            paid_bookings = CourseBooking.objects.filter(
+                student=user,
+                payment_status='paid'
+            )
+            product_ids = paid_bookings.values_list('product_id', flat=True)
+            return queryset.filter(product_id__in=product_ids, is_active=True)
+
         # Teachers can see classes they teach
         if user.role == 'teacher':
             return queryset.filter(teacher=user)
         
         # Admin can see all
         return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.user.role == 'student':
+            # Create a map of product_id -> expiry_date
+            bookings = CourseBooking.objects.filter(
+                student=self.request.user, 
+                payment_status='paid'
+            )
+            expiry_map = {b.product_id: b.course_expiry_date for b in bookings}
+            context['product_expiry_map'] = expiry_map
+        return context
 
 
 # ============= Recording ViewSet =============
@@ -1002,6 +1030,10 @@ class RazorpayWebhookView(APIView):
                         if booking.payment_status != 'paid':
                             booking.payment_status = 'paid'
                             booking.payment_date = timezone.now()
+                            
+                            # Set Course Expiry
+                            if booking.product.duration_days and booking.product.duration_days > 0:
+                                booking.course_expiry_date = (timezone.now() + timedelta(days=booking.product.duration_days)).date()
                             
                             if booking.student_status == 'in_process':
                                 booking.student_status = 'active'

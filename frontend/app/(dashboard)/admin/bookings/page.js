@@ -57,9 +57,9 @@ export default function BookingsPage() {
       setLoading(true);
       const [bookingsData, studentsData, productsData, sellersData] = await Promise.all([
         bookingAPI.getAll(),
-        authService.getAllUsers('student'),
+        authService.getAllUsers({ role: 'student' }),
         productAPI.getAll(),
-        authService.getAllUsers('seller'),
+        authService.getAllUsers({ role: 'seller' }),
       ]);
 
       setBookings(Array.isArray(bookingsData) ? bookingsData : []);
@@ -414,7 +414,7 @@ export default function BookingsPage() {
             columns={columns}
             data={bookings}
             loading={loading}
-            searchKey="student_name"
+            // searchKey="student_name"
             searchPlaceholder="Search by student name..."
           />
 

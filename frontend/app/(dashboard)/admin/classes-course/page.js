@@ -18,7 +18,8 @@ import { z } from 'zod';
 const classSchema = z.object({
     product: z.string().min(1, 'Product/Course is required'),
     name: z.string().min(1, 'Class name is required'),
-    time: z.string().min(1, 'Class time is required'),
+    start_time: z.string().min(1, 'Start time is required'),
+    end_time: z.string().min(1, 'End time is required'),
     link: z.string().url('Must be a valid URL'),
     teacher: z.string().optional(),
     is_active: z.boolean().optional(),
@@ -50,7 +51,7 @@ export default function CourseClassesPage() {
             const [classesData, productsData, teachersData] = await Promise.all([
                 courseClassAPI.getAll(),
                 productAPI.getAll(),
-                authService.getAllUsers('teacher'),
+                authService.getAllUsers({ role: 'teacher' }),
             ]);
             setClasses(Array.isArray(classesData) ? classesData : []);
             setProducts(Array.isArray(productsData) ? productsData : []);
@@ -103,10 +104,21 @@ export default function CourseClassesPage() {
     const handleEdit = async (classItem) => {
         try {
             const fullClass = await courseClassAPI.getById(classItem.id);
+            
+            // Helper to format date for datetime-local input (YYYY-MM-DDTHH:mm) in LOCAL time
+            const toLocalDatetime = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                const pad = (n) => n.toString().padStart(2, '0');
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+            };
+
             setEditingClass({
                 ...fullClass,
                 product: fullClass.product ? fullClass.product.toString() : undefined,
                 teacher: fullClass.teacher ? fullClass.teacher.toString() : undefined,
+                start_time: toLocalDatetime(fullClass.start_time),
+                end_time: toLocalDatetime(fullClass.end_time),
             });
             setShowForm(true);
         } catch (error) {
@@ -155,10 +167,15 @@ export default function CourseClassesPage() {
             required: true,
         },
         {
-            name: 'time',
-            label: 'Class Time',
-            type: 'text',
-            placeholder: 'e.g., Every Tuesday 2:00 PM - 3:30 PM',
+            name: 'start_time',
+            label: 'Start Time',
+            type: 'datetime-local',
+            required: true,
+        },
+        {
+            name: 'end_time',
+            label: 'End Time',
+            type: 'datetime-local',
             required: true,
         },
         {
@@ -203,11 +220,24 @@ export default function CourseClassesPage() {
             ),
         },
         {
-            accessorKey: 'time',
+            accessorKey: 'start_time',
             header: 'Schedule',
-            cell: ({ row }) => (
-                <span className="text-sm text-gray-600">{row.original.time}</span>
-            ),
+            cell: ({ row }) => {
+                const start = row.original.start_time ? new Date(row.original.start_time) : null;
+                const end = row.original.end_time ? new Date(row.original.end_time) : null;
+                
+                if (!start) return <span className="text-sm text-gray-500">Not Scheduled</span>;
+
+                return (
+                    <div className="flex flex-col text-sm">
+                        <span className="font-medium">{start.toLocaleDateString()}</span>
+                        <span className="text-muted-foreground text-xs">
+                            {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
+                            {end ? end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '???'}
+                        </span>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'teacher_name',

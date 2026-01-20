@@ -32,6 +32,8 @@ const productSchema = z.object({
   instructors: z.array(z.number()).optional(),
   price: z.coerce.number().min(0, 'Price must be 0 or greater'),
   discounted_price: z.coerce.number().min(0).optional().or(z.literal('')),
+  duration_days: z.coerce.number().min(0).optional(),
+  duration_preset: z.string().optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -71,7 +73,7 @@ export default function ProductsPage() {
       const [productsData, categoriesData, teachersData] = await Promise.all([
         productAPI.getAll(),
         categoryAPI.getAll(),
-        authService.getAllUsers('teacher'),
+        authService.getAllUsers({ role: 'teacher' }),
       ]);
       setProducts(Array.isArray(productsData) ? productsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
@@ -130,10 +132,14 @@ export default function ProductsPage() {
         total_seats: Number(formData.total_seats),
         price: Number(formData.price),
         discounted_price: formData.discounted_price ? Number(formData.discounted_price) : null,
+        duration_days: formData.duration_days ? Number(formData.duration_days) : 0,
         is_active: formData.is_active !== undefined ? formData.is_active : true,
         features: featuresList,
         curriculum: curriculumData,
       };
+      
+      // Remove helper field
+      delete payload.duration_preset;
 
       let productId;
       if (editingProduct) {
@@ -228,6 +234,26 @@ export default function ProductsPage() {
     { name: 'total_seats', label: 'Seats', type: 'number', required: true },
     { name: 'price', label: 'Price', type: 'number', required: true },
     { name: 'discounted_price', label: 'Discount Price', type: 'number' },
+    { 
+      name: 'duration_preset', 
+      label: 'Duration Type', 
+      type: 'select', 
+      options: [
+        { label: 'Lifetime Access', value: '0' },
+        { label: 'Weekly (7 Days)', value: '7' },
+        { label: 'Fortnightly (15 Days)', value: '15' },
+        { label: 'Monthly (30 Days)', value: '30' },
+        { label: 'Quarterly (90 Days)', value: '90' },
+        { label: 'Yearly (365 Days)', value: '365' },
+        { label: 'Custom Days', value: 'custom' },
+      ],
+      onChange: (val, form) => {
+        if (val !== 'custom') {
+            form.setValue('duration_days', Number(val));
+        }
+      } 
+    },
+    { name: 'duration_days', label: 'Duration (Days)', type: 'number', description: 'Enter 0 for lifetime access.' },
     { name: 'description', label: 'Short Desc', type: 'textarea', required: true },
     { name: 'overview', label: 'Rich Overview', type: 'textarea', rows: 5 },
     { name: 'is_active', label: 'Active', type: 'checkbox' },

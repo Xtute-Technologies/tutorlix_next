@@ -90,7 +90,7 @@ export const authService = {
   },
 
   // Get all users (admin only) with optional role filter
- getAllUsers: async ({ role = null, page = 1, search = '' }) => {
+ getAllUsers: async ({ role = null, page = 1, search = "" } = {}) => {
     const params = { 
       page, 
       search: search || undefined, // Only send if not empty

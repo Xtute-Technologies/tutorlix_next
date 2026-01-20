@@ -148,7 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 
 USE_I18N = True
 
@@ -259,3 +259,4 @@ RAZORPAY_SECRET_ID = os.getenv('RAZORPAY_SECRET_ID', '')
 RAZORPAY_SECRET_KEY = os.getenv('RAZORPAY_SECRET_KEY', '')
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://dev.tutorlix.com')
+# FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')

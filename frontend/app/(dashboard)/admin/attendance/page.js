@@ -50,7 +50,7 @@ export default function AttendancePage() {
       setLoading(true);
       const [attendanceData, studentsData] = await Promise.all([
         attendanceAPI.getAll(),
-        authService.getAllUsers('student'),
+        authService.getAllUsers({ role: 'student' }),
       ]);
       
       setAttendances(Array.isArray(attendanceData) ? attendanceData : []);
@@ -198,11 +198,13 @@ export default function AttendancePage() {
           students: [],
           present: 0,
           absent: 0,
+          partial: 0,
         };
       }
       groups[key].students.push(att);
       if (att.status === 'P') groups[key].present++;
       if (att.status === 'AB') groups[key].absent++;
+      if (att.status === 'Partial') groups[key].partial++;
     });
     return Object.values(groups);
   }, [attendances]);
@@ -245,6 +247,11 @@ export default function AttendancePage() {
           <Badge variant="destructive">
             {row.original.absent} Absent
           </Badge>
+          {row.original.partial > 0 && 
+            <Badge variant="secondary" className="bg-yellow-500 text-white">
+              {row.original.partial} Partial
+            </Badge>
+          }
         </div>
       ),
     },
@@ -385,6 +392,14 @@ export default function AttendancePage() {
                           >
                             Absent
                           </Button>
+                          <Button
+                            type="button"
+                            variant={studentData.status === 'Partial' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handleStatusChange(studentData.id, 'Partial')}
+                          >
+                            Partial
+                          </Button>
                         </div>
                         <Textarea
                           placeholder="Remarks (optional)"
@@ -432,8 +447,10 @@ export default function AttendancePage() {
                       {att.remarks && <div className="text-sm text-gray-500 mt-1">{att.remarks}</div>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={att.status === 'P' ? 'default' : 'destructive'}>
-                        {att.status === 'P' ? 'Present' : 'Absent'}
+                      <Badge variant={att.status === 'P' ? 'default' : att.status === 'Partial' ? 'secondary' : 'destructive'}
+                          className={att.status === 'Partial' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : ''}
+                      >
+                        {att.status === 'P' ? 'Present' : att.status === 'Partial' ? 'Partial' : 'Absent'}
                       </Badge>
                       <Button
                         variant="ghost"

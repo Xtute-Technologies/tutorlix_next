@@ -106,6 +106,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug',
             'category', 'category_name',
             'total_seats', 
+            'duration_days',
             'description',
             'overview',
             'curriculum',
@@ -310,19 +311,101 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     
+    # Custom fields for frontend logic
+    link = serializers.SerializerMethodField()
+    is_booking_expired = serializers.SerializerMethodField()
+    join_allowed = serializers.SerializerMethodField()
+    
     class Meta:
         model = CourseSpecificClass
         fields = [
-            'id', 'product', 'product_name', 'name', 'time',
+            'id', 'product', 'product_name', 'name', 
+            'start_time', 'end_time',
             'link', 'teacher', 'teacher_name', 'is_active',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
+            'is_booking_expired', 'join_allowed' # Additional status fields
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'is_booking_expired', 'join_allowed']
     
     def validate_teacher(self, value):
         if value and value.role != 'teacher':
             raise serializers.ValidationError("Selected user must have teacher role.")
         return value
+
+    def validate(self, data):
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+
+        if start_time and end_time and end_time <= start_time:
+             raise serializers.ValidationError({"end_time": "End time must be after start time."})
+             
+        return data
+
+    def _get_booking_status(self, obj):
+        """Helper to determine booking status from context"""
+        user = self.context['request'].user
+        if user.is_anonymous or user.role != 'student':
+            return {'expired': False} # Non-students don't have "expiry" in this context
+            
+        expiry_map = self.context.get('product_expiry_map', {})
+        expiry_date = expiry_map.get(obj.product_id)
+        
+        if expiry_date:
+            from django.utils import timezone
+            today = timezone.localdate()
+            if expiry_date <= today:
+                return {'expired': True}
+        
+        return {'expired': False}
+
+    def get_is_booking_expired(self, obj):
+        return self._get_booking_status(obj)['expired']
+
+    def get_join_allowed(self, obj):
+        """Check if join is allowed based on Time and Booking"""
+        user = self.context['request'].user
+        
+        # Admin/Teacher always allowed (if active)
+        if hasattr(user, 'role') and user.role in ['admin', 'teacher']:
+             return True
+
+        # 1. Check Booking Expiry
+        if self.get_is_booking_expired(obj):
+            return False
+            
+        # 2. Check Time Window
+        if not obj.start_time: 
+            return False
+            
+        from django.utils import timezone
+        now = timezone.now()
+        start = obj.start_time
+        end = obj.end_time
+        
+        # 5 minutes before start
+        join_start = start - timezone.timedelta(minutes=5)
+        
+        # If no end time, assume 1 hour class for safety, or just checking start
+        if not end:
+             end = start + timezone.timedelta(hours=1)
+             
+        if now >= join_start and now <= end:
+            return True
+            
+        return False
+
+    def get_link(self, obj):
+        """Return link ONLY if join is currently allowed"""
+        user = self.context['request'].user
+        
+        # Always return link for Admin/Teacher
+        if hasattr(user, 'role') and user.role in ['admin', 'teacher']:
+            return obj.link
+            
+        if self.get_join_allowed(obj):
+            return obj.link
+            
+        return None # Hide link for students if not allowed
 
 
 # ============= Recording Serializers =============

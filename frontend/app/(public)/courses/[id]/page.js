@@ -336,7 +336,9 @@ export default function CourseDetailPage() {
                 {/* Price Card */}
                 <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
                    <div className="mb-6">
-                      <p className="text-sm text-slate-500 font-medium mb-1">Total Price</p>
+                      <p className="text-sm text-slate-500 font-medium mb-1">
+                         Course Access for {product.duration_days > 0 ? <span className="text-slate-900 font-bold">{product.duration_days} Days</span> : <span className="text-slate-900 font-bold">Lifetime Access</span>}
+                      </p>
                       <div className="flex items-end gap-3">
                          <span className="text-4xl font-extrabold text-slate-900">
                            ₹{product.effective_price?.toLocaleString()}
@@ -376,7 +378,7 @@ export default function CourseDetailPage() {
                       ) : (
                           <>
                               <FeatureRow icon={PlayCircle} label="Self-Paced Learning" />
-                              <FeatureRow icon={BookOpen} label="Full Lifetime Access" />
+                              <FeatureRow icon={BookOpen} label={product.duration_days > 0 ? `${product.duration_days} Days Access` : "Full Lifetime Access"} />
                               <FeatureRow icon={Users} label={`${product.total_seats} Enrolled Students`} />
                               <FeatureRow icon={ShieldCheck} label="Certificate of Completion" />
                           </>

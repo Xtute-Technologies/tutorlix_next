@@ -128,7 +128,7 @@ export function FormBuilder({
     // Render the appropriate input component based on type
     const renderInput = (formField) => {
       // Text Input, Email, Password, Number, etc.
-      if (["text", "email", "tel", "number", "url", "date"].includes(type)) {
+      if (["text", "email", "tel", "number", "url", "date", "datetime-local", "time"].includes(type)) {
         return (
           <Input
             type={type}
@@ -182,7 +182,12 @@ export function FormBuilder({
         const selectValue = formField.value ? formField.value.toString() : undefined;
         return (
           <Select
-            onValueChange={formField.onChange}
+            onValueChange={(val) => {
+              formField.onChange(val);
+              if (field.onChange) {
+                field.onChange(val, form);
+              }
+            }}
             value={selectValue}
             disabled={disabled || isSubmitting}
           >

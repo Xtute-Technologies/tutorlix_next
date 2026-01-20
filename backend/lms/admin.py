@@ -128,7 +128,7 @@ class StudentSpecificClassAdmin(admin.ModelAdmin):
 
 @admin.register(CourseSpecificClass)
 class CourseSpecificClassAdmin(admin.ModelAdmin):
-    list_display = ['name', 'teacher', 'time', 'is_active', 'created_at']
+    list_display = ['name', 'teacher', 'is_active', 'created_at']
     list_filter = [ 'teacher', 'is_active', 'created_at']
     search_fields = ['name', 'teacher__username']
     ordering = [ 'name']
