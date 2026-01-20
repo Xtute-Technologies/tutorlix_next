@@ -223,7 +223,7 @@ export default function ProfilePage() {
   const userInitials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || user.username?.[0] || 'U'}`.toUpperCase();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white shadow rounded-lg">
           {/* Header */}
@@ -259,11 +259,11 @@ export default function ProfilePage() {
                     <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
                       {user.role}
                     </span>
-                    {user.student_status && (
+                    {/* {user.student_status && (
                       <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                         {user.student_status}
                       </span>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>
