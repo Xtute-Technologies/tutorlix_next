@@ -7,28 +7,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { GraduationCap, School, Laptop } from "lucide-react";
-
-const profiles = [
-    {
-        id: "school",
-        title: "School Student",
-        desc: "Learn basics & build strong foundation",
-        icon: School,
-    },
-    {
-        id: "college",
-        title: "College Student",
-        desc: "Upskill, prepare for career",
-        icon: GraduationCap,
-    },
-    {
-        id: "professional",
-        title: "IT Professional",
-        desc: "Advance skills & switch roles",
-        icon: Laptop,
-    },
-];
+import { profileSelectionOptions } from "@/app/data/homeContent";
 
 export default function ProfileTypeModal({ open, onSelect }) {
     return (
@@ -39,17 +18,14 @@ export default function ProfileTypeModal({ open, onSelect }) {
             <DialogContent
                 onInteractOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
-                className="
-          max-w-2xl p-10 bg-white
-          [&>button]:hidden
-        "
+                className="max-w-2xl p-10 bg-white [&>button]:hidden"
             >
-                {/* ✅ Accessibility-only title */}
+                {/* Accessibility title */}
                 <VisuallyHidden>
                     <DialogTitle>Select your profile type</DialogTitle>
                 </VisuallyHidden>
 
-                {/* Visible Header */}
+                {/* Header */}
                 <div className="text-center mb-8">
                     <h2 className="text-2xl font-semibold text-slate-900">
                         Welcome to Tutorlix
@@ -61,18 +37,14 @@ export default function ProfileTypeModal({ open, onSelect }) {
 
                 {/* One box per row */}
                 <div className="flex flex-col gap-4">
-                    {profiles.map((p) => {
+                    {profileSelectionOptions.map((p) => {
                         const Icon = p.icon;
+
                         return (
                             <button
                                 key={p.id}
                                 onClick={() => onSelect(p.id)}
-                                className="
-                  flex items-center gap-4
-                  border rounded-xl p-5 text-left
-                  bg-white transition-all
-                  hover:border-indigo-500 hover:shadow-md
-                "
+                                className="flex items-center gap-4 border rounded-xl p-5 text-left bg-white transition-all hover:border-indigo-500 hover:shadow-md"
                             >
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 shrink-0">
                                     <Icon className="h-6 w-6" />

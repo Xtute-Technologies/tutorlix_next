@@ -7,6 +7,32 @@ import {
     BrainCircuit,
 } from "lucide-react";
 
+import { GraduationCap, School, Laptop } from "lucide-react";
+
+/* ================= PROFILE SELECTION MODAL ================= */
+
+export const profileSelectionOptions = [
+  {
+    id: "school",
+    title: "School Student",
+    desc: "Learn basics & build strong foundation",
+    icon: School,
+  },
+  {
+    id: "college",
+    title: "College Student",
+    desc: "Upskill, prepare for career",
+    icon: GraduationCap,
+  },
+  {
+    id: "professional",
+    title: "IT Professional",
+    desc: "Advance skills & switch roles",
+    icon: Laptop,
+  },
+];
+
+
 export const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
 
