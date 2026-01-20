@@ -25,7 +25,7 @@ export default function Page() {
       // 1. Redirect logic for Admin/Seller
       if (user.role === "admin") {
         router.push("/admin");
-      } else if (user.role === "admin") {
+      } else if (user.role === "seller") {
         router.push("/seller");
       }
       if (user.role === "student") {
