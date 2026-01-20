@@ -17,35 +17,14 @@ import {
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
 import { useProfile } from "@/context/ProfileContext";
-
-// Fallback image constant
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
-
-const benefitsData = [
-  { icon: Rocket, title: "Project-Based Learning", description: "Stop watching videos. Start building real-world applications that get you hired." },
-  { icon: Users, title: "1:1 Mentorship", description: "Get unstuck faster with direct access to senior engineers from top tech companies." },
-  { icon: Code2, title: "Career Framework", description: "Structured paths focused on the exact skills required for SDE-1 and SDE-2 roles." }
-];
+import {
+  profileContent,
+  benefitsData,
+  testimonialsData,
+  FALLBACK_IMAGE,
+} from "@/app/data/homeContent";
 
 const companiesList = ["Google", "Microsoft", "Amazon", "Netflix", "Meta", "Uber", "Salesforce", "Adobe"];
-
-const testimonialsData = [
-  {
-    name: "Diya Shukla",
-    course: "Maths for BE, BTech, BBA and BCA",
-    text: "My experience was really wonderful. Maths has always been a weak point for me. I never expected that studying engineering mathematics would be so easy and interesting. Thanks to you Leena mam. You gave your best."
-  },
-  {
-    name: "B. Jahnavi",
-    course: "Online - JEE Maths Mains - One Year",
-    text: "The way of teaching is good I can understand easily. Thanks to Tutorlix for helping me find such a good teacher."
-  },
-  {
-    name: "Vinod Kumar",
-    course: "Front End Development Course",
-    text: "Today is my 2nd day, but according to class each and every thing is good. Specially Ankit Sir teaching process is good and he helps solve every doubt."
-  }
-];
 
 export default function HomePage() {
   const [categories, setCategories] = useState([]);
@@ -86,131 +65,11 @@ export default function HomePage() {
     );
   }
 
-  const profileContent = {
-    school: {
-      tag: "For School Students",
-      headline: (
-        <>
-          Build strong foundations <br />
-          early. <span className="text-slate-400">The right way.</span>
-        </>
-      ),
-      bullets: [
-        "Concept clarity with expert teachers",
-        "Maths & science made easy",
-        "Learn at your own pace",
-      ],
-      formRole: "student",
-      cta: "Get Academic Guidance",
-    },
+  const activeProfile =
+    profileContent[profileType] || profileContent.college;
 
-    college: {
-      tag: "For College Students",
-      headline: (
-        <>
-          Become job-ready <br />
-          before graduation.
-        </>
-      ),
-      bullets: [
-        "Industry-aligned curriculum",
-        "Internship & placement support",
-        "Hands-on project learning",
-      ],
-      formRole: "student",
-      cta: "Get Career Guidance",
-    },
-
-    professional: {
-      tag: "For Working Professionals",
-      headline: (
-        <>
-          Switch or grow your <br />
-          tech career <span className="text-slate-400">faster.</span>
-        </>
-      ),
-      bullets: [
-        "Upskill with real-world projects",
-        "Mentorship from senior engineers",
-        "Designed for busy professionals",
-      ],
-      formRole: "professional",
-      cta: "Get Upskilling Plan",
-    },
-  };
-
-  const benefitsByProfile = {
-    school: {
-      title: "Why students love Tutorlix",
-      subtitle: "Strong concepts, clear basics, and learning made fun.",
-      items: [
-        {
-          icon: BookOpen,
-          title: "Concept Clarity",
-          description: "Simple explanations that build strong academic foundations.",
-        },
-        {
-          icon: Users,
-          title: "Expert Teachers",
-          description: "Learn from experienced teachers who understand students.",
-        },
-        {
-          icon: Target,
-          title: "Step-by-Step Learning",
-          description: "Structured lessons designed for school-level success.",
-        },
-      ],
-    },
-
-    college: {
-      title: "Why college students choose us",
-      subtitle: "Learn skills that actually matter in the real world.",
-      items: [
-        {
-          icon: Rocket,
-          title: "Industry-Oriented Learning",
-          description: "Curriculum aligned with internships and placements.",
-        },
-        {
-          icon: Code2,
-          title: "Hands-on Projects",
-          description: "Build real projects to strengthen your portfolio.",
-        },
-        {
-          icon: Users,
-          title: "Mentorship Support",
-          description: "Get guidance from professionals and senior mentors.",
-        },
-      ],
-    },
-
-    professional: {
-      title: "Why professionals trust Tutorlix",
-      subtitle: "Upskill faster and move ahead in your tech career.",
-      items: [
-        {
-          icon: Rocket,
-          title: "Career Acceleration",
-          description: "Designed to help you switch or grow in your role.",
-        },
-        {
-          icon: BrainCircuit,
-          title: "Advanced Skill Paths",
-          description: "Learn modern tech stacks used in real companies.",
-        },
-        {
-          icon: Users,
-          title: "1:1 Mentorship",
-          description: "Solve real-world problems with senior engineers.",
-        },
-      ],
-    },
-  };
-
-
-  const activeProfile = profileContent[profileType] || profileContent.college;
   const activeBenefits =
-    benefitsByProfile[profileType] || benefitsByProfile.college;
+    benefitsData[profileType] || benefitsData.college;
 
 
   return (
