@@ -30,7 +30,7 @@ class CategorySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Category
-        fields = ['id', 'name', 'heading', 'description', 'products_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'heading', 'description', 'products_count', 'created_at', 'updated_at', 'profileTypes']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_products_count(self, obj):
@@ -41,7 +41,7 @@ class CategoryListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views"""
     class Meta:
         model = Category
-        fields = ['id', 'name', 'heading']
+        fields = ['id', 'name', 'heading', 'profileTypes']
 
 
 # ============= Product Serializers =============

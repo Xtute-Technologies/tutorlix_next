@@ -44,7 +44,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     permission_classes = [ IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'heading', 'description']
+    search_fields = ['name', 'heading', 'description', 'profileTypes']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
     
