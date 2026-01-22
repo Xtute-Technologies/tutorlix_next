@@ -6,13 +6,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import {INDIAN_STATES} from "@/config/states"
+// --- Imports for Autocomplete ---
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function CreateBookingForm({ onSuccess }) {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [creating, setCreating] = useState(false);
   
+  // State for Autocomplete Popover
+  const [openState, setOpenState] = useState(false);
+
   const [formData, setFormData] = useState({
     student_name: '',
     email: '',
@@ -146,9 +165,57 @@ export default function CreateBookingForm({ onSuccess }) {
                 <Label htmlFor="phone">Phone</Label>
                 <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91..." />
             </div>
-            <div className="space-y-1">
+            
+            {/* --- STATE AUTOCOMPLETE --- */}
+            <div className="space-y-1 flex flex-col">
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" value={formData.state} onChange={handleChange} placeholder="Maharashtra" />
+                <Popover open={openState} onOpenChange={setOpenState}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openState}
+                      className={cn(
+                        "w-full justify-between font-normal",
+                        !formData.state && "text-muted-foreground"
+                      )}
+                    >
+                      {formData.state
+                        ? INDIAN_STATES.find((state) => state === formData.state) || formData.state
+                        : "Select state..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search state..." />
+                      <CommandList>
+                        <CommandEmpty>No state found.</CommandEmpty>
+                        <CommandGroup>
+                          {INDIAN_STATES.map((state) => (
+                            <CommandItem
+                              key={state}
+                              value={state}
+                              onSelect={(currentValue) => {
+                                // Update formData.state
+                                setFormData(prev => ({ ...prev, state: currentValue === prev.state ? "" : currentValue }));
+                                setOpenState(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.state === state ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {state}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
             </div>
         </div>
 
@@ -202,13 +269,13 @@ export default function CreateBookingForm({ onSuccess }) {
                         </span>
                     </div>
                     {selectedProduct.discounted_price && (
-                         <div className="flex justify-between items-center mb-1">
+                          <div className="flex justify-between items-center mb-1">
                             <span className="text-gray-600">Discount:</span>
                             <span className="text-gray-900">Now ₹{selectedProduct.discounted_price}</span>
-                         </div>
+                          </div>
                     )}
                     {debouncedCoupon && (
-                         <div className="flex justify-between items-center mb-1">
+                          <div className="flex justify-between items-center mb-1">
                             <span className="text-gray-600">Coupon ({debouncedCoupon}):</span>
                             {calculatingPrice ? (
                                 <span className="text-gray-400 italic text-xs">Checking...</span>
@@ -217,7 +284,7 @@ export default function CreateBookingForm({ onSuccess }) {
                             ) : (
                                 <span className="text-red-500 text-xs">{priceInfo?.offer_message || "Invalid"}</span>
                             )}
-                         </div>
+                          </div>
                     )}
                     <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between items-center font-bold">
                         <span>Total:</span>

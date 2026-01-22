@@ -171,7 +171,7 @@ export default function HomePage() {
             {/* Right Form Card */}
             <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
               <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl overflow-hidden">
-                <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50">
+                <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
                     Start your journey
@@ -179,7 +179,7 @@ export default function HomePage() {
                   <p className="text-xs text-slate-500">Get a personalized learning roadmap</p>
                 </CardHeader>
                 
-                <CardContent className="space-y-5 p-5">
+                <CardContent className="space-y-5 p-5 pt-0">
                   {leadSuccess ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
                       <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
