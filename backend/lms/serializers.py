@@ -498,7 +498,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 # ============= Contact Form Serializers =============
-
 class ContactFormMessageSerializer(serializers.ModelSerializer):
     assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
     
@@ -510,7 +509,20 @@ class ContactFormMessageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-
+    def to_representation(self, instance):
+        """
+        Hide internal assignment details from non-admin users.
+        """
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        # If user is NOT admin, remove internal tracking fields
+        if request and hasattr(request.user, 'role') and request.user.role != 'admin':
+            fields_to_remove = ['assigned_to', 'assigned_to_name']
+            for field in fields_to_remove:
+                representation.pop(field, None)
+        
+        return representation
 
 
 class SellerExpenseSerializer(serializers.ModelSerializer):
