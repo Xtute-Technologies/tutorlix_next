@@ -29,7 +29,7 @@ export default function DataTableServer({
   columns,
   fetchData,
   dependencies = {}, 
-  defaultPageSize = 150,
+  defaultPageSize = 50,
 }) {
   // --- Table State ---
   const [data, setData] = useState([]);
@@ -119,7 +119,7 @@ export default function DataTableServer({
         </div>
         
         {/* Page Size Selector */}
-        {/* <div className="w-[120px]">
+        <div className="w-[120px]">
           <Select
             value={`${pagination.pageSize}`}
             onValueChange={(val) => {
@@ -137,7 +137,7 @@ export default function DataTableServer({
               ))}
             </SelectContent>
           </Select>
-        </div> */}
+        </div>
       </div>
 
       {/* Table Container */}
