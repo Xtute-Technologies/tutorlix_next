@@ -3,7 +3,8 @@ from django.utils.html import format_html
 from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass, Recording,
-    Attendance, TestScore, Expense, ContactFormMessage
+    Attendance, TestScore, Expense, ContactFormMessage,
+    SellerExpense, TeacherExpense
 )
 
 
@@ -215,10 +216,26 @@ class ContactFormMessageAdmin(admin.ModelAdmin):
             'fields': ('subject', 'message')
         }),
         ('Status', {
-            'fields': ('status', 'admin_notes')
+            'fields': ('status', 'assigned_to')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(SellerExpense)
+class SellerExpenseAdmin(admin.ModelAdmin):
+    list_display = ['seller', 'amount', 'date', 'created_by']
+    list_filter = ['date']
+    search_fields = ['seller__username', 'seller__email', 'description']
+    ordering = ['-date']
+
+
+@admin.register(TeacherExpense)
+class TeacherExpenseAdmin(admin.ModelAdmin):
+    list_display = ['teacher', 'amount', 'date', 'created_by']
+    list_filter = ['date']
+    search_fields = ['teacher__username', 'teacher__email', 'description']
+    ordering = ['-date']

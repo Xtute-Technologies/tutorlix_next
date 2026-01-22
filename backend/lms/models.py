@@ -555,3 +555,38 @@ class SellerExpense(models.Model):
         verbose_name = 'Seller Expense'
         verbose_name_plural = 'Seller Expenses'
         ordering = ['-date']
+
+
+class TeacherExpense(models.Model):
+    """
+    Expenses/Money given to Teachers
+    """
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='teacher_expenses_received',
+        limit_choices_to={'role': 'teacher'},
+        help_text="Select the teacher who received this money"
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    date = models.DateField(default=timezone.now)
+    description = models.TextField(blank=True, null=True, help_text="Reason for the expense")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='teacher_expenses_created',
+        help_text="Who created this record"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        # Using getattr to safely handle cases where teacher might not have get_full_name
+        teacher_name = getattr(self.teacher, 'get_full_name', lambda: self.teacher.username)()
+        return f"{teacher_name} - {self.amount}"
+    
+    class Meta:
+        verbose_name = 'Teacher Expense'
+        verbose_name_plural = 'Teacher Expenses'
+        ordering = ['-date']

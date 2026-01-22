@@ -3,10 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { sellerExpenseAPI } from '@/lib/lmsService'; // Import the new API
-import axiosInstance from '@/lib/axios'; // Direct axios for fetching users list
-
-import SharedExpenseList from '@/components/SharedExpenseList'; // Import the reusable component
+import { teacherExpenseAPI } from '@/lib/lmsService'; 
+import SharedExpenseList from '@/components/SharedExpenseList';
 import FormBuilder from '@/components/FormBuilder';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,19 +14,19 @@ import { z } from 'zod';
 import { authService } from '@/lib/authService';
 
 // Zod Schema
-const sellerExpenseSchema = z.object({
-  seller: z.string().min(1, 'Seller selection is required'),
+const teacherExpenseSchema = z.object({
+  teacher: z.string().min(1, 'Teacher selection is required'),
   amount: z.string().min(1, 'Amount is required'),
   date: z.string().min(1, 'Date is required'),
   description: z.string().optional(),
 });
 
-export default function SellerExpensesPage() {
+export default function TeacherExpensesPage() {
   const router = useRouter();
   const { user } = useAuth();
   
   const [expenses, setExpenses] = useState([]);
-  const [sellersList, setSellersList] = useState([]); // List for dropdown
+  const [teachersList, setTeachersList] = useState([]); // List for dropdown
   const [loading, setLoading] = useState(true);
   
   // Form State
@@ -41,22 +39,22 @@ export default function SellerExpensesPage() {
 
   useEffect(() => {
     if (!user) return;
-    // Allow Admins and Sellers
-    if (!['admin', 'seller'].includes(user.role)) {
+    // Allow Admins and Teachers
+    if (!['admin', 'teacher'].includes(user.role)) {
       router.push('/dashboard');
       return;
     }
     
     fetchData();
     if (isAdmin) {
-      fetchSellers();
+      fetchTeachers();
     }
   }, [user, router]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const data = await sellerExpenseAPI.getAll();
+      const data = await teacherExpenseAPI.getAll();
       setExpenses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Fetch error:', error);
@@ -66,21 +64,19 @@ export default function SellerExpensesPage() {
     }
   };
 
-  const fetchSellers = async () => {
+  const fetchTeachers = async () => {
     try {
-      // Assuming you have an endpoint to get users by role
-      // Adjust endpoint based on your actual User ViewSet
-      const response = await authService.getAllUsers({ role: 'seller' });
-      const sellers = response.results || response.data;
+      const response = await authService.getAllUsers({ role: 'teacher' });
+      const teachers = response.results || response.data;
       
       // Format for Dropdown [{value: id, label: name}]
-      const formattedSellers = sellers.map(u => ({
+      const formattedTeachers = teachers.map(u => ({
         value: u.id.toString(),
         label: `${u.first_name} ${u.last_name} (${u.email})`
       }));
-      setSellersList(formattedSellers);
+      setTeachersList(formattedTeachers);
     } catch (error) {
-      console.error('Error fetching sellers:', error);
+      console.error('Error fetching teachers:', error);
     }
   };
 
@@ -94,15 +90,15 @@ export default function SellerExpensesPage() {
       const payload = {
         ...data,
         amount: parseFloat(data.amount),
-        seller: parseInt(data.seller), // Ensure ID is int
+        teacher: parseInt(data.teacher), // Ensure ID is int
       };
 
       if (editingExpense) {
-        await sellerExpenseAPI.update(editingExpense.id, payload);
+        await teacherExpenseAPI.update(editingExpense.id, payload);
         setMessage({ type: 'success', text: 'Record updated successfully!' });
       } else {
-        await sellerExpenseAPI.create(payload);
-        setMessage({ type: 'success', text: 'Seller expense recorded successfully!' });
+        await teacherExpenseAPI.create(payload);
+        setMessage({ type: 'success', text: 'Teacher expense recorded successfully!' });
       }
 
       setShowForm(false);
@@ -123,7 +119,7 @@ export default function SellerExpensesPage() {
     setEditingExpense({
       ...expense,
       amount: expense.amount?.toString(),
-      seller: expense.seller?.toString(), // For dropdown mapping
+      teacher: expense.teacher?.toString(), // For dropdown mapping
       date: expense.date || new Date().toISOString().split('T')[0],
     });
     setShowForm(true);
@@ -132,7 +128,7 @@ export default function SellerExpensesPage() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this record?')) return;
     try {
-      await sellerExpenseAPI.delete(id);
+      await teacherExpenseAPI.delete(id);
       setMessage({ type: 'success', text: 'Record deleted successfully' });
       fetchData();
     } catch (error) {
@@ -142,18 +138,19 @@ export default function SellerExpensesPage() {
 
   const formFields = useMemo(() => [
     {
-      name: 'seller',
-      label: 'Select Seller',
+      name: 'teacher',
+      label: 'Select Teacher',
       type: 'select',
-      options: sellersList,
-      placeholder: 'Choose a seller...',
+      options: teachersList,
+      placeholder: 'Choose a teacher...',
       required: true,
+      description: 'Select the teacher who receives this payment.',
     },
     {
       name: 'amount',
-      label: 'Amount Given',
+      label: 'Amount (₹)',
       type: 'number',
-      placeholder: 'e.g., 5000',
+      placeholder: '0.00',
       required: true,
     },
     {
@@ -161,97 +158,83 @@ export default function SellerExpensesPage() {
       label: 'Date',
       type: 'date',
       required: true,
+      defaultValue: new Date().toISOString().split('T')[0],
     },
     {
       name: 'description',
-      label: 'Description / Reason',
+      label: 'Description / Remarks',
       type: 'textarea',
-      placeholder: 'e.g., Monthly commission advance',
+      placeholder: 'E.g., Salary for Jan 2026',
     },
-  ], [sellersList]);
+  ], [teachersList]);
 
-  const totalAmount = useMemo(() => {
-    return expenses.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-  }, [expenses]);
+  // Calculate Total (Client-side for now, can perform server-side if paginated)
+  const totalAmount = expenses.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Seller Disbursements</h1>
-          <p className="text-gray-600 mt-1">
-            {isAdmin 
-              ? 'Track money given to sellers' 
-              : 'View your received payments/expenses'}
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Teacher Expenses</h1>
+          <p className="text-gray-600 mt-1">Manage salaries and payments to teachers.</p>
         </div>
-        
-        {/* Only Admin can add new expenses */}
-        {isAdmin && (
-          <Button onClick={() => {
-            setEditingExpense(null);
-            setShowForm(true);
-          }}>
+        {(isAdmin) && (
+          <Button onClick={() => { setEditingExpense(null); setShowForm(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Record Payment
           </Button>
         )}
       </div>
 
-      {message.text && (
-        <Card className={`p-4 ${message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
-          {message.text}
+      {/* Summary Card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-500 text-sm font-medium uppercase">Total Paid Output</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-full">
+              <TrendingUp className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
         </Card>
+      </div>
+
+      {message.text && (
+        <div className={`p-4 rounded-lg flex items-center justify-between ${message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
+          <span>{message.text}</span>
+          <Button variant="ghost" size="sm" onClick={() => setMessage({ type: '', text: '' })}>Dismiss</Button>
+        </div>
       )}
 
-      {/* Summary Card */}
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-blue-700 font-medium mb-1">Total Disbursed</p>
-            <p className="text-3xl font-bold text-blue-900">
-              ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-3 rounded-full shadow-sm">
-            <TrendingUp className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-        <p className="text-sm text-blue-600 mt-2">
-          Across {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
-        </p>
-      </Card>
-
-      {/* Reusable List Component */}
-      <SharedExpenseList 
-        data={expenses} 
+      <SharedExpenseList
+        data={expenses}
         loading={loading}
         userRole={user?.role}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        entityType="seller"
+        entityType="teacher"
       />
 
-      {/* Dialog for Form (Admin Only) */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
-              {editingExpense ? 'Edit Payment Record' : 'Record New Payment'}
-            </DialogTitle>
+            <DialogTitle>{editingExpense ? 'Edit Payment Record' : 'Record New Payment'}</DialogTitle>
             <DialogDescription>
-              Details of money given to seller.
+              {editingExpense ? 'Update the details of this transaction.' : 'Enter details of the payment made to the teacher.'}
             </DialogDescription>
           </DialogHeader>
           
           <FormBuilder
+            schema={teacherExpenseSchema}
             fields={formFields}
-            defaultValues={editingExpense}
-            validationSchema={sellerExpenseSchema}
             onSubmit={handleSubmit}
-            onCancel={() => setShowForm(false)}
+            defaultValues={editingExpense || { date: new Date().toISOString().split('T')[0] }}
             submitLabel={editingExpense ? 'Update Record' : 'Save Record'}
-            isSubmitting={submitting}
+            submitting={submitting}
           />
         </DialogContent>
       </Dialog>

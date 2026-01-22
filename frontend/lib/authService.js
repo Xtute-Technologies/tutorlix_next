@@ -125,4 +125,9 @@ export const authService = {
     const response = await axiosInstance.delete(`/api/auth/users/${id}/`);
     return response.data;
   },
+
+  getUserById: async (id) => {
+    const response = await axiosInstance.get(`/api/auth/users/${id}/`);
+    return response.data;
+  },
 };

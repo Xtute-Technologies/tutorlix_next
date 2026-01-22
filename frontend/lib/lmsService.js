@@ -350,6 +350,46 @@ export const sellerExpenseAPI = {
     return response.data;
   },
 };
+
+export const teacherExpenseAPI = {
+  // Get all teacher expenses (Admin sees all, Teacher sees theirs)
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/teacher-expenses/', { params });
+    // Handle pagination results if present, or raw array
+    return response.data.results ? response.data.results : response.data;
+  },
+
+  // Get single teacher expense
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/teacher-expenses/${id}/`);
+    return response.data;
+  },
+
+  // Create teacher expense (Admin only)
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/teacher-expenses/', data);
+    return response.data;
+  },
+
+  // Update teacher expense (Admin only)
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/teacher-expenses/${id}/`, data);
+    return response.data;
+  },
+
+  // Delete teacher expense (Admin only)
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/teacher-expenses/${id}/`);
+    return response.data;
+  },
+
+  // Get summary
+  getSummary: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/teacher-expenses/summary/', { params });
+    return response.data;
+  },
+};
+
 // ============= Contact Message APIs =============
 
 export const contactMessageAPI = {
@@ -627,6 +667,8 @@ const exportVariable = { category: categoryAPI,
   attendance: attendanceAPI,
   testScore: testScoreAPI,
   expense: expenseAPI,
-  contactMessage: contactMessageAPI,}
+  contactMessage: contactMessageAPI,
+  sellerExpense: sellerExpenseAPI,
+  teacherExpense: teacherExpenseAPI,}
 // Export all APIs
 export default exportVariable;

@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from accounts.serializers import SimpleUserSerializer
 from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage,SellerExpense
+    Expense, ContactFormMessage,SellerExpense, TeacherExpense
 )
 
 User = get_user_model()
@@ -515,7 +516,9 @@ class ContactFormMessageSerializer(serializers.ModelSerializer):
 class SellerExpenseSerializer(serializers.ModelSerializer):
     # Read-only fields to display names instead of just IDs
     seller_name = serializers.CharField(source='seller.get_full_name', read_only=True)
+    seller_details = SimpleUserSerializer(source='seller', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_details = SimpleUserSerializer(source='created_by', read_only=True)
 
     class Meta:
         model = SellerExpense
@@ -523,14 +526,44 @@ class SellerExpenseSerializer(serializers.ModelSerializer):
             'id', 
             'seller', 
             'seller_name', 
+            'seller_details',
             'amount', 
             'date', 
             'description', 
             'created_by', 
             'created_by_name', 
+            'created_by_details',
             'created_at', 
             'updated_at'
         ]
         # The 'seller' field is writable (for Admins to select the seller), 
+        # but 'created_by' is auto-filled by the view.
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+
+class TeacherExpenseSerializer(serializers.ModelSerializer):
+    # Read-only fields to display names instead of just IDs
+    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    teacher_details = SimpleUserSerializer(source='teacher', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_details = SimpleUserSerializer(source='created_by', read_only=True)
+
+    class Meta:
+        model = TeacherExpense
+        fields = [
+            'id', 
+            'teacher', 
+            'teacher_name', 
+            'teacher_details',
+            'amount', 
+            'date', 
+            'description', 
+            'created_by', 
+            'created_by_name', 
+            'created_by_details',
+            'created_at', 
+            'updated_at'
+        ]
+        # The 'teacher' field is writable (for Admins to select the teacher), 
         # but 'created_by' is auto-filled by the view.
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']

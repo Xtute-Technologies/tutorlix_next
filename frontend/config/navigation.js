@@ -75,6 +75,7 @@ export const getNavItems = (role) => {
         items: [
           { title: "Expenses", url: "/admin/expenses", icon: DollarSign },
           { title: "Seller Expenses", url: "/admin/seller-expenses", icon: DollarSign },
+          { title: "Teacher Expenses", url: "/admin/teacher-expenses", icon: DollarSign },
         ],
       },
       {
@@ -138,6 +139,15 @@ export const getNavItems = (role) => {
           { title: "Recordings", url: "/teacher/recordings", icon: Video },
           { title: "Attendance", url: "/teacher/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/teacher/test-scores", icon: GraduationCap },
+        ],
+      },
+      {
+        title: "Finance",
+        url: "#",
+        icon: DollarSign,
+        isActive: true,
+        items: [
+            { title: "My Finances", url: "/teacher/finances", icon: DollarSign }
         ],
       },
     ];

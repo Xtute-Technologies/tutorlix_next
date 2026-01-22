@@ -42,6 +42,20 @@ class UserDetailSerializer(serializers.ModelSerializer):
         return obj.get_full_name()
 
 
+class SimpleUserSerializer(serializers.ModelSerializer):
+    """
+    Simple user serializer for teacher/seller expense details
+    """
+    full_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'full_name', 'profile_image', 'email', 'phone', 'role']
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
+
 class CustomRegisterSerializer(BaseRegisterSerializer):
     """
     Custom registration serializer with additional fields
