@@ -29,7 +29,7 @@ export default function DataTableServer({
   columns,
   fetchData,
   dependencies = {}, 
-  defaultPageSize = 20,
+  defaultPageSize = 50,
 }) {
   // --- Table State ---
   const [data, setData] = useState([]);
