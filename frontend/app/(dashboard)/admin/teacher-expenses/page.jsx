@@ -188,7 +188,7 @@ export default function TeacherExpensesPage() {
 
       {/* Summary Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+         <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 text-sm font-medium uppercase">Total Paid Output</p>
@@ -202,6 +202,10 @@ export default function TeacherExpensesPage() {
           </div>
         </Card>
       </div>
+
+
+
+    
 
       {message.text && (
         <div className={`p-4 rounded-lg flex items-center justify-between ${message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>

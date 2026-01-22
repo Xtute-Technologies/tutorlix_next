@@ -540,6 +540,16 @@ class SellerExpenseSerializer(serializers.ModelSerializer):
         # but 'created_by' is auto-filled by the view.
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        # If user is not admin, remove admin-only details
+        if request and hasattr(request.user, 'role') and request.user.role != 'admin':
+            fields_to_remove = ['seller_details', 'seller_name', 'created_by', 'created_by_name', 'created_by_details']
+            for field in fields_to_remove:
+                representation.pop(field, None)
+        return representation
+
 
 class TeacherExpenseSerializer(serializers.ModelSerializer):
     # Read-only fields to display names instead of just IDs
@@ -567,3 +577,13 @@ class TeacherExpenseSerializer(serializers.ModelSerializer):
         # The 'teacher' field is writable (for Admins to select the teacher), 
         # but 'created_by' is auto-filled by the view.
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        # If user is not admin, remove admin-only details
+        if request and hasattr(request.user, 'role') and request.user.role != 'admin':
+            fields_to_remove = ['teacher_details', 'teacher_name', 'created_by', 'created_by_name', 'created_by_details']
+            for field in fields_to_remove:
+                representation.pop(field, None)
+        return representation

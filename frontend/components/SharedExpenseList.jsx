@@ -40,6 +40,19 @@ export default function SharedExpenseList({
         ),
       },
       {
+        accessorKey: 'description',
+        header: 'Description',
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-600">
+             {row.original.description || '-'}
+          </span>
+        ),
+      },
+    ];
+
+    if (isAdmin) {
+       // Add Entity (Teacher/Seller) Name Column
+       cols.splice(2, 0, {
         accessorKey: nameKey,
         header: entityLabel,
         cell: ({ row }) => {
@@ -70,19 +83,9 @@ export default function SharedExpenseList({
             </UserHoverCard>
           );
         },
-      },
-      {
-        accessorKey: 'description',
-        header: 'Description',
-        cell: ({ row }) => (
-          <span className="text-sm text-gray-600">
-             {row.original.description || '-'}
-          </span>
-        ),
-      },
-    ];
+      });
 
-    if (isAdmin) {
+      // Add Logged By Column
       cols.push({
         accessorKey: 'created_by_name',
         header: 'Logged By',
@@ -136,8 +139,8 @@ export default function SharedExpenseList({
       columns={columns}
       data={data}
       loading={loading}
-      searchKey={nameKey}
-      searchPlaceholder={`Search by ${entityLabel}...`}
+      searchKey={isAdmin ? nameKey : 'description'}
+      searchPlaceholder={isAdmin ? `Search by ${entityLabel}...` : 'Search description...'}
     />
   );
 }
