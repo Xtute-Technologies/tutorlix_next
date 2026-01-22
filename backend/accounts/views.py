@@ -61,7 +61,7 @@ class UserListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated] # Changed from [IsAuthenticated, IsAdminUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['username', 'email', 'first_name', 'last_name']
-    ordering_fields = ['created_at', 'role']
+    ordering_fields = ['created_at', 'role','first_name','status']
     ordering = ['-created_at']
 
     def create(self, request, *args, **kwargs):
