@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import axios from 'axios';
+import { contactMessageAPI } from '@/lib/lmsService'; // Import the API service
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,12 +30,13 @@ export default function ContactPage() {
       setSubmitting(true);
       setStatus(null);
       
-      // Update with your actual backend URL
-      await axios.post('http://localhost:8000/api/lms/contact-messages/', formData);
+      // FIX: Use the API service instead of direct axios
+      await contactMessageAPI.create(formData);
 
       setStatus({ type: 'success', text: 'Message sent! We\'ll be in touch soon.' });
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
+      console.error("Contact submission error:", error);
       setStatus({ 
         type: 'error', 
         text: error.response?.data?.detail || 'Something went wrong. Please try again.' 
