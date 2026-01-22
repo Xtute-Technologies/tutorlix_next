@@ -1,39 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { categoryAPI, productAPI } from '@/lib/lmsService';
+import { categoryAPI, productAPI, productLeadAPI } from '@/lib/lmsService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { cn } from "@/lib/utils"; // Ensure you have this utility
 import {
   CheckCircle2, ArrowRight, Loader2, BookOpen,
-  Star, ArrowUpRight, Quote, BrainCircuit, Target, Check, MapPin, Sparkles,
-  ChevronsUpDown // Added for the select icon
+  Star, ArrowUpRight, Quote, BrainCircuit, Target, Check, Sparkles
 } from 'lucide-react';
-
-// --- New Imports for Autocomplete Select (Combobox) ---
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
 import { useProfile } from "@/context/ProfileContext";
-import { productLeadAPI } from "@/lib/lmsService";
-import {INDIAN_STATES } from "@/config/states"
+import { z } from 'zod';
+import FormBuilder from '@/components/FormBuilder'; // Import FormBuilder
+
 import {
   profileContent,
   benefitsData,
@@ -47,6 +29,15 @@ const INTEREST_OPTIONS = [
   { id: 'dsa', label: 'Backend & System' }
 ];
 
+// --- Zod Validation Schema ---
+const leadSchema = z.object({
+  name: z.string().min(1, "Full Name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^\d+$/, "Phone number must contain only digits"),
+  state: z.string().min(1, "State is required"),
+});
 
 export default function HomePage() {
   const [categories, setCategories] = useState([]);
@@ -54,14 +45,11 @@ export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
   
-  // Form State
-  const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '', interest: '', state: '' });
+  // Lead State
+  const [selectedInterest, setSelectedInterest] = useState(''); // Managed outside FormBuilder for Chip UI
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
   
-  // State for the Combobox (Popover open status)
-  const [openStateCombobox, setOpenStateCombobox] = useState(false);
-
   const { profileType } = useProfile();
 
   useEffect(() => {
@@ -88,35 +76,52 @@ export default function HomePage() {
     ? featuredProducts
     : featuredProducts.filter(p => p.category_id === activeCategory);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[80vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const activeProfile = profileContent[profileType] || profileContent.college;
   const activeBenefits = benefitsData[profileType] || benefitsData.college;
 
-  const handleLeadSubmit = async () => {
-    if (!leadForm.name || !leadForm.phone || !leadForm.email || !leadForm.interest || !leadForm.state) {
-      alert("Please fill in all fields, including your Interest and State.");
+  // --- Form Configuration ---
+  const leadFields = useMemo(() => [
+    { name: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe', required: true },
+    { 
+      name: 'phone', 
+      label: 'Phone Number', 
+      type: 'phone', // Uses our new +91 mask
+      placeholder: '98765 43210', 
+      required: true,
+    },
+    { name: 'email', label: 'Email', type: 'email', placeholder: 'john@example.com', required: true },
+    { 
+      name: 'state', 
+      label: 'State', 
+      type: 'state_names', // Uses our new Autocomplete
+      placeholder: 'Select your state', 
+      required: true 
+    },
+  ], []);
+
+  const handleLeadSubmit = async (formData) => {
+    // 1. Validate Interest (Since it's outside FormBuilder)
+    if (!selectedInterest) {
+      alert("Please select an area of interest.");
       return;
     }
 
     try {
       setSubmittingLead(true);
+      
+      // 2. Submit API
       await productLeadAPI.create({
-        name: leadForm.name,
-        email: leadForm.email,
-        phone: leadForm.phone,
-        state: leadForm.state,
+        name: formData.name,
+        email: formData.email,
+        phone: `+91${formData.phone}`, // Append prefix for backend
+        state: formData.state,
         source: 'Home Page',
-        remarks: `Profile: ${activeProfile.formRole} | Interest: ${leadForm.interest}`
+        remarks: `Profile: ${activeProfile.formRole} | Interest: ${selectedInterest}`
       });
+
       setLeadSuccess(true);
-      setLeadForm({ name: '', phone: '', email: '', interest: '', state: '' });
+      // Reset is handled by FormBuilder internally mostly, but we can reset outer state
+      setSelectedInterest('');
     } catch (error) {
       console.error("Lead submission error", error);
       alert("Something went wrong. Please try again.");
@@ -124,6 +129,14 @@ export default function HomePage() {
       setSubmittingLead(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans overflow-hidden">
@@ -171,15 +184,15 @@ export default function HomePage() {
             {/* Right Form Card */}
             <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
               <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl overflow-hidden">
-                <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                <CardHeader className="border-slate-100 bg-slate-50/50 mb-0">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    Start your journey
+                    Start your journey 
                   </CardTitle>
                   <p className="text-xs text-slate-500">Get a personalized learning roadmap</p>
                 </CardHeader>
                 
-                <CardContent className="space-y-5 p-5 pt-0">
+                <CardContent className="space-y-5 p-5 pt-0 mt-0">
                   {leadSuccess ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
                       <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
@@ -195,16 +208,17 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <>
-                      {/* 1. Interest Selection */}
-                      <div className="space-y-2">
+                      {/* 1. Interest Selection (Custom UI outside FormBuilder) */}
+                      <div className="space-y-2 mb-2">
                         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am interested in</label>
                         <div className="flex flex-wrap gap-2">
                           {INTEREST_OPTIONS.map((opt) => (
                             <button
+                              type="button"
                               key={opt.id}
-                              onClick={() => setLeadForm({ ...leadForm, interest: opt.label })}
+                              onClick={() => setSelectedInterest(opt.label)}
                               className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 ${
-                                leadForm.interest === opt.label 
+                                selectedInterest === opt.label 
                                   ? "bg-slate-900 text-white border-slate-900 shadow-md" 
                                   : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
                               }`}
@@ -215,94 +229,16 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* 2. State Selection (Searchable Combobox) */}
-                      <div className="space-y-2">
-                         <div className="flex items-center gap-1.5">
-                            <MapPin className="h-3 w-3 text-slate-400" />
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am from</label>
-                         </div>
-                         
-                         <Popover open={openStateCombobox} onOpenChange={setOpenStateCombobox}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openStateCombobox}
-                                className={cn(
-                                  "w-full justify-between h-10 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900",
-                                  !leadForm.state && "text-slate-400 font-normal"
-                                )}
-                              >
-                                {leadForm.state
-                                  ? INDIAN_STATES.find((state) => state === leadForm.state)
-                                  : "Select state..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="start">
-                              <Command>
-                                <CommandInput placeholder="Search state..." />
-                                <CommandList>
-                                  <CommandEmpty>No state found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {INDIAN_STATES.map((state) => (
-                                      <CommandItem
-                                        key={state}
-                                        value={state}
-                                        onSelect={(currentValue) => {
-                                          setLeadForm({ ...leadForm, state: currentValue === leadForm.state ? "" : currentValue });
-                                          setOpenStateCombobox(false);
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            leadForm.state === state ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {state}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                      </div>
-
-                      {/* 3. Inputs */}
-                      <div className="space-y-3 pt-1">
-                        <Input 
-                            placeholder="Full Name" 
-                            className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
-                            value={leadForm.name}
-                            onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                            <Input 
-                                placeholder="Phone (+91)" 
-                                className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
-                                value={leadForm.phone}
-                                onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
-                            />
-                            <Input 
-                                placeholder="Email" 
-                                className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
-                                type="email"
-                                value={leadForm.email}
-                                onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
-                            />
-                        </div>
-                      </div>
-
-                      <Button 
-                        className="w-full font-bold h-11 mt-2 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]" 
-                        size="lg"
-                        onClick={handleLeadSubmit}
-                        disabled={submittingLead}
-                      >
-                        {submittingLead ? <Loader2 className="h-5 w-5 animate-spin"/> : activeProfile.cta}
-                      </Button>
+                      {/* 2. FormBuilder for Compulsory Fields */}
+                      <FormBuilder
+                        fields={leadFields}
+                        validationSchema={leadSchema}
+                        onSubmit={handleLeadSubmit}
+                        submitLabel={activeProfile.cta}
+                        isSubmitting={submittingLead}
+                        className="grid grid-cols-1 gap-y-2"
+                        submitButton={{ text: activeProfile.cta, loadingText: "Submitting..." }}
+                      />
                     </>
                   )}
                 </CardContent>
