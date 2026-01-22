@@ -90,7 +90,7 @@ export const authService = {
   },
 
   // Get all users (admin only) with optional role filter
-  getAllUsers: async ({ role = null, page = 1, page_size = 10, search = "", ordering = "" } = {}) => {
+  getAllUsers: async ({ role = null, page = 1, page_size = 1000, search = "", ordering = "" } = {}) => {
     const params = {
       page,
       page_size, // Add this so pagination size works
