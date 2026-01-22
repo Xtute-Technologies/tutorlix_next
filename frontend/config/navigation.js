@@ -83,8 +83,11 @@ export const getNavItems = (role) => {
         url: "#",
         icon: MessageSquare,
         isActive: true,
-        items: [{ title: "Contact Page", url: "/admin/messages", icon: MessageSquare }],
-        items: [{ title: "Product Leads", url: "/admin/product-leads", icon: MessageSquare }],
+        items: [
+          { title: "Contact Page", url: "/admin/messages", icon:MessageSquare  },
+          { title: "Product Leads", url: "/admin/product-leads", icon: MessageSquare }
+        ],
+
       },
       {
         title: "Seller Dashboard",
