@@ -590,3 +590,44 @@ class TeacherExpense(models.Model):
         verbose_name = 'Teacher Expense'
         verbose_name_plural = 'Teacher Expenses'
         ordering = ['-date']
+
+
+class ProductLead(models.Model):
+    """
+    Leads captured from the 'Enroll Now' button on course pages.
+    """
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('contacted', 'Contacted'),
+        ('in_progress', 'In Progress'),
+        ('converted', 'Converted'),
+        ('lost', 'Lost'),
+    ]
+
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    state = models.CharField(max_length=100)
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='leads')
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='leads_assigned'
+    )
+    remarks = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.product.name}"
+    
+    class Meta:
+        verbose_name = 'Product Lead'
+        verbose_name_plural = 'Product Leads'
+        ordering = ['-created_at']

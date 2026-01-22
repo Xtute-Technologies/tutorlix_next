@@ -5,7 +5,7 @@ from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage,SellerExpense, TeacherExpense
+    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead
 )
 
 User = get_user_model()
@@ -587,3 +587,35 @@ class TeacherExpenseSerializer(serializers.ModelSerializer):
             for field in fields_to_remove:
                 representation.pop(field, None)
         return representation
+
+
+class ProductLeadSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
+    assigned_to_details = SimpleUserSerializer(source='assigned_to', read_only=True)
+
+    class Meta:
+        model = ProductLead
+        fields = [
+            'id', 
+            'name', 
+            'email', 
+            'phone', 
+            'state', 
+            'product', 
+            'product_name', 
+            'status', 
+            'assigned_to', 
+            'assigned_to_name', 
+            'assigned_to_details', 
+            'remarks', 
+            'created_at', 
+            'updated_at'
+        ]
+        # Only product and contact details required on creation
+        read_only_fields = ['id', 'status', 'assigned_to', 'remarks', 'created_at', 'updated_at']
+        
+    def validate_phone(self, value):
+        # Basic phone validation if needed
+        return value
+

@@ -656,6 +656,34 @@ export const attendanceAPI = {
   },
 };
 
+// ============= Product Lead APIs =============
+
+export const productLeadAPI = {
+  // Submit new lead
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/product-leads/', data);
+    return response.data;
+  },
+  
+  // Get all leads (Admin)
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/product-leads/', { params });
+    return extractResults(response);
+  },
+  
+  // Update lead (status, assign)
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/product-leads/${id}/`, data);
+    return response.data;
+  },
+
+  // Assign lead
+  assign: async (id, assignedToId) => {
+    const response = await axiosInstance.patch(`/api/lms/product-leads/${id}/assign/`, { assigned_to: assignedToId });
+    return response.data;
+  }
+};
+
 const exportVariable = { category: categoryAPI,
   product: productAPI,
   offer: offerAPI,
@@ -669,6 +697,8 @@ const exportVariable = { category: categoryAPI,
   expense: expenseAPI,
   contactMessage: contactMessageAPI,
   sellerExpense: sellerExpenseAPI,
-  teacherExpense: teacherExpenseAPI,}
+  teacherExpense: teacherExpenseAPI,
+  productLead: productLeadAPI,
+}
 // Export all APIs
 export default exportVariable;

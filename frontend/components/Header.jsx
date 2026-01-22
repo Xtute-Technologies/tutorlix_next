@@ -223,9 +223,9 @@ export default function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/login">Sign In</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  {/* <DropdownMenuItem asChild>
                     <Link href="/register">Get Started</Link>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </>
               )}
             </DropdownMenuContent>

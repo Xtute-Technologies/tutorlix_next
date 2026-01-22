@@ -32,6 +32,10 @@ import {
   ChevronRight,
   Maximize2
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { productLeadAPI } from "@/lib/lmsService";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
 
@@ -79,6 +83,12 @@ export default function CourseDetailPage() {
     setSelectedImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   }, [product]);
 
+  // Enrollment Dialog State
+  const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
+  const [enrollForm, setEnrollForm] = useState({ name: '', email: '', phone: '', state: '' });
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollSuccess, setEnrollSuccess] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isLightboxOpen) return;
@@ -91,11 +101,32 @@ export default function CourseDetailPage() {
   }, [isLightboxOpen, handleNextImage, handlePrevImage]);
 
   const handleEnroll = () => {
-    if (!user) {
-      router.push(`/login?redirect=/courses/${params.id}`);
-      return;
+    if (user) {
+        setEnrollForm({
+            name: user.full_name || (user.first_name ? `${user.first_name} ${user.last_name}` : ''),
+            email: user.email || '',
+            phone: user.phone || '', 
+            state: user.state || '' // Mapping basic address or state if available
+        });
     }
-    alert('Enrollment functionality coming soon!');
+    setEnrollSuccess(false);
+    setIsEnrollDialogOpen(true);
+  };
+
+  const handleEnrollSubmit = async (e) => {
+    e.preventDefault();
+    try {
+        setEnrollSubmitting(true);
+        await productLeadAPI.create({
+            ...enrollForm,
+            product: product.id
+        });
+        setEnrollSuccess(true);
+    } catch (error) {
+        console.error("Enrollment error", error);
+    } finally {
+        setEnrollSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -428,6 +459,83 @@ export default function CourseDetailPage() {
            )}
         </div>
       )}
+
+      {/* --- ENROLLMENT DIALOG --- */}
+      <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{enrollSuccess ? "Thank You!" : "Enroll Now"}</DialogTitle>
+            <DialogDescription>
+              {enrollSuccess 
+                ? "Your interest has been recorded. Our team will contact you shortly." 
+                : "Please share your details to proceed with enrollment."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {enrollSuccess ? (
+             <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                   <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <Button onClick={() => setIsEnrollDialogOpen(false)} className="w-full">
+                   Close
+                </Button>
+             </div>
+          ) : (
+            <form onSubmit={handleEnrollSubmit} className="space-y-4 py-2">
+                <div className="space-y-2">
+                    <Label htmlFor="lead-name">Name</Label>
+                    <Input 
+                        id="lead-name" 
+                        required 
+                        value={enrollForm.name}
+                        onChange={(e) => setEnrollForm({...enrollForm, name: e.target.value})}
+                        placeholder="John Doe"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="lead-email">Email</Label>
+                    <Input 
+                        id="lead-email" 
+                        type="email" 
+                        required 
+                        value={enrollForm.email}
+                        onChange={(e) => setEnrollForm({...enrollForm, email: e.target.value})}
+                        placeholder="john@example.com"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="lead-phone">Phone Number</Label>
+                    <Input 
+                        id="lead-phone" 
+                        type="tel" 
+                        required 
+                        value={enrollForm.phone}
+                        onChange={(e) => setEnrollForm({...enrollForm, phone: e.target.value})}
+                        placeholder="+91 98765 43210"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="lead-state">State</Label>
+                    <Input 
+                        id="lead-state" 
+                        required 
+                        value={enrollForm.state}
+                        onChange={(e) => setEnrollForm({...enrollForm, state: e.target.value})}
+                        placeholder="State/Province"
+                    />
+                </div>
+                <DialogFooter className="pt-4">
+                    <Button type="button" variant="outline" onClick={() => setIsEnrollDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={enrollSubmitting}>
+                        {enrollSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Submit Request
+                    </Button>
+                </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
