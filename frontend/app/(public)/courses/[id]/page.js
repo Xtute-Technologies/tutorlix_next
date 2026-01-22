@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { productAPI } from '@/lib/lmsService';
+import { productAPI, productLeadAPI } from '@/lib/lmsService';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,12 +19,7 @@ import {
   BookOpen,
   Users,
   CheckCircle2,
-  Calendar,
-  Star,
-  Share2,
-  Heart,
   ShieldCheck,
-  Globe,
   PlayCircle,
   Loader2,
   X,
@@ -32,12 +27,23 @@ import {
   ChevronRight,
   Maximize2
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { productLeadAPI } from "@/lib/lmsService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import FormBuilder from '@/components/FormBuilder'; // Import FormBuilder
+import { z } from 'zod';
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
+
+// --- Validation Schema ---
+const enrollSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  // Enforces 10 digits exactly
+  phone: z.string()
+    .min(10, "Phone number must be 10 digits")
+    .max(10, "Phone number must be 10 digits")
+    .regex(/^[6-9]\d{9}$/, "Invalid mobile number"),
+  state: z.string().min(1, "State is required"),
+});
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -50,25 +56,26 @@ export default function CourseDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  // Enrollment Dialog State
+  const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollSuccess, setEnrollSuccess] = useState(false);
+  const [defaultEnrollValues, setDefaultEnrollValues] = useState({});
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
         const data = await productAPI.getById(params.id);
         setProduct(data);
-        
-        if (data?.name) {
-          document.title = `${data.name} | Tutorlix`;
-        }
+        if (data?.name) document.title = `${data.name} | Tutorlix`;
       } catch (error) {
         console.error('Error fetching product:', error);
       } finally {
         setLoading(false);
       }
     };
-    if (params.id) {
-      fetchProduct();
-    }
+    if (params.id) fetchProduct();
   }, [params.id]);
 
   const handleNextImage = useCallback((e) => {
@@ -83,12 +90,6 @@ export default function CourseDetailPage() {
     setSelectedImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
   }, [product]);
 
-  // Enrollment Dialog State
-  const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
-  const [enrollForm, setEnrollForm] = useState({ name: '', email: '', phone: '', state: '' });
-  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
-  const [enrollSuccess, setEnrollSuccess] = useState(false);
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isLightboxOpen) return;
@@ -101,34 +102,59 @@ export default function CourseDetailPage() {
   }, [isLightboxOpen, handleNextImage, handlePrevImage]);
 
   const handleEnroll = () => {
+    // Pre-fill form if user is logged in
     if (user) {
-        setEnrollForm({
+        setDefaultEnrollValues({
             name: user.full_name || (user.first_name ? `${user.first_name} ${user.last_name}` : ''),
             email: user.email || '',
             phone: user.phone || '', 
-            state: user.state || '' // Mapping basic address or state if available
+            state: user.state || '' 
         });
+    } else {
+        setDefaultEnrollValues({});
     }
     setEnrollSuccess(false);
     setIsEnrollDialogOpen(true);
   };
 
-  const handleEnrollSubmit = async (e) => {
-    e.preventDefault();
+  const handleEnrollSubmit = async (data) => {
     try {
-        setEnrollSubmitting(true);
-        await productLeadAPI.create({
-            ...enrollForm,
-            product: product.id,
-            source: 'Course Page'
-        });
-        setEnrollSuccess(true);
+      setEnrollSubmitting(true);
+      await productLeadAPI.create({
+          ...data,
+          // If backend expects +91, prepend it here. 
+          // If backend just wants 10 digits, send data.phone as is.
+          phone: `${data.phone}`, 
+          product: product.id,
+          source: 'Course Page'
+      });
+      setEnrollSuccess(true);
     } catch (error) {
-        console.error("Enrollment error", error);
+      console.error("Enrollment error", error);
     } finally {
-        setEnrollSubmitting(false);
+      setEnrollSubmitting(false);
     }
   };
+
+  // --- Form Fields Configuration ---
+  const enrollFields = useMemo(() => [
+    { name: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe', required: true },
+    { name: 'email', label: 'Email Address', type: 'email', placeholder: 'john@example.com', required: true },
+    { 
+        name: 'phone', 
+        label: 'Mobile Number', 
+        type: 'phone', // Uses the custom +91 input we added to FormBuilder
+        placeholder: '9876543210', 
+        required: true 
+    },
+    { 
+        name: 'state', 
+        label: 'State', 
+        type: 'state_names', // Uses the Autocomplete State logic in FormBuilder
+        placeholder: 'Select your state', 
+        required: true 
+    },
+  ], []);
 
   if (loading) {
     return (
@@ -184,12 +210,6 @@ export default function CourseDetailPage() {
                  <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-md px-3 font-medium">
                     {product.category_name || "Development"}
                  </Badge>
-                 {/* <div className="flex items-center gap-1 text-sm font-medium text-amber-500">
-                   <Star className="h-4 w-4 fill-current" />
-                   <span>4.8</span>
-                   <span className="text-slate-300 mx-1">•</span>
-                   <span className="text-slate-500 font-normal">120 reviews</span>
-                 </div> */}
               </div>
               
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
@@ -199,17 +219,6 @@ export default function CourseDetailPage() {
               <p className="text-lg text-slate-600 leading-relaxed max-w-2xl">
                 {product.description}
               </p>
-
-              {/* <div className="flex flex-wrap items-center gap-6 text-sm text-slate-500 pt-2">
-                 <div className="flex items-center gap-2">
-                   <Globe className="h-4 w-4" />
-                   <span>English</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <Calendar className="h-4 w-4" />
-                   <span>Last updated Jan 2026</span>
-                 </div>
-              </div> */}
             </div>
 
             {/* Main Image (Smart Fit) */}
@@ -268,17 +277,17 @@ export default function CourseDetailPage() {
 
                     {/* OVERVIEW */}
                     <TabsContent value="overview" className="animate-in fade-in-50 duration-500">
-                         {product.overview ? (
+                          {product.overview ? (
                             <article 
                               className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-a:text-blue-600 hover:prose-a:text-blue-500 prose-img:rounded-xl"
                               dangerouslySetInnerHTML={{ __html: product.overview }} 
                             />
-                         ) : (
+                          ) : (
                             <div className="space-y-4 text-slate-600 leading-relaxed">
                                 <p>{product.description}</p>
                                 <p className="italic text-slate-400">No detailed overview provided for this course.</p>
                             </div>
-                         )}
+                          )}
                     </TabsContent>
 
                     {/* CURRICULUM */}
@@ -301,7 +310,6 @@ export default function CourseDetailPage() {
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-slate-900">{module.title}</div>
-                                                        {/* Hide count if 0 */}
                                                         {module.lessons?.length > 0 && (
                                                           <div className="text-xs text-slate-500 font-normal mt-0.5">
                                                               {module.lessons.length} Lessons
@@ -314,7 +322,6 @@ export default function CourseDetailPage() {
                                                 <div className="space-y-3 border-l-2 border-slate-100 pl-4 mt-2">
                                                     {module.lessons?.map((lesson, lIdx) => (
                                                         <div key={lIdx} className="flex items-center gap-3 text-sm text-slate-600">
-                                                            {/* Icons removed as requested */}
                                                             <span>{lesson.title}</span>
                                                         </div>
                                                     ))}
@@ -344,11 +351,11 @@ export default function CourseDetailPage() {
                                             )}
                                          </div>
                                          <div>
-                                            <h4 className="text-lg font-bold text-slate-900">{inst.full_name || inst.username}</h4>
-                                            <p className="text-sm text-slate-500 mb-2">{inst.email}</p>
-                                            <p className="text-sm text-slate-600 leading-relaxed">
-                                                {inst.bio || "Passionate educator with years of industry experience. Dedicated to helping students achieve their goals through practical learning."}
-                                            </p>
+                                             <h4 className="text-lg font-bold text-slate-900">{inst.full_name || inst.username}</h4>
+                                             <p className="text-sm text-slate-500 mb-2">{inst.email}</p>
+                                             <p className="text-sm text-slate-600 leading-relaxed">
+                                                 {inst.bio || "Passionate educator with years of industry experience. Dedicated to helping students achieve their goals through practical learning."}
+                                             </p>
                                          </div>
                                     </div>
                                 ))
@@ -391,10 +398,6 @@ export default function CourseDetailPage() {
                    <Button onClick={handleEnroll} size="lg" className="w-full text-base font-bold bg-slate-900 hover:bg-slate-800 h-12 rounded-xl mb-3">
                       Enroll Now
                    </Button>
-{/*                    
-                   <p className="text-xs text-center text-slate-400 mb-6">
-                      30-Day Money-Back Guarantee
-                   </p> */}
 
                    {/* Features */}
                    <div className="space-y-4 pt-6 border-t border-slate-100">
@@ -417,16 +420,6 @@ export default function CourseDetailPage() {
                       )}
                    </div>
                 </div>
-
-                {/* <div className="flex gap-4">
-                   <Button variant="outline" className="flex-1 rounded-xl border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-11">
-                      <Heart className="h-4 w-4 mr-2" /> Wishlist
-                   </Button>
-                   <Button variant="outline" className="flex-1 rounded-xl border-slate-200 hover:bg-slate-50 hover:text-slate-900 h-11">
-                      <Share2 className="h-4 w-4 mr-2" /> Share
-                   </Button>
-                </div> */}
-
              </div>
           </div>
 
@@ -461,7 +454,7 @@ export default function CourseDetailPage() {
         </div>
       )}
 
-      {/* --- ENROLLMENT DIALOG --- */}
+      {/* --- ENROLLMENT DIALOG (Using FormBuilder) --- */}
       <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -483,57 +476,17 @@ export default function CourseDetailPage() {
                 </Button>
              </div>
           ) : (
-            <form onSubmit={handleEnrollSubmit} className="space-y-4 py-2">
-                <div className="space-y-2">
-                    <Label htmlFor="lead-name">Name</Label>
-                    <Input 
-                        id="lead-name" 
-                        required 
-                        value={enrollForm.name}
-                        onChange={(e) => setEnrollForm({...enrollForm, name: e.target.value})}
-                        placeholder="John Doe"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="lead-email">Email</Label>
-                    <Input 
-                        id="lead-email" 
-                        type="email" 
-                        required 
-                        value={enrollForm.email}
-                        onChange={(e) => setEnrollForm({...enrollForm, email: e.target.value})}
-                        placeholder="john@example.com"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="lead-phone">Phone Number</Label>
-                    <Input 
-                        id="lead-phone" 
-                        type="tel" 
-                        required 
-                        value={enrollForm.phone}
-                        onChange={(e) => setEnrollForm({...enrollForm, phone: e.target.value})}
-                        placeholder="+91 98765 43210"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="lead-state">State</Label>
-                    <Input 
-                        id="lead-state" 
-                        required 
-                        value={enrollForm.state}
-                        onChange={(e) => setEnrollForm({...enrollForm, state: e.target.value})}
-                        placeholder="State/Province"
-                    />
-                </div>
-                <DialogFooter className="pt-4">
-                    <Button type="button" variant="outline" onClick={() => setIsEnrollDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={enrollSubmitting}>
-                        {enrollSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Submit Request
-                    </Button>
-                </DialogFooter>
-            </form>
+            <div className="py-2">
+                <FormBuilder
+                    fields={enrollFields}
+                    validationSchema={enrollSchema}
+                    onSubmit={handleEnrollSubmit}
+                    submitLabel="Submit Request"
+                    isSubmitting={enrollSubmitting}
+                    defaultValues={defaultEnrollValues}
+                    className="grid grid-cols-1 gap-y-2"
+                />
+            </div>
           )}
         </DialogContent>
       </Dialog>

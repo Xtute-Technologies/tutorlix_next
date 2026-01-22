@@ -49,8 +49,8 @@ export default function SellerRegisterPage() {
       password2: '',
       first_name: '',
       last_name: '',
-      phone: '',
-      state: '',
+      // phone: '',
+      // state: '',
       // We set this here, but also enforce it in handleRegister
       role: 'seller', 
     },
@@ -62,37 +62,44 @@ export default function SellerRegisterPage() {
         type: 'text',
         placeholder: 'Choose a unique username',
         description: 'This will be your shop identifier',
+         required: true 
       },
       {
         name: 'email',
         label: 'Email Address',
         type: 'email',
         placeholder: 'business@example.com',
+         required: true 
       },
       {
         name: 'first_name',
         label: 'First Name',
         type: 'text',
         placeholder: 'John',
+         required: true 
       },
       {
         name: 'last_name',
         label: 'Last Name',
         type: 'text',
         placeholder: 'Doe',
+         required: true 
       },
       {
         name: 'phone',
         label: 'Phone Number',
-        type: 'tel',
-        placeholder: '+919876543210',
+        type: 'phone',
+        placeholder: '9876543210',
         description: 'For important business updates',
+         required: true 
       },
+
       {
         name: 'state',
         label: 'State',
         type: 'state_names',
         placeholder: 'State',
+         required: true 
       },
       // ROLE FIELD REMOVED - Fixed to 'seller' in logic
       {
@@ -100,12 +107,14 @@ export default function SellerRegisterPage() {
         label: 'Password',
         type: 'password',
         placeholder: 'Create a strong password',
+         required: true 
       },
       {
         name: 'password2',
         label: 'Confirm Password',
         type: 'password',
         placeholder: 'Re-enter your password',
+         required: true 
       },
     ],
     submitButton: {
