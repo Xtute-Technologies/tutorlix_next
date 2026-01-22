@@ -7,18 +7,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from "@/lib/utils"; // Ensure you have this utility
 import {
-  CheckCircle2, ArrowRight, Loader2, BookOpen, Rocket,
-  Code2, Users, Star, ArrowUpRight, Quote, BrainCircuit, Target, Check
+  CheckCircle2, ArrowRight, Loader2, BookOpen,
+  Star, ArrowUpRight, Quote, BrainCircuit, Target, Check, MapPin, Sparkles,
+  ChevronsUpDown // Added for the select icon
 } from 'lucide-react';
+
+// --- New Imports for Autocomplete Select (Combobox) ---
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
 import { useProfile } from "@/context/ProfileContext";
 import { productLeadAPI } from "@/lib/lmsService";
-
+import {INDIAN_STATES } from "@/config/states"
 import {
   profileContent,
   benefitsData,
@@ -26,16 +41,27 @@ import {
   FALLBACK_IMAGE,
 } from "@/app/data/homeContent";
 
-const companiesList = ["Google", "Microsoft", "Amazon", "Netflix", "Meta", "Uber", "Salesforce", "Adobe"];
+const INTEREST_OPTIONS = [
+  { id: 'web', label: 'Full Stack Dev' },
+  { id: 'data', label: 'Data Science & AI' },
+  { id: 'dsa', label: 'Backend & System' }
+];
+
 
 export default function HomePage() {
   const [categories, setCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '', interest: '' });
+  
+  // Form State
+  const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '', interest: '', state: '' });
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
+  
+  // State for the Combobox (Popover open status)
+  const [openStateCombobox, setOpenStateCombobox] = useState(false);
+
   const { profileType } = useProfile();
 
   useEffect(() => {
@@ -70,15 +96,12 @@ export default function HomePage() {
     );
   }
 
-  const activeProfile =
-    profileContent[profileType] || profileContent.college;
-
-  const activeBenefits =
-    benefitsData[profileType] || benefitsData.college;
+  const activeProfile = profileContent[profileType] || profileContent.college;
+  const activeBenefits = benefitsData[profileType] || benefitsData.college;
 
   const handleLeadSubmit = async () => {
-    if (!leadForm.name || !leadForm.phone || !leadForm.email) {
-      alert("Please fill in all fields");
+    if (!leadForm.name || !leadForm.phone || !leadForm.email || !leadForm.interest || !leadForm.state) {
+      alert("Please fill in all fields, including your Interest and State.");
       return;
     }
 
@@ -88,12 +111,12 @@ export default function HomePage() {
         name: leadForm.name,
         email: leadForm.email,
         phone: leadForm.phone,
-        state: 'Online Inquiry',
-        remarks: `Profile: ${activeProfile.formRole} | Interest: ${leadForm.interest || 'Not Selected'}`
+        state: leadForm.state,
+        source: 'Home Page',
+        remarks: `Profile: ${activeProfile.formRole} | Interest: ${leadForm.interest}`
       });
       setLeadSuccess(true);
-      setLeadForm({ name: '', phone: '', email: '', interest: '' });
-      setTimeout(() => setLeadSuccess(false), 5000);
+      setLeadForm({ name: '', phone: '', email: '', interest: '', state: '' });
     } catch (error) {
       console.error("Lead submission error", error);
       alert("Something went wrong. Please try again.");
@@ -101,7 +124,6 @@ export default function HomePage() {
       setSubmittingLead(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-white font-sans overflow-hidden">
@@ -128,6 +150,7 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
+            {/* Left Content */}
             <div className="space-y-8">
               <div className="space-y-4">
                 <p className="text-green-400 font-medium tracking-wide uppercase text-sm">
@@ -145,20 +168,25 @@ export default function HomePage() {
               </div>
             </div>
 
-              <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
-              <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xl font-bold">Start your journey today</CardTitle>
-                  <p className="text-sm text-slate-500">Select your goal to get personalized guidance</p>
+            {/* Right Form Card */}
+            <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
+              <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl overflow-hidden">
+                <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Start your journey
+                  </CardTitle>
+                  <p className="text-xs text-slate-500">Get a personalized learning roadmap</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                
+                <CardContent className="space-y-5 p-5">
                   {leadSuccess ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
                       <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
                         <Check className="h-8 w-8" />
                       </div>
                       <h3 className="text-xl font-bold text-slate-900">Request Received!</h3>
-                      <p className="text-slate-600">
+                      <p className="text-slate-600 text-sm">
                         Thanks for your interest. Our team will contact you shortly to guide you forward.
                       </p>
                       <Button variant="outline" onClick={() => setLeadSuccess(false)} className="mt-4">
@@ -167,49 +195,115 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <>
+                      {/* 1. Interest Selection */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am interested in</label>
+                        <div className="flex flex-wrap gap-2">
+                          {INTEREST_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.id}
+                              onClick={() => setLeadForm({ ...leadForm, interest: opt.label })}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 ${
+                                leadForm.interest === opt.label 
+                                  ? "bg-slate-900 text-white border-slate-900 shadow-md" 
+                                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Select value={leadForm.interest} onValueChange={(val) => setLeadForm({ ...leadForm, interest: val })}>
-                      <SelectTrigger className="h-11 rounded-lg">
-                        <SelectValue placeholder="Select interest area" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="web">Full Stack Development</SelectItem>
-                        <SelectItem value="data">Data Science & AI</SelectItem>
-                        <SelectItem value="dsa">Backend & System Design</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    <Input 
-                        placeholder="Full Name" 
-                        className="h-11 rounded-lg" 
-                        value={leadForm.name}
-                        onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
-                    />
-                    <Input 
-                        placeholder="Email Address" 
-                        className="h-11 rounded-lg" 
-                        type="email"
-                        value={leadForm.email}
-                        onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
-                    />
-                    <Input 
-                        placeholder="Phone Number (+91)" 
-                        className="h-11 rounded-lg" 
-                        value={leadForm.phone}
-                        onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
-                    />
-                  </div>
-                  <Button 
-                    className="w-full text-md font-bold h-12 mt-2 bg-primary hover:bg-primary/90 rounded-lg" 
-                    size="lg"
-                    onClick={handleLeadSubmit}
-                    disabled={submittingLead}
-                  >
-                    {submittingLead ? <Loader2 className="h-5 w-5 animate-spin"/> : activeProfile.cta}
-                  </Button>
-                  </>
+                      {/* 2. State Selection (Searchable Combobox) */}
+                      <div className="space-y-2">
+                         <div className="flex items-center gap-1.5">
+                            <MapPin className="h-3 w-3 text-slate-400" />
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am from</label>
+                         </div>
+                         
+                         <Popover open={openStateCombobox} onOpenChange={setOpenStateCombobox}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openStateCombobox}
+                                className={cn(
+                                  "w-full justify-between h-10 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900",
+                                  !leadForm.state && "text-slate-400 font-normal"
+                                )}
+                              >
+                                {leadForm.state
+                                  ? INDIAN_STATES.find((state) => state === leadForm.state)
+                                  : "Select state..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search state..." />
+                                <CommandList>
+                                  <CommandEmpty>No state found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {INDIAN_STATES.map((state) => (
+                                      <CommandItem
+                                        key={state}
+                                        value={state}
+                                        onSelect={(currentValue) => {
+                                          setLeadForm({ ...leadForm, state: currentValue === leadForm.state ? "" : currentValue });
+                                          setOpenStateCombobox(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            leadForm.state === state ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {state}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                      </div>
+
+                      {/* 3. Inputs */}
+                      <div className="space-y-3 pt-1">
+                        <Input 
+                            placeholder="Full Name" 
+                            className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
+                            value={leadForm.name}
+                            onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input 
+                                placeholder="Phone (+91)" 
+                                className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
+                                value={leadForm.phone}
+                                onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                            />
+                            <Input 
+                                placeholder="Email" 
+                                className="h-10 bg-slate-50 border-slate-200 focus-visible:ring-slate-900" 
+                                type="email"
+                                value={leadForm.email}
+                                onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                            />
+                        </div>
+                      </div>
+
+                      <Button 
+                        className="w-full font-bold h-11 mt-2 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]" 
+                        size="lg"
+                        onClick={handleLeadSubmit}
+                        disabled={submittingLead}
+                      >
+                        {submittingLead ? <Loader2 className="h-5 w-5 animate-spin"/> : activeProfile.cta}
+                      </Button>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -403,8 +497,7 @@ export default function HomePage() {
         </div>
       </section>
 
-
-      {/* --- ABOUT US SECTION (NEW) --- */}
+      {/* --- ABOUT US SECTION --- */}
       <section className="py-24 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -464,7 +557,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* --- TESTIMONIALS SECTION (NEW) --- */}
+      {/* --- TESTIMONIALS SECTION --- */}
       <section className="py-24 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -489,21 +582,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* --- MINIMAL SOCIAL PROOF --- */}
-      {/* <section className="py-16 bg-slate-50 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-10">
-            Trusted by teams at
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8 grayscale opacity-60 hover:opacity-100 transition-all duration-500">
-            {companiesList.map((company, index) => (
-              <span key={index} className="text-xl font-bold text-slate-900 select-none cursor-default">
-                {company}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section> */}
     </div>
   );
 }

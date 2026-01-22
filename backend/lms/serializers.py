@@ -602,18 +602,25 @@ class ProductLeadSerializer(serializers.ModelSerializer):
             'email', 
             'phone', 
             'state', 
+            'source',
             'product', 
             'product_name', 
             'status', 
             'assigned_to', 
-            'assigned_to_name', 
+            'assigned_to_name',
             'assigned_to_details', 
             'remarks', 
             'created_at', 
             'updated_at'
         ]
+
+class ProductLeadCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLead
+        fields = ['name', 'email', 'phone', 'state', 'product', 'source']
+        # status, assigned_to, remarks are excluded, so they will use model defaults
         # Only product and contact details required on creation
-        read_only_fields = ['id', 'status', 'assigned_to', 'remarks', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'assigned_to_name', 'product_name', 'assigned_to_details', 'created_at', 'updated_at']
         
     def validate_phone(self, value):
         # Basic phone validation if needed

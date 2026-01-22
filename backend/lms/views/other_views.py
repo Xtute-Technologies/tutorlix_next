@@ -13,7 +13,7 @@ from lms.models import (
     ContactFormMessage, ProductLead
 )
 from ..serializers import (
-    ContactFormMessageSerializer, ProductLeadSerializer
+    ContactFormMessageSerializer, ProductLeadSerializer, ProductLeadCreateSerializer
 )
 from ..permissions import (
     IsAdmin
@@ -106,11 +106,16 @@ class ProductLeadViewSet(viewsets.ModelViewSet):
     serializer_class = ProductLeadSerializer
     permission_classes = [IsAuthenticated] # Overridden in get_permissions
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'assigned_to', 'product']
+    filterset_fields = ['status', 'assigned_to', 'product', 'source']
     search_fields = ['name', 'email', 'phone', 'state', 'product__name']
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-created_at']
     
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ProductLeadCreateSerializer
+        return ProductLeadSerializer
+
     def get_permissions(self):
         if self.action == 'create':
             return [AllowAny()]

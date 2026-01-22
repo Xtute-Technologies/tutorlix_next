@@ -119,7 +119,8 @@ export default function CourseDetailPage() {
         setEnrollSubmitting(true);
         await productLeadAPI.create({
             ...enrollForm,
-            product: product.id
+            product: product.id,
+            source: 'Course Page'
         });
         setEnrollSuccess(true);
     } catch (error) {
