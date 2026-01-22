@@ -7,13 +7,43 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButto
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { getNavItems } from "@/config/navigation";
+import { usePathname } from "next/navigation";
 
 export function AppSidebar({ ...props }) {
   const { user } = useAuth();
 
+  const pathname = usePathname(); // 2. Get current path
+
   const navItems = React.useMemo(() => {
     return getNavItems(user?.role);
   }, [user]);
+
+  // 3. Effect to update Page Title based on current path
+  React.useEffect(() => {
+    // Helper function to recursively find the matching title
+    const findActiveTitle = (items) => {
+      for (const item of items) {
+        // Check if this item matches the current URL
+        if (item.url === pathname) return item.title;
+
+        // If this item has sub-items, search them
+        if (item.items && item.items.length > 0) {
+          const foundInSub = findActiveTitle(item.items);
+          if (foundInSub) return foundInSub;
+        }
+      }
+      return null;
+    };
+
+    const activeTitle = findActiveTitle(navItems);
+
+    // Update document title if a match is found
+    if (activeTitle) {
+      document.title = `${activeTitle} | Tutorlix`;
+    } else {
+      document.title = "Tutorlix"; // Default title
+    }
+  }, [pathname, navItems]);
 
   return (
     <Sidebar collapsible="icon" {...props}>

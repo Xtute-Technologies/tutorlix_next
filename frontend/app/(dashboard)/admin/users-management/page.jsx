@@ -31,7 +31,11 @@ const createUserSchema = z.object({
   last_name: z.string().min(1, "Required"),
   email: z.string().email(),
   username: z.string().min(3),
-  phone: z.string().min(10),
+  state: z.string().min(1, "State is required"),
+  phone: z.string()
+    .min(1, 'Phone number is required')
+    .length(10, 'Phone number must be exactly 10 digits')
+    .regex(/^\d+$/, 'Phone number must contain only numbers'),
   password: z.string().min(8),
   role: z.enum(["student", "teacher", "seller", "admin"]),
   is_active: z.boolean().optional(),
@@ -42,7 +46,11 @@ const editUserSchema = z.object({
   first_name: z.string().min(1, "Required"),
   last_name: z.string().min(1, "Required"),
   email: z.string().email(),
-  phone: z.string().min(10),
+  phone: z.string()
+    .min(1, 'Phone number is required')
+    .length(10, 'Phone number must be exactly 10 digits')
+    .regex(/^\d+$/, 'Phone number must contain only numbers'),
+  state: z.string().min(1, "State is required"),
   role: z.enum(["student", "teacher", "seller", "admin"]),
   is_active: z.boolean().optional(),
   profile_image: z.any().optional(),
@@ -152,13 +160,20 @@ export default function UsersPage() {
   };
 
   // --- 6. Configuration (Fields & Columns) ---
+// --- Form Config ---
   const userFields = useMemo(() => {
     const fields = [
       { name: "profile_image", label: "Profile Photo", type: "file", accept: "image/*", className: "col-span-1 md:col-span-2" },
       { name: "first_name", label: "First Name", type: "text", required: true },
       { name: "last_name", label: "Last Name", type: "text", required: true },
       { name: "email", label: "Email", type: "email", required: true },
-      { name: "phone", label: "Phone", type: "text", required: true },
+      
+      // Updated to use the new Phone Input with mask
+      { name: "phone", label: "Phone", type: "phone", required: true },
+      
+      // Added State with Autocomplete
+      { name: "state", label: "State", type: "state_names", required: true },
+      
       {
         name: "role",
         label: "Role",
@@ -173,6 +188,7 @@ export default function UsersPage() {
       },
       { name: "is_active", label: "Active", type: "checkbox" },
     ];
+
     if (!editingUser) {
       fields.splice(1, 0, { name: "username", label: "Username", type: "text", required: true });
       fields.push({ name: "password", label: "Password", type: "password", required: true });

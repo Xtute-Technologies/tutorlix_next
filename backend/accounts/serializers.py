@@ -22,10 +22,10 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-
 class UserDetailSerializer(serializers.ModelSerializer):
     """
-    Serializer for user details
+    Serializer for user details.
+    Used by: Admin (UserDetailView) and Self (UserProfileView)
     """
     full_name = serializers.SerializerMethodField()
     
@@ -34,14 +34,35 @@ class UserDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'state', 'role', 'student_status',
-            'profile_image', 'bio', 'created_at', 'updated_at','is_active'
+            'profile_image', 'bio', 'created_at', 'updated_at', 'is_active'
         ]
-        read_only_fields = ['id', 'username', 'created_at', 'updated_at','is_active']
+        # REMOVED 'is_active' from read_only_fields so it can be updated
+        read_only_fields = ['id', 'username', 'created_at', 'updated_at']
     
     def get_full_name(self, obj):
         return obj.get_full_name()
 
+    def validate_is_active(self, value):
+        """
+        Security Check 1: Only Admins can change is_active status
+        """
+        request = self.context.get('request')
+        if request and request.user.role != 'admin' and not request.user.is_staff:
+            raise serializers.ValidationError("You do not have permission to change the account status.")
+        return value
 
+    def update(self, instance, validated_data):
+        """
+        Security Check 2: Users cannot change their OWN active status (even admins)
+        """
+        request = self.context.get('request')
+        if 'is_active' in validated_data:
+            if request and request.user.id == instance.id:
+                raise serializers.ValidationError({"is_active": "You cannot activate/deactivate your own account."})
+        
+        return super().update(instance, validated_data)
+    
+    
 class SimpleUserSerializer(serializers.ModelSerializer):
     """
     Simple user serializer for teacher/seller expense details

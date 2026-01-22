@@ -113,11 +113,30 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    # Ensure only authenticated users can access. 
+    # Logic inside serializer handles field-level permissions (is_active).
+    # Logic inside get_queryset or check_object_permissions handles row-level access.
+    permission_classes = [IsAuthenticated,IsAdminUser] 
     lookup_field = 'pk'
-    
+
+    def get_queryset(self):
+        """
+        Restrict access:
+        1. Admins can see/edit everyone.
+        2. Teachers/Students can NOT see/edit arbitrary IDs via this endpoint 
+           (unless you want to allow Teachers to see specific Students).
+        """
+        user = self.request.user
+        if user.role == 'admin' or user.is_staff:
+            return User.objects.all()
+        
+        # If not admin, return empty or specific subset
+        # Currently restricting strictly to Admin for generic ID access
+        return User.objects.none()
+
     def perform_destroy(self, instance):
-        # Optional: Prevent deleting yourself
+        # Security Check: Prevent deleting yourself
         if instance.id == self.request.user.id:
+            from rest_framework.exceptions import ValidationError
             raise ValidationError("You cannot delete your own account.")
         instance.delete()
