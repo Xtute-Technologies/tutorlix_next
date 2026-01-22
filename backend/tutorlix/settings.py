@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "drf_yasg",
+    "django_filters",
     
     # Allauth apps
     "allauth",
@@ -228,15 +229,14 @@ AUTHENTICATION_BACKENDS = [
     'accounts.backends.EmailOrPhoneBackend',  # Custom backend for email/phone login
 ]
 
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 ACCOUNT_EMAIL_SUBJECT_PREFIX = '[Tutorlix] '
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 
 # Dj-Rest-Auth Configuration
 REST_AUTH = {
