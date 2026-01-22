@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useState } from "react"; // Needed for autocomplete state
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -25,12 +25,90 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { PasswordInput } from "./ui/password-input";
+import { cn } from "@/lib/utils";
+import {INDIAN_STATES} from "@/config/states"
+
+// --- New Imports for Autocomplete ---
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+// --- Static Data ---
+
+
+// --- Internal Helper: Autocomplete Component ---
+// We separate this to manage the 'open' state for each individual field
+const AutocompleteInput = ({ options = [], value, onChange, placeholder, disabled }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <FormControl>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between font-normal",
+              !value && "text-muted-foreground"
+            )}
+          >
+            {value
+              ? options.find((option) => option.value === value)?.label || value
+              : placeholder || "Select option..."}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </FormControl>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={`Search ${placeholder?.toLowerCase() || "..."}`} />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label} // Search by label
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 /**
  * Reusable Form Builder Component
- * 
+ *  * 
  * @example
  * // Usage 1: With config object
  * const formConfig = {
@@ -56,9 +134,8 @@ import { PasswordInput } from "./ui/password-input";
  *   onCancel={handleCancel}
  * />
  */
-export function FormBuilder({ 
+export function FormBuilder({
   config,
-  // Direct props (alternative to config)
   fields: directFields,
   validationSchema,
   onSubmit: directOnSubmit,
@@ -70,7 +147,6 @@ export function FormBuilder({
   error: directError,
   success: directSuccess,
 }) {
-  // Support both patterns: config object OR direct props
   const {
     schema,
     defaultValues = {},
@@ -85,9 +161,9 @@ export function FormBuilder({
     defaultValues: directDefaultValues || {},
     onSubmit: directOnSubmit,
     fields: directFields || [],
-    submitButton: { 
-      text: submitLabel || "Submit", 
-      loadingText: `${submitLabel || "Submitting"}...` 
+    submitButton: {
+      text: submitLabel || "Submit",
+      loadingText: `${submitLabel || "Submitting"}...`,
     },
     className: directClassName || "",
     error: directError,
@@ -96,10 +172,8 @@ export function FormBuilder({
 
   const form = useForm({
     resolver: schema ? zodResolver(schema) : undefined,
-    values: defaultValues, // Use 'values' for dynamic data instead of 'defaultValues'
+    values: defaultValues,
   });
-
-  // No longer need useEffect to reset form - 'values' prop handles it automatically
 
   const { isSubmitting: formIsSubmitting } = form.formState;
   const isSubmitting = externalIsSubmitting !== undefined ? externalIsSubmitting : formIsSubmitting;
@@ -119,15 +193,14 @@ export function FormBuilder({
       type = "text",
       placeholder = "",
       description = "",
-      options = [], // For select, radio, checkbox groups
-      rows = 4, // For textarea
+      options = [],
+      rows = 4,
       disabled = false,
       className: fieldClassName = "",
     } = field;
 
-    // Render the appropriate input component based on type
     const renderInput = (formField) => {
-      // Text Input, Email, Password, Number, etc.
+      // 1. Text Inputs
       if (["text", "email", "tel", "number", "url", "date", "datetime-local", "time"].includes(type)) {
         return (
           <Input
@@ -138,18 +211,19 @@ export function FormBuilder({
           />
         );
       }
-     if (type === "password") {
-      return (
-        <PasswordInput
-          // ❌ REMOVE THIS LINE: type={type} 
-          placeholder={placeholder}
-          disabled={disabled || isSubmitting}
-          {...formField}
-        />
-      );
-    }
 
-      // File Input
+      // 2. Password
+      if (type === "password") {
+        return (
+          <PasswordInput
+            placeholder={placeholder}
+            disabled={disabled || isSubmitting}
+            {...formField}
+          />
+        );
+      }
+
+      // 3. File
       if (type === "file") {
         return (
           <Input
@@ -165,7 +239,7 @@ export function FormBuilder({
         );
       }
 
-      // Textarea
+      // 4. Textarea
       if (type === "textarea") {
         return (
           <Textarea
@@ -177,16 +251,14 @@ export function FormBuilder({
         );
       }
 
-      // Select Dropdown
+      // 5. Select (Standard Native-like)
       if (type === "select") {
         const selectValue = formField.value ? formField.value.toString() : undefined;
         return (
           <Select
             onValueChange={(val) => {
               formField.onChange(val);
-              if (field.onChange) {
-                field.onChange(val, form);
-              }
+              if (field.onChange) field.onChange(val, form);
             }}
             value={selectValue}
             disabled={disabled || isSubmitting}
@@ -205,16 +277,50 @@ export function FormBuilder({
         );
       }
 
-      // Multi-Select
+      // 6. State Names (Special Autocomplete)
+      if (type === "state_names") {
+        // Format INDIAN_STATES into { label, value } options
+        const stateOptions = INDIAN_STATES.map((state) => ({
+          label: state,
+          value: state,
+        }));
+        
+        return (
+          <AutocompleteInput
+            options={stateOptions}
+            value={formField.value}
+            onChange={formField.onChange}
+            placeholder={placeholder || "Select state"}
+            disabled={disabled || isSubmitting}
+          />
+        );
+      }
+
+      // 7. Generic Autocomplete
+      if (type === "autocomplete") {
+        return (
+          <AutocompleteInput
+            options={options} // Expects [{label: 'X', value: 'y'}]
+            value={formField.value}
+            onChange={formField.onChange}
+            placeholder={placeholder}
+            disabled={disabled || isSubmitting}
+          />
+        );
+      }
+
+      // 8. Multi-Select (Native)
       if (type === "multiselect") {
         const selectedValues = formField.value || [];
         return (
           <div className="space-y-2">
             <select
               multiple
-              value={selectedValues.map(v => v.toString())}
+              value={selectedValues.map((v) => v.toString())}
               onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, option => Number(option.value) || option.value);
+                const selected = Array.from(e.target.selectedOptions, (option) =>
+                  Number(option.value) || option.value
+                );
                 formField.onChange(selected);
               }}
               disabled={disabled || isSubmitting}
@@ -233,7 +339,7 @@ export function FormBuilder({
         );
       }
 
-      // Radio Group
+      // 9. Radio Group
       if (type === "radio") {
         return (
           <RadioGroup
@@ -257,7 +363,7 @@ export function FormBuilder({
         );
       }
 
-      // Checkbox
+      // 10. Checkbox
       if (type === "checkbox") {
         return (
           <div className="flex items-center space-x-2">
@@ -284,9 +390,7 @@ export function FormBuilder({
         render={({ field: formField }) => (
           <FormItem className={fieldClassName}>
             <FormLabel>{label}</FormLabel>
-            <FormControl>
-              {renderInput(formField)}
-            </FormControl>
+            <FormControl>{renderInput(formField)}</FormControl>
             {description && <FormDescription>{description}</FormDescription>}
             <FormMessage />
           </FormItem>

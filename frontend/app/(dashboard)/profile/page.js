@@ -152,7 +152,7 @@ export default function ProfilePage() {
       {
         name: 'state',
         label: 'State/Province',
-        type: 'text',
+        type: 'state_names',
         placeholder: 'California',
       },
       {

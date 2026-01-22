@@ -90,9 +90,9 @@ export default function SellerRegisterPage() {
       },
       {
         name: 'state',
-        label: 'State/Province (Optional)',
-        type: 'text',
-        placeholder: 'California',
+        label: 'State',
+        type: 'state_names',
+        placeholder: 'State',
       },
       // ROLE FIELD REMOVED - Fixed to 'seller' in logic
       {
