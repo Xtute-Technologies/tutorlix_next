@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { productAPI, categoryAPI } from '@/lib/lmsService';
@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, BookOpen, SlidersHorizontal, X } from 'lucide-react';
+import { Search, BookOpen, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import { cn } from "@/lib/utils"; // Assuming you have a cn utility, if not use standard template literals
 
-export default function CoursesPage() {
+function CoursesContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -308,5 +308,17 @@ export default function CoursesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-900" />
+      </div>
+    }>
+      <CoursesContent />
+    </Suspense>
   );
 }
