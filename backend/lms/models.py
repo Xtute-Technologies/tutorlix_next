@@ -607,9 +607,9 @@ class ProductLead(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
-    state = models.CharField(max_length=100)
+    state = models.CharField(max_length=100, blank=True, null=True)
     
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='leads')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='leads', null=True, blank=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
     assigned_to = models.ForeignKey(

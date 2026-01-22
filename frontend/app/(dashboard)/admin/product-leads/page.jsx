@@ -86,6 +86,15 @@ export default function ProductLeadsPage() {
             header: 'Interest'
         },
         {
+            accessorKey: 'remarks',
+            header: 'Remarks',
+            cell: ({ row }) => (
+                 <p className="text-xs text-muted-foreground max-w-[200px] truncate" title={row.original.remarks}>
+                    {row.original.remarks || '-'}
+                 </p>
+            )
+        },
+        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }) => {

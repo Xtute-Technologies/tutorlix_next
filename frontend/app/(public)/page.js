@@ -12,11 +12,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CheckCircle2, ArrowRight, Loader2, BookOpen, Rocket,
-  Code2, Users, Star, ArrowUpRight, Quote, BrainCircuit, Target
+  Code2, Users, Star, ArrowUpRight, Quote, BrainCircuit, Target, Check
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
 import { useProfile } from "@/context/ProfileContext";
+import { productLeadAPI } from "@/lib/lmsService";
+
 import {
   profileContent,
   benefitsData,
@@ -31,6 +33,9 @@ export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [leadForm, setLeadForm] = useState({ name: '', phone: '', email: '', interest: '' });
+  const [submittingLead, setSubmittingLead] = useState(false);
+  const [leadSuccess, setLeadSuccess] = useState(false);
   const { profileType } = useProfile();
 
   useEffect(() => {
@@ -70,6 +75,32 @@ export default function HomePage() {
 
   const activeBenefits =
     benefitsData[profileType] || benefitsData.college;
+
+  const handleLeadSubmit = async () => {
+    if (!leadForm.name || !leadForm.phone || !leadForm.email) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    try {
+      setSubmittingLead(true);
+      await productLeadAPI.create({
+        name: leadForm.name,
+        email: leadForm.email,
+        phone: leadForm.phone,
+        state: 'Online Inquiry',
+        remarks: `Profile: ${activeProfile.formRole} | Interest: ${leadForm.interest || 'Not Selected'}`
+      });
+      setLeadSuccess(true);
+      setLeadForm({ name: '', phone: '', email: '', interest: '' });
+      setTimeout(() => setLeadSuccess(false), 5000);
+    } catch (error) {
+      console.error("Lead submission error", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setSubmittingLead(false);
+    }
+  };
 
 
   return (
@@ -114,59 +145,31 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
+              <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
               <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xl font-bold">Start your journey today</CardTitle>
                   <p className="text-sm text-slate-500">Select your goal to get personalized guidance</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <Label>Current Status</Label>
-                    <RadioGroup
-                      value={activeProfile.formRole}
-                      onValueChange={(value) => {
-                        // 🔥 map radio → profileType
-                        const newProfile =
-                          value === "professional" ? "professional" : profileType === "professional" ? "college" : profileType;
-
-                        setProfileType(newProfile);
-                        localStorage.setItem("tutorlix_profile", newProfile);
-                      }}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      <div>
-                        <RadioGroupItem value="student" id="student" className="peer sr-only" />
-                        <Label
-                          htmlFor="student"
-                          className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50
-        peer-data-[state=checked]:border-primary
-        peer-data-[state=checked]:text-primary
-        peer-data-[state=checked]:bg-primary/5
-        cursor-pointer text-sm font-medium transition-all"
-                        >
-                          Student
-                        </Label>
+                  {leadSuccess ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                      <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
+                        <Check className="h-8 w-8" />
                       </div>
+                      <h3 className="text-xl font-bold text-slate-900">Request Received!</h3>
+                      <p className="text-slate-600">
+                        Thanks for your interest. Our team will contact you shortly to guide you forward.
+                      </p>
+                      <Button variant="outline" onClick={() => setLeadSuccess(false)} className="mt-4">
+                        Send another request
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
 
-                      <div>
-                        <RadioGroupItem value="professional" id="professional" className="peer sr-only" />
-                        <Label
-                          htmlFor="professional"
-                          className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50
-        peer-data-[state=checked]:border-primary
-        peer-data-[state=checked]:text-primary
-        peer-data-[state=checked]:bg-primary/5
-        cursor-pointer text-sm font-medium transition-all"
-                        >
-                          Professional
-                        </Label>
-                      </div>
-                    </RadioGroup>
-
-                  </div>
                   <div className="space-y-2">
-                    <Select>
+                    <Select value={leadForm.interest} onValueChange={(val) => setLeadForm({ ...leadForm, interest: val })}>
                       <SelectTrigger className="h-11 rounded-lg">
                         <SelectValue placeholder="Select interest area" />
                       </SelectTrigger>
@@ -178,12 +181,36 @@ export default function HomePage() {
                     </Select>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    <Input placeholder="Full Name" className="h-11 rounded-lg" />
-                    <Input placeholder="Phone Number (+91)" className="h-11 rounded-lg" />
+                    <Input 
+                        placeholder="Full Name" 
+                        className="h-11 rounded-lg" 
+                        value={leadForm.name}
+                        onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                    />
+                    <Input 
+                        placeholder="Email Address" 
+                        className="h-11 rounded-lg" 
+                        type="email"
+                        value={leadForm.email}
+                        onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                    />
+                    <Input 
+                        placeholder="Phone Number (+91)" 
+                        className="h-11 rounded-lg" 
+                        value={leadForm.phone}
+                        onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                    />
                   </div>
-                  <Button className="w-full text-md font-bold h-12 mt-2 bg-primary hover:bg-primary/90 rounded-lg" size="lg">
-                    {activeProfile.cta}
+                  <Button 
+                    className="w-full text-md font-bold h-12 mt-2 bg-primary hover:bg-primary/90 rounded-lg" 
+                    size="lg"
+                    onClick={handleLeadSubmit}
+                    disabled={submittingLead}
+                  >
+                    {submittingLead ? <Loader2 className="h-5 w-5 animate-spin"/> : activeProfile.cta}
                   </Button>
+                  </>
+                  )}
                 </CardContent>
               </Card>
             </div>
