@@ -13,11 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Sparkles, Lightbulb } from "lucide-react";
-import Image from "next/image";
+import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Sparkles, Repeat, LogIn, ShoppingBag, House } from "lucide-react";
 import { useEffect, useState } from "react";
 import ProfileTypeModal from "@/components/ProfileTypeModal";
-import { Repeat } from "lucide-react";
 import { useProfile } from "@/context/ProfileContext";
 
 export default function Header() {
@@ -34,10 +32,9 @@ export default function Header() {
   }, []);
 
   const handleProfileSelect = (type) => {
-    updateProfile(type);        // 🔥 GLOBAL CHANGE
+    updateProfile(type);
     setShowProfileModal(false);
   };
-
 
   const userInitials = user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || user.username?.[0] || "U"}`.toUpperCase() : "G";
 
@@ -84,18 +81,6 @@ export default function Header() {
             }
             return null;
           })}
-
-          {/* Role Links integrated cleanly */}
-          {/* {user &&
-            roleBasedLinks[user.role]?.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-sm font-medium transition-colors hover:text-slate-900 ${isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-500"
-                  }`}>
-                {link.label}
-              </Link>
-            ))} */}
         </nav>
 
         {/* --- RIGHT ACTION AREA --- */}
@@ -104,7 +89,7 @@ export default function Header() {
             <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100"></div>
           ) : user ? (
             <>
-              {/* Minimal User Dropdown */}
+              {/* Authenticated User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -124,7 +109,6 @@ export default function Header() {
                         {user.first_name ? `${user.first_name} ${user.last_name}` : user.username}
                       </p>
                       <p className="text-xs leading-none text-slate-500">{user.email}</p>
-                      {/* Role Badge moved here for cleanliness */}
                       <div className="pt-2">
                         <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 capitalize">
                           {user.role} Account
@@ -164,10 +148,8 @@ export default function Header() {
               </DropdownMenu>
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900 hidden sm:inline-flex" asChild>
-                <Link href="/login">Login</Link>
-              </Button>
+            /* --- NON-AUTH BUTTONS (Desktop Only) --- */
+            <div className="hidden md:flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
@@ -178,9 +160,13 @@ export default function Header() {
                 Switch Profile
               </Button>
 
+              <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-900" asChild>
+                <Link href="/login">Login</Link>
+              </Button>
+
               <Button
                 size="sm"
-                className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-6"
+                className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-5 text-sm"
                 asChild
               >
                 <Link href="/register">Become a Seller</Link>
@@ -188,14 +174,16 @@ export default function Header() {
             </div>
           )}
 
-          {/* --- MOBILE TOGGLE --- */}
+          {/* --- MOBILE TOGGLE & MENU --- */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon" className="text-slate-600">
                 <Menu className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 mt-2">
+            <DropdownMenuContent align="end" className="w-56 mt-2 p-2">
+              
+              {/* Standard Nav Links */}
               {navLinks.map((link) => {
                 if (link.public || (link.auth && user)) {
                   return (
@@ -208,6 +196,8 @@ export default function Header() {
                 }
                 return null;
               })}
+
+              {/* Role Based Links (Mobile) */}
               {user &&
                 roleBasedLinks[user.role]?.map((link) => (
                   <DropdownMenuItem key={link.href} asChild>
@@ -217,21 +207,45 @@ export default function Header() {
                     </Link>
                   </DropdownMenuItem>
                 ))}
+
+              {/* Non-Auth Specific Links (Mobile Only) */}
               {!user && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/login">Sign In</Link>
+                  
+                  {/* Switch Profile (Moved here for mobile) */}
+                  <DropdownMenuItem 
+                    className="cursor-pointer"
+                    onClick={() => setShowProfileModal(true)}
+                  >
+                    <Repeat className="mr-2 h-4 w-4 text-slate-500" />
+                    <span>Switch Profile</span>
                   </DropdownMenuItem>
-                  {/* <DropdownMenuItem asChild>
-                    <Link href="/register">Get Started</Link>
-                  </DropdownMenuItem> */}
+
+                   {/* Become a Seller (Moved here for mobile) */}
+                   <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/register" className="text-slate-900 font-semibold">
+                      {/* <House className="mr-2 h-4 w-4 text-amber-500" /> */}
+                      <span>Become a Seller</span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+                  
+                  {/* Login */}
+                  <DropdownMenuItem asChild>
+                    <Link href="/login" className="flex items-center w-full">
+                       <LogIn className="mr-2 h-4 w-4 text-slate-500" />
+                       Sign In
+                    </Link>
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+      
       <ProfileTypeModal
         open={showProfileModal}
         onSelect={handleProfileSelect}
