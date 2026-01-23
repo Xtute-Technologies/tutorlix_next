@@ -88,7 +88,7 @@ export default function HomePage() {
         const params = {
           page_size: 10,
           // Optional: passing profile type if backend needs it to filter products contextually
-          // type: profileType 
+          type: profileType 
         };
 
         if (activeCategory !== 'all') {

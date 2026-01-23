@@ -90,29 +90,37 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Optimized queryset with relationship prefetching
+        Optimized queryset with relationship prefetching and Profile Type filtering
         """
         # Base query with optimizations
         queryset = Product.objects.select_related("category").prefetch_related(
             "images", "instructors"
         )
 
+        # 1. Role-Based Visibility
         user = self.request.user
-        # Logic: Admins see all, others see only active products
         if self.action == "list":
             if user.is_authenticated and user.role == "admin":
                 pass  # Admin sees all
             elif user.is_authenticated and user.role == "teacher":
-                # Teacher sees all active public products + their own products (even if inactive?)
-                # Use query param to filter for "My Courses" in dashboard
+                # Teacher sees all active public products + their own products
                 if self.request.query_params.get("my_products") == "true":
                     queryset = queryset.filter(instructors=user)
                 else:
                     queryset = queryset.filter(is_active=True)
             else:
+                # Public/Students see only active
                 queryset = queryset.filter(is_active=True)
+        
+        # 2. Profile Type Filtering (NEW ADDITION)
+        # This ensures that even if "All" categories are selected, 
+        # only products matching the user's profile type (e.g., "school") are returned.
+        profile_type = self.request.query_params.get('profile_type') or self.request.query_params.get('type')
+        if profile_type:
+            # Using icontains to search within the JSON/Text list of profileTypes in the Category model
+            queryset = queryset.filter(category__profileTypes__icontains=profile_type)
 
-        # Custom filtering for price range
+        # 3. Custom filtering for price range
         min_price = self.request.query_params.get("min_price")
         max_price = self.request.query_params.get("max_price")
 
