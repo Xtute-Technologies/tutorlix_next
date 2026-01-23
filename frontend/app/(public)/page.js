@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, ArrowRight, Loader2, BookOpen,
-  Star, ArrowUpRight, Quote, BrainCircuit, Target, Check, Sparkles
+  Star, Quote, Target, Check, Sparkles, BrainCircuit
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DotGrid from '@/components/DotGrid';
 import { useProfile } from "@/context/ProfileContext";
 import { z } from 'zod';
-import FormBuilder from '@/components/FormBuilder'; // Import FormBuilder
+import FormBuilder from '@/components/FormBuilder';
+import { cn } from "@/lib/utils";
 
 import {
   profileContent,
@@ -40,52 +41,88 @@ const leadSchema = z.object({
 });
 
 export default function HomePage() {
-  const [categories, setCategories] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [loading, setLoading] = useState(true);
+  const { profileType } = useProfile();
   
-  // Lead State
-  const [selectedInterest, setSelectedInterest] = useState(''); // Managed outside FormBuilder for Chip UI
+  // --- Data States ---
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [activeCategory, setActiveCategory] = useState("all");
+  
+  // Loaders
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(false);
+  
+  // --- Lead Form States ---
+  const [selectedInterest, setSelectedInterest] = useState('');
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
-  
-  const { profileType } = useProfile();
 
+  // 1. Fetch Categories on Mount or Profile Change
   useEffect(() => {
-    fetchData();
-  }, []);
+    const fetchCategories = async () => {
+      try {
+        // We set initial loading only for the first load of categories
+        if (categories.length === 0) setInitialLoading(true);
+        
+        const data = await categoryAPI.getAll({ profile_type: profileType });
+        setCategories(Array.isArray(data) ? data : []);
+        
+        // Reset category to 'all' if profile changes
+        setActiveCategory("all");
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [categoriesData, featuredData] = await Promise.all([
-        categoryAPI.getAll(),
-        productAPI.getFeatured(),
-      ]);
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      setFeaturedProducts(Array.isArray(featuredData) ? featuredData : []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchCategories();
+  }, [profileType]);
 
-  const filteredProducts = activeCategory === "all"
-    ? featuredProducts
-    : featuredProducts.filter(p => p.category_id === activeCategory);
+  // 2. Fetch Products whenever Active Category Changes
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        
+        const params = {
+          page_size: 10,
+          // Optional: passing profile type if backend needs it to filter products contextually
+          // type: profileType 
+        };
+
+        if (activeCategory !== 'all') {
+          params.category = activeCategory;
+        }
+
+        // Call the standard getAll endpoint (like /api/lms/products/?category=1&page_size=10)
+        const data = await productAPI.getAll(params);
+        
+        // Handle pagination response vs direct array
+        const results = data.results || data;
+        setProducts(Array.isArray(results) ? results : []);
+        
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        setProducts([]);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [activeCategory, profileType]); // Re-fetch if category or profile changes
 
   const activeProfile = profileContent[profileType] || profileContent.college;
   const activeBenefits = benefitsData[profileType] || benefitsData.college;
 
-  // --- Form Configuration ---
+  // --- Form Config ---
   const leadFields = useMemo(() => [
     { name: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe', required: true },
     { 
       name: 'phone', 
       label: 'Phone Number', 
-      type: 'phone', // Uses our new +91 mask
+      type: 'phone', 
       placeholder: '98765 43210', 
       required: true,
     },
@@ -93,14 +130,13 @@ export default function HomePage() {
     { 
       name: 'state', 
       label: 'State', 
-      type: 'state_names', // Uses our new Autocomplete
+      type: 'state_names', 
       placeholder: 'Select your state', 
       required: true 
     },
   ], []);
 
   const handleLeadSubmit = async (formData) => {
-    // 1. Validate Interest (Since it's outside FormBuilder)
     if (!selectedInterest) {
       alert("Please select an area of interest.");
       return;
@@ -108,19 +144,15 @@ export default function HomePage() {
 
     try {
       setSubmittingLead(true);
-      
-      // 2. Submit API
       await productLeadAPI.create({
         name: formData.name,
         email: formData.email,
-        phone: `+91${formData.phone}`, // Append prefix for backend
+        phone: `+91${formData.phone}`,
         state: formData.state,
         source: 'Home Page',
         remarks: `Profile: ${activeProfile.formRole} | Interest: ${selectedInterest}`
       });
-
       setLeadSuccess(true);
-      // Reset is handled by FormBuilder internally mostly, but we can reset outer state
       setSelectedInterest('');
     } catch (error) {
       console.error("Lead submission error", error);
@@ -130,7 +162,7 @@ export default function HomePage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -144,21 +176,21 @@ export default function HomePage() {
       {/* --- HERO SECTION --- */}
       <section className="relative bg-black text-white pt-16 pb-24 md:pt-24 md:pb-32">
         <div className="absolute inset-0 h-full w-full">
-          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <DotGrid
-              dotSize={5}
-              gap={15}
-              baseColor="#271E37"
-              activeColor="#5227FF"
-              proximity={120}
-              speedTrigger={100}
-              shockRadius={250}
-              shockStrength={5}
-              maxSpeed={5000}
-              resistance={750}
-              returnDuration={1.5}
-            />
-          </div>
+           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+             <DotGrid
+               dotSize={5}
+               gap={15}
+               baseColor="#271E37"
+               activeColor="#5227FF"
+               proximity={120}
+               speedTrigger={100}
+               shockRadius={250}
+               shockStrength={5}
+               maxSpeed={5000}
+               resistance={750}
+               returnDuration={1.5}
+             />
+           </div>
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -208,7 +240,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <>
-                      {/* 1. Interest Selection (Custom UI outside FormBuilder) */}
+                      {/* Interest Selection */}
                       <div className="space-y-2 mb-2">
                         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am interested in</label>
                         <div className="flex flex-wrap gap-2">
@@ -229,7 +261,6 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* 2. FormBuilder for Compulsory Fields */}
                       <FormBuilder
                         fields={leadFields}
                         validationSchema={leadSchema}
@@ -253,7 +284,8 @@ export default function HomePage() {
       <section className="py-24 bg-slate-50/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-          <div className="mb-12 text-center md:text-left md:flex md:items-end md:justify-between">
+          {/* Header */}
+          <div className="mb-10 text-center md:text-left md:flex md:items-end md:justify-between">
             <div>
               <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Explore Courses</h2>
               <p className="text-slate-500 mt-2 text-lg">Curated paths for every stage of your career</p>
@@ -265,96 +297,120 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="mb-10 overflow-x-auto pb-4 no-scrollbar">
-            <div className="flex space-x-3">
-              <CategoryPill
-                active={activeCategory === "all"}
-                onClick={() => setActiveCategory("all")}
-                label="All Programs"
-              />
-              {categories.map((cat) => (
-                <CategoryPill
-                  key={cat.id}
-                  active={activeCategory === cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  label={cat.name}
-                />
+          {/* Categories (Scrollable Pills) */}
+          <div className="relative mb-10">
+            <div className="flex items-center gap-2 overflow-x-auto pb-4 no-scrollbar mask-gradient">
+              <Button
+                variant={activeCategory === 'all' ? 'default' : 'outline'}
+                onClick={() => setActiveCategory('all')}
+                className="rounded-full px-6 whitespace-nowrap transition-all"
+              >
+                All Courses
+              </Button>
+              
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={activeCategory === category.id.toString() ? 'default' : 'outline'}
+                  onClick={() => setActiveCategory(category.id.toString())}
+                  className={cn(
+                    "rounded-full px-6 whitespace-nowrap transition-all",
+                    activeCategory === category.id.toString() ? "shadow-md" : "hover:bg-gray-100 border-gray-200"
+                  )}
+                >
+                  {category.name}
+                </Button>
               ))}
             </div>
           </div>
 
-          {/* --- MINIMAL MODERN COURSE CARD GRID --- */}
-          {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
-                <Link key={product.id} href={`/courses/${product.id}`} className="group block h-full">
-                  <div className="relative h-full bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col">
-
-                    {/* Image Container with Glass Badge */}
-                    <div className="relative aspect-[4/3] overflow-hidden">
+          {/* Products Grid (With Loader) */}
+          {productsLoading ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i} className="h-full overflow-hidden border-gray-100">
+                    <div className="h-48 bg-gray-100 animate-pulse" />
+                    <CardHeader className="space-y-2">
+                      <div className="h-6 bg-gray-100 rounded w-3/4 animate-pulse" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-4 bg-gray-100 rounded w-full animate-pulse mb-2" />
+                      <div className="h-4 bg-gray-100 rounded w-2/3 animate-pulse" />
+                    </CardContent>
+                  </Card>
+                ))}
+             </div>
+          ) : products.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {products.map((product) => (
+                <Link key={product.id} href={`/courses/${product.id}`} className="group h-full block">
+                  <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-gray-200/60 overflow-hidden flex flex-col">
+                    
+                    {/* Course Image */}
+                    <div className="relative h-48 w-full overflow-hidden bg-gray-100">
                       <img
                         src={product.primary_image || FALLBACK_IMAGE}
                         alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
                       />
-                      {product.discount_percentage > 0 && (
-                        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-bold text-slate-900 shadow-sm">
-                          -{product.discount_percentage}%
-                        </div>
-                      )}
+                      
+                      {/* Discount Badge */}
+                      {product.discounted_price && (
+                         <div className="absolute top-3 right-3">
+                           <Badge className="bg-red-500 hover:bg-red-600 text-white border-0 shadow-sm">
+                             {product.discount_percentage || Math.round(((product.price - product.effective_price)/product.price)*100)}% OFF
+                           </Badge>
+                         </div>
+                       )}
                     </div>
 
-                    {/* Content Body */}
-                    <div className="p-5 flex flex-col flex-grow">
-                      {/* Meta Tags (Rating/Level) */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge variant="secondary" className="rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 text-[10px] uppercase tracking-wider font-semibold border-0 px-2">
-                          Course
-                        </Badge>
-                        <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
-                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                          <span>4.8</span>
-                          <span className="text-slate-300">•</span>
-                          <span>(1.2k)</span>
-                        </div>
+                    <CardHeader className="pb-3 flex-none">
+                      <div className="flex justify-between items-start gap-2">
+                         <Badge variant="outline" className="mb-2 text-xs font-normal text-gray-500 border-gray-200">
+                            {product.category_name}
+                         </Badge>
+                         {/* Optional Rating */}
+                      
                       </div>
-
-                      <h3 className="text-lg font-bold text-slate-900 leading-snug group-hover:text-primary transition-colors mb-2">
+                      <CardTitle className="line-clamp-2 text-lg group-hover:text-primary transition-colors">
                         {product.name}
-                      </h3>
+                      </CardTitle>
+                    </CardHeader>
 
-                      {/* Clean Price Footer */}
-                      <div className="mt-auto pt-4 flex items-center justify-between">
+                    <CardContent className="flex flex-col flex-grow">
+                      <p className="text-sm text-gray-500 line-clamp-2 mb-4 min-h-[40px]">
+                        {product.description}
+                      </p>
+
+                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100 w-full">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Price</span>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xl font-bold text-slate-900">
+                          <span className="text-xs text-gray-400 font-medium">Price</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-gray-900">
                               ₹{product.effective_price?.toLocaleString()}
                             </span>
                             {product.price > product.effective_price && (
-                              <span className="text-xs text-slate-400 line-through decoration-slate-300">
+                              <span className="text-sm text-gray-400 line-through decoration-gray-400">
                                 ₹{product.price?.toLocaleString()}
                               </span>
                             )}
                           </div>
                         </div>
-
-                        {/* Hover Interaction Button */}
-                        <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                          <ArrowUpRight className="h-5 w-5" />
-                        </div>
+                        
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </Link>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-2xl border-2 border-dashed border-slate-200">
-              <BookOpen className="h-10 w-10 mb-3 text-slate-300" />
-              <p className="font-medium">No courses found here.</p>
-              <Button variant="link" onClick={() => setActiveCategory("all")} className="text-primary">
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+              <div className="bg-slate-50 p-4 rounded-full mb-3">
+                 <BookOpen className="h-8 w-8 text-slate-300" />
+              </div>
+              <p className="font-medium text-slate-600">No courses found.</p>
+              <Button variant="link" onClick={() => setActiveCategory("all")} className="text-primary mt-1">
                 View all courses
               </Button>
             </div>
@@ -373,8 +429,6 @@ export default function HomePage() {
       {/* --- ANIMATED "WHY US" SECTION --- */}
       <section className="py-24 bg-white overflow-hidden border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-          {/* HEADER */}
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
               {activeBenefits.title}
@@ -384,7 +438,6 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* BENEFITS */}
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -397,7 +450,6 @@ export default function HomePage() {
           >
             {activeBenefits.items.map((benefit, index) => {
               const Icon = benefit.icon;
-
               return (
                 <motion.div
                   key={index}
@@ -411,14 +463,11 @@ export default function HomePage() {
                   }}
                   className="relative group p-6"
                 >
-                  {/* Animated Line */}
                   <div className="absolute top-0 left-6 w-[2px] h-0 bg-primary group-hover:h-full transition-all duration-700 ease-in-out opacity-20 group-hover:opacity-100" />
-
                   <div className="relative pl-6">
                     <div className="mb-4 inline-flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 text-slate-900 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
                       <Icon className="h-6 w-6" />
                     </div>
-
                     <h3 className="text-xl font-bold text-slate-900 mb-3">
                       {benefit.title}
                     </h3>
@@ -437,8 +486,6 @@ export default function HomePage() {
       <section className="py-24 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-            {/* Text Content */}
             <div className="space-y-8">
               <div>
                 <Badge variant="outline" className="mb-4 bg-white text-slate-900 border-slate-300">About Tutorlix</Badge>
@@ -447,33 +494,29 @@ export default function HomePage() {
                 </h2>
                 <div className="prose prose-slate text-slate-600">
                   <p className="text-lg mb-4">
-                    Take your math and computer science skills to the next level with Tutorlix. Say goodbye to boring lectures and hello to hands-on lessons and exciting projects. We connect you with a community of ambitious students to unlock your full potential.
+                    Take your math and computer science skills to the next level with Tutorlix. Say goodbye to boring lectures and hello to hands-on lessons and exciting projects.
                   </p>
                 </div>
               </div>
-
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
                   <Target className="h-8 w-8 text-primary mb-3" />
                   <h3 className="font-bold text-slate-900 mb-2">Fortnightly Testing</h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    Track progress with challenging tests designed to apply your problem-solving skills, followed by expert teacher feedback.
+                    Track progress with challenging tests designed to apply your problem-solving skills.
                   </p>
                 </div>
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
                   <BrainCircuit className="h-8 w-8 text-purple-500 mb-3" />
                   <h3 className="font-bold text-slate-900 mb-2">High-Quality Content</h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    Well-recorded lectures and dynamic resources ensure an informative and accessible learning experience for everyone.
+                    Well-recorded lectures and dynamic resources ensure an informative experience.
                   </p>
                 </div>
               </div>
             </div>
-
-            {/* Visual/Image Side */}
             <div className="relative">
               <div className="aspect-square md:aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl bg-slate-900 relative">
-                {/* Abstract visual representation */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 opacity-80" />
                 <img
                   src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop"
@@ -485,10 +528,7 @@ export default function HomePage() {
                   <p className="text-purple-200">— W.B. Yeats</p>
                 </div>
               </div>
-              {/* Decorative dots */}
-              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-[radial-gradient(circle,theme(colors.slate.300)_1px,transparent_1px)] bg-[size:8px_8px] opacity-60 -z-10" />
             </div>
-
           </div>
         </div>
       </section>
@@ -500,7 +540,6 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-slate-900">Student Success Stories</h2>
             <p className="text-slate-500 mt-2">Don't just take our word for it. Hear from our community.</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonialsData.map((t, i) => (
               <div key={i} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-shadow relative">
@@ -522,7 +561,6 @@ export default function HomePage() {
   );
 }
 
-// Helper Components
 function HeroFeatureItem({ text }) {
   return (
     <div className="flex items-start gap-3">
@@ -530,18 +568,4 @@ function HeroFeatureItem({ text }) {
       <p className="text-lg text-slate-200 font-medium leading-snug">{text}</p>
     </div>
   );
-}
-
-function CategoryPill({ active, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-5 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap border ${active
-        ? "bg-slate-900 text-white border-slate-900"
-        : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-        }`}
-    >
-      {label}
-    </button>
-  )
 }
