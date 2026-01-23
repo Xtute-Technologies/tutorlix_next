@@ -33,7 +33,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s87kpawfg$ke2#jk*z!fcu50j^
 DEBUG = os.getenv('DEBUG', 'True').lower() in ['true', '1', 'yes']
 
 # Allow comma-separated hosts in env, fallback to defaults
-_default_hosts = ['back.tutorlix.com', 'localhost']
+_default_hosts = ['back.tutorlix.com', 'localhost','dev.tutorlix.com']
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOSTS:
     ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(',') if h.strip()]
@@ -159,11 +159,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "api/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = "/media/"
+MEDIA_URL = "api/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type

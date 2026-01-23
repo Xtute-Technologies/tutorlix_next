@@ -18,7 +18,7 @@ pipeline {
         NEXT_PORT     = "3701" 
 
         DJANGO_SETTINGS_MODULE = "tutorlix.settings"
-        NEXT_PUBLIC_API_URL = "https://back.tutorlix.com"
+        NEXT_PUBLIC_API_URL = "https://dev.tutorlix.com"
     }
 
     stages {
