@@ -9,7 +9,6 @@ pipeline {
             description: 'Choose which components to build and deploy.'
         )
     }
-
     environment {
         // We keep these for the initial checkout
         WORKSPACE_FRONTEND = "${WORKSPACE}/frontend"
@@ -51,7 +50,14 @@ pipeline {
                     rsync -av --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' $WORKSPACE_FRONTEND/ $PROD_FRONTEND/
                     
                     # Sync Backend (Exclude venv and pycache)
-                    rsync -av --delete --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' --exclude '.git' $WORKSPACE_BACKEND/ $PROD_BACKEND/
+                    rsync -av --delete \
+                        --exclude 'venv' \
+                        --exclude '__pycache__' \
+                        --exclude '*.pyc' \
+                        --exclude '.git' \
+                        --exclude 'db.sqlite3' \
+                        --exclude 'media' \
+                        $WORKSPACE_BACKEND/ $PROD_BACKEND/
                 '''
             }
         }
