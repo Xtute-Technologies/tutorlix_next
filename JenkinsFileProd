@@ -1,0 +1,159 @@
+pipeline {
+    agent any
+
+    /* ================= PARAMETERS ================= */
+    parameters {
+        choice(
+            name: 'DEPLOY_SCOPE',
+            choices: ['All', 'Frontend', 'Backend'],
+            description: 'Choose which components to build and deploy.'
+        )
+    }
+
+    /* ================= ENVIRONMENT ================= */
+    environment {
+        FRONTEND_DIR = "${WORKSPACE}/frontend"
+        BACKEND_DIR  = "${WORKSPACE}/backend"
+
+        // ---------- FRONTEND (PROD) ----------
+        NEXT_APP_NAME = "tutorlix-next-prod"
+        NEXT_PORT     = "3700"
+
+        // ---------- BACKEND (PROD) ----------
+        DJANGO_SETTINGS_MODULE = "tutorlix.settings.production"
+
+        // ---------- PUBLIC URL (HTTP for now) ----------
+        NEXT_PUBLIC_API_URL = "http://tutorlix.com"
+    }
+
+    stages {
+
+        /* ================= CHECKOUT ================= */
+        stage('Checkout') {
+            steps {
+                echo "🚀 Starting PROD deploy. Scope: ${params.DEPLOY_SCOPE}"
+                checkout scm
+            }
+        }
+
+        /* ================= FRONTEND ================= */
+
+        stage('Build Next.js (PROD)') {
+            when {
+                expression {
+                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend'
+                }
+            }
+            steps {
+                sh '''
+                    cd $FRONTEND_DIR
+
+                    echo "🧹 Cleaning old frontend build"
+                    rm -rf node_modules .next
+
+                    echo "📦 Installing frontend dependencies"
+                    npm install
+
+                    echo "🏗️ Building Next.js (PROD) with API URL: $NEXT_PUBLIC_API_URL"
+                    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
+                '''
+            }
+        }
+
+        stage('Start / Reload Next.js (PM2 – PROD)') {
+            when {
+                expression {
+                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend'
+                }
+            }
+            steps {
+                sh '''
+                    cd $FRONTEND_DIR
+
+                    PM2_CMD="/usr/bin/pm2"
+
+                    echo "🔁 Managing PM2 App: $NEXT_APP_NAME (Port: $NEXT_PORT)"
+
+                    if $PM2_CMD list | grep -q "$NEXT_APP_NAME"; then
+                        echo "✅ PM2 process exists → Reloading with updated env"
+                        PORT=$NEXT_PORT $PM2_CMD reload $NEXT_APP_NAME --update-env
+                    else
+                        echo "✨ PM2 process not found → Starting new"
+                        PORT=$NEXT_PORT $PM2_CMD start npm \
+                            --name "$NEXT_APP_NAME" \
+                            -- start
+                    fi
+
+                    echo "💾 Saving PM2 state"
+                    $PM2_CMD save
+                '''
+            }
+        }
+
+        /* ================= BACKEND ================= */
+
+        stage('Backend Setup (PROD)') {
+            when {
+                expression {
+                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend'
+                }
+            }
+            steps {
+                sh '''
+                    cd $BACKEND_DIR
+
+                    echo "🐍 Setting up Django backend (PROD)"
+                    python3 -m venv venv || true
+                    . venv/bin/activate
+
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    pip install gunicorn
+
+                    export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+
+                    echo "🗄️ Running migrations"
+                    python manage.py migrate --noinput || true
+
+                    echo "🎨 Collecting static files"
+                    python manage.py collectstatic --noinput || true
+                '''
+            }
+        }
+
+        stage('Restart Gunicorn (PROD)') {
+            when {
+                expression {
+                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend'
+                }
+            }
+            steps {
+                sh '''
+                    echo "🔁 Restarting Gunicorn service (tutorlix-gunicorn)"
+                    sudo systemctl restart tutorlix-gunicorn
+                '''
+            }
+        }
+
+        /* ================= NGINX ================= */
+
+        stage('Reload Nginx') {
+            steps {
+                sh '''
+                    echo "🔄 Reloading Nginx (syntax check first)"
+                    sudo nginx -t
+                    sudo systemctl reload nginx
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ PROD deployment (${params.DEPLOY_SCOPE}) successful"
+        }
+        failure {
+            echo "❌ PROD deployment (${params.DEPLOY_SCOPE}) failed"
+        }
+    }
+}
