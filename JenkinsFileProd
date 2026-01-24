@@ -91,7 +91,7 @@ pipeline {
 
         /* ================= BACKEND STAGES ================= */
 
-        stage('Backend Setup') {
+stage('Backend Setup') {
             when { 
                 expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
             }
@@ -100,16 +100,19 @@ pipeline {
                     cd $BACKEND_DIR
 
                     echo "🐍 Backend setup"
-                    python3 -m venv venv || true
-                    . venv/bin/activate
+                    # 1. Create venv (remove || true so we see if it fails)
+                    python3 -m venv venv
 
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install gunicorn
+                    # 2. Use the venv binaries DIRECTLY (Skip . venv/bin/activate)
+                    ./venv/bin/pip install --upgrade pip
+                    ./venv/bin/pip install -r requirements.txt
+                    ./venv/bin/pip install gunicorn
 
                     export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-                    python manage.py migrate || true
-                    python manage.py collectstatic --noinput || true
+                    
+                    # 3. Use venv python for manage.py commands
+                    ./venv/bin/python manage.py migrate || true
+                    ./venv/bin/python manage.py collectstatic --noinput || true
                 '''
             }
         }
