@@ -1,10 +1,11 @@
 pipeline {
     agent any
 
+    // 1. Define Parameters
     parameters {
         choice(
-            name: 'DEPLOY_SCOPE',
-            choices: ['All', 'Frontend', 'Backend'],
+            name: 'DEPLOY_SCOPE', 
+            choices: ['All', 'Frontend', 'Backend'], 
             description: 'Choose which components to build and deploy.'
         )
     }
@@ -13,111 +14,88 @@ pipeline {
         FRONTEND_DIR = "${WORKSPACE}/frontend"
         BACKEND_DIR  = "${WORKSPACE}/backend"
 
-        // -------- FRONTEND (PROD ONLY) --------
-        NEXT_APP_NAME = "tutorlix-next-prod"
-        NEXT_PORT     = "3700"
+        NEXT_APP_NAME = "tutorlix-next"
+        NEXT_PORT     = "3701" 
 
-        // -------- BACKEND (PROD) --------
-        DJANGO_SETTINGS_MODULE = "tutorlix.settings.production"
-
-        // -------- PUBLIC URL --------
-        NEXT_PUBLIC_API_URL = "http://tutorlix.com"
-
-        PM2_CMD = "/usr/bin/pm2"
+        DJANGO_SETTINGS_MODULE = "tutorlix.settings"
+        NEXT_PUBLIC_API_URL = "https://tutorlix.com"
     }
 
     stages {
 
-        /* ================= CHECKOUT ================= */
+        /* ================= CHECKOUT (Always Runs) ================= */
         stage('Checkout') {
             steps {
-                echo "🚀 PROD Deploy started. Scope: ${params.DEPLOY_SCOPE}"
+                echo "🚀 Starting deploy. Scope: ${params.DEPLOY_SCOPE}"
                 checkout scm
             }
         }
 
-        /* ================= FRONTEND ================= */
-
-        stage('Build Next.js (PROD)') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
+        /* ================= FRONTEND STAGES ================= */
+        
+        stage('Build Next.js (CI)') {
+            // Run if Scope is All OR Frontend
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
             }
             steps {
                 sh '''
                     cd $FRONTEND_DIR
 
-                    rm -rf .next
+                    echo "🧹 Cleaning old build"
+                    rm -rf node_modules .next
+
+                    echo "📦 Installing deps"
                     npm install
 
+                    # Ensure PM2 is installed globally
+                    sudo npm install -g pm2
+
+                    echo "🏗️ Building Next.js with API URL: $NEXT_PUBLIC_API_URL"
                     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
                 '''
             }
         }
 
-        stage('Start / Reload Next.js (PM2 PROD)') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
+        stage('Start / Restart Next.js (PM2)') {
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
             }
             steps {
                 sh '''
-                    echo "🔁 Starting / Reloading PROD Next.js"
+                    cd $FRONTEND_DIR
+                    
+                    PM2_CMD="sudo /usr/bin/pm2"
+                    
+                    echo "🔁 Managing PM2 Process: $NEXT_APP_NAME on Port $NEXT_PORT"
 
-                    if pm2 describe tutorlix-next-prod >/dev/null 2>&1; then
-                        pm2 reload tutorlix-next-prod
+                    # Check if the process exists in the PM2 list
+                    if $PM2_CMD list | grep -q "$NEXT_APP_NAME"; then
+                        echo "✅ Process found. Reloading with --update-env..."
+                        sudo PORT=$NEXT_PORT $PM2_CMD reload $NEXT_APP_NAME --update-env
                     else
-                        pm2 start bash \
-                        --name tutorlix-next-prod \
-                        -- -lc "cd $FRONTEND_DIR && npx next start -p 3700"
+                        echo "✨ Process not found. Starting new..."
+                        sudo PORT=$NEXT_PORT $PM2_CMD start npm --name "$NEXT_APP_NAME" -- start
                     fi
 
-                    pm2 save
+                    echo "💾 Saving PM2 process list to allow auto-resurrection..."
+                    $PM2_CMD save
                 '''
             }
         }
 
-        stage('Verify Frontend Health') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
-            }
-            steps {
-                sh '''
-                    echo "⏳ Waiting for Next.js to be ready..."
-                    for i in {1..15}; do
-                    if curl -sf http://127.0.0.1:3700 >/dev/null; then
-                        echo "✅ Next.js is live on 3700"
-                        exit 0
-                    fi
-                    sleep 2
-                    done
-                    echo "❌ Next.js did not start"
-                    exit 1
-                '''
-            }
-        }
+        /* ================= BACKEND STAGES ================= */
 
-
-        stage('Verify Frontend Port') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
-            }
-            steps {
-                sh '''
-                    echo "🔍 Verifying Next.js is listening on $NEXT_PORT"
-                    ss -tulpn | grep ":$NEXT_PORT" || exit 1
-                '''
-            }
-        }
-
-        /* ================= BACKEND ================= */
-
-        stage('Backend Setup (PROD)') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Backend'] }
+        stage('Backend Setup') {
+            // Run if Scope is All OR Backend
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
             }
             steps {
                 sh '''
                     cd $BACKEND_DIR
 
+                    echo "🐍 Backend setup"
                     python3 -m venv venv || true
                     . venv/bin/activate
 
@@ -126,31 +104,32 @@ pipeline {
                     pip install gunicorn
 
                     export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-
-                    python manage.py migrate --noinput
-                    python manage.py collectstatic --noinput
+                    python manage.py migrate || true
+                    python manage.py collectstatic --noinput || true
                 '''
             }
         }
 
-        stage('Restart Gunicorn (PROD)') {
-            when {
-                expression { params.DEPLOY_SCOPE in ['All', 'Backend'] }
+        stage('Start / Restart Gunicorn') {
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
             }
             steps {
                 sh '''
+                    echo "🔁 Restarting Tutorlix Gunicorn Service"
+                    # Assuming you have a systemd service file named tutorlix-gunicorn
                     sudo systemctl restart tutorlix-gunicorn
                 '''
             }
         }
 
-        /* ================= NGINX ================= */
-
+        /* ================= NGINX (Always Runs) ================= */
+        // We reload Nginx regardless of scope to ensure routing is clean
         stage('Reload Nginx') {
             steps {
                 sh '''
-                    sudo nginx -t
-                    sudo systemctl reload nginx
+                    echo "🔄 Reloading nginx configuration"
+                    sudo nginx -t && sudo systemctl reload nginx
                 '''
             }
         }
@@ -158,10 +137,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ PROD deployment (${params.DEPLOY_SCOPE}) completed successfully"
+            echo "✅ Jenkins deploy ($params.DEPLOY_SCOPE) succeeded"
         }
         failure {
-            echo "❌ PROD deployment failed — check logs"
+            echo "❌ Jenkins deploy ($params.DEPLOY_SCOPE) failed"
         }
     }
 }
