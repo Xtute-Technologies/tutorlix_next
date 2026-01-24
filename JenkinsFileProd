@@ -60,24 +60,41 @@ pipeline {
             }
             steps {
                 sh '''
-                    cd $FRONTEND_DIR
+                    echo "🔁 Starting / Reloading PROD Next.js"
 
-                    echo "🔁 Ensuring PROD Next.js runs on port $NEXT_PORT"
-
-                    if $PM2_CMD describe $NEXT_APP_NAME >/dev/null 2>&1; then
-                        echo "✅ Reloading existing PROD app"
-                        $PM2_CMD reload $NEXT_APP_NAME
+                    if pm2 describe tutorlix-next-prod >/dev/null 2>&1; then
+                        pm2 reload tutorlix-next-prod
                     else
-                        echo "✨ Starting new PROD app"
-                        $PM2_CMD start npx \
-                            --name "$NEXT_APP_NAME" \
-                            -- next start -p $NEXT_PORT
+                        pm2 start bash \
+                        --name tutorlix-next-prod \
+                        -- -lc "cd $FRONTEND_DIR && npx next start -p 3700"
                     fi
 
-                    $PM2_CMD save
+                    pm2 save
                 '''
             }
         }
+
+        stage('Verify Frontend Health') {
+            when {
+                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
+            }
+            steps {
+                sh '''
+                    echo "⏳ Waiting for Next.js to be ready..."
+                    for i in {1..15}; do
+                    if curl -sf http://127.0.0.1:3700 >/dev/null; then
+                        echo "✅ Next.js is live on 3700"
+                        exit 0
+                    fi
+                    sleep 2
+                    done
+                    echo "❌ Next.js did not start"
+                    exit 1
+                '''
+            }
+        }
+
 
         stage('Verify Frontend Port') {
             when {
