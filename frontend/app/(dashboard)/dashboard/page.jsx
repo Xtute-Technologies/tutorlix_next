@@ -26,7 +26,7 @@ export default function Page() {
       if (user.role === "admin") {
         router.push("/admin");
       } else if (user.role === "seller") {
-        router.push("/seller");
+        router.push("/seller/bookings");
       }
       if (user.role === "student") {
         router.push("/student");
