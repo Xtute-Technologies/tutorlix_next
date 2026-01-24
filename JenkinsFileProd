@@ -1,7 +1,6 @@
 pipeline {
     agent any
 
-    /* ================= PARAMETERS ================= */
     parameters {
         choice(
             name: 'DEPLOY_SCOPE',
@@ -10,20 +9,21 @@ pipeline {
         )
     }
 
-    /* ================= ENVIRONMENT ================= */
     environment {
         FRONTEND_DIR = "${WORKSPACE}/frontend"
         BACKEND_DIR  = "${WORKSPACE}/backend"
 
-        // ---------- FRONTEND (PROD) ----------
+        // -------- FRONTEND (PROD ONLY) --------
         NEXT_APP_NAME = "tutorlix-next-prod"
         NEXT_PORT     = "3700"
 
-        // ---------- BACKEND (PROD) ----------
+        // -------- BACKEND (PROD) --------
         DJANGO_SETTINGS_MODULE = "tutorlix.settings.production"
 
-        // ---------- PUBLIC URL (HTTP for now) ----------
+        // -------- PUBLIC URL --------
         NEXT_PUBLIC_API_URL = "http://tutorlix.com"
+
+        PM2_CMD = "/usr/bin/pm2"
     }
 
     stages {
@@ -31,7 +31,7 @@ pipeline {
         /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                echo "🚀 Starting PROD deploy. Scope: ${params.DEPLOY_SCOPE}"
+                echo "🚀 PROD Deploy started. Scope: ${params.DEPLOY_SCOPE}"
                 checkout scm
             }
         }
@@ -40,52 +40,53 @@ pipeline {
 
         stage('Build Next.js (PROD)') {
             when {
-                expression {
-                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend'
-                }
+                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
             }
             steps {
                 sh '''
                     cd $FRONTEND_DIR
 
-                    echo "🧹 Cleaning old frontend build"
-                    rm -rf node_modules .next
-
-                    echo "📦 Installing frontend dependencies"
+                    rm -rf .next
                     npm install
 
-                    echo "🏗️ Building Next.js (PROD) with API URL: $NEXT_PUBLIC_API_URL"
                     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
                 '''
             }
         }
 
-        stage('Start / Reload Next.js (PM2 – PROD)') {
+        stage('Start / Reload Next.js (PM2 PROD)') {
             when {
-                expression {
-                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend'
-                }
+                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
             }
             steps {
                 sh '''
                     cd $FRONTEND_DIR
 
-                    PM2_CMD="/usr/bin/pm2"
+                    echo "🔁 Ensuring PROD Next.js runs on port $NEXT_PORT"
 
-                    echo "🔁 Managing PM2 App: $NEXT_APP_NAME (Port: $NEXT_PORT)"
-
-                    if $PM2_CMD list | grep -q "$NEXT_APP_NAME"; then
-                        echo "✅ PM2 process exists → Reloading with updated env"
+                    if $PM2_CMD describe $NEXT_APP_NAME >/dev/null 2>&1; then
+                        echo "✅ Reloading existing PROD app"
                         PORT=$NEXT_PORT $PM2_CMD reload $NEXT_APP_NAME --update-env
                     else
-                        echo "✨ PM2 process not found → Starting new"
+                        echo "✨ Starting new PROD app"
                         PORT=$NEXT_PORT $PM2_CMD start npm \
                             --name "$NEXT_APP_NAME" \
                             -- start
                     fi
 
-                    echo "💾 Saving PM2 state"
                     $PM2_CMD save
+                '''
+            }
+        }
+
+        stage('Verify Frontend Port') {
+            when {
+                expression { params.DEPLOY_SCOPE in ['All', 'Frontend'] }
+            }
+            steps {
+                sh '''
+                    echo "🔍 Verifying Next.js is listening on $NEXT_PORT"
+                    ss -tulpn | grep ":$NEXT_PORT" || exit 1
                 '''
             }
         }
@@ -94,15 +95,12 @@ pipeline {
 
         stage('Backend Setup (PROD)') {
             when {
-                expression {
-                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend'
-                }
+                expression { params.DEPLOY_SCOPE in ['All', 'Backend'] }
             }
             steps {
                 sh '''
                     cd $BACKEND_DIR
 
-                    echo "🐍 Setting up Django backend (PROD)"
                     python3 -m venv venv || true
                     . venv/bin/activate
 
@@ -112,24 +110,18 @@ pipeline {
 
                     export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
 
-                    echo "🗄️ Running migrations"
-                    python manage.py migrate --noinput || true
-
-                    echo "🎨 Collecting static files"
-                    python manage.py collectstatic --noinput || true
+                    python manage.py migrate --noinput
+                    python manage.py collectstatic --noinput
                 '''
             }
         }
 
         stage('Restart Gunicorn (PROD)') {
             when {
-                expression {
-                    params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend'
-                }
+                expression { params.DEPLOY_SCOPE in ['All', 'Backend'] }
             }
             steps {
                 sh '''
-                    echo "🔁 Restarting Gunicorn service (tutorlix-gunicorn)"
                     sudo systemctl restart tutorlix-gunicorn
                 '''
             }
@@ -140,7 +132,6 @@ pipeline {
         stage('Reload Nginx') {
             steps {
                 sh '''
-                    echo "🔄 Reloading Nginx (syntax check first)"
                     sudo nginx -t
                     sudo systemctl reload nginx
                 '''
@@ -150,10 +141,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ PROD deployment (${params.DEPLOY_SCOPE}) successful"
+            echo "✅ PROD deployment (${params.DEPLOY_SCOPE}) completed successfully"
         }
         failure {
-            echo "❌ PROD deployment (${params.DEPLOY_SCOPE}) failed"
+            echo "❌ PROD deployment failed — check logs"
         }
     }
 }
