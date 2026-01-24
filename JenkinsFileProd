@@ -66,12 +66,12 @@ pipeline {
 
                     if $PM2_CMD describe $NEXT_APP_NAME >/dev/null 2>&1; then
                         echo "✅ Reloading existing PROD app"
-                        PORT=$NEXT_PORT $PM2_CMD reload $NEXT_APP_NAME --update-env
+                        $PM2_CMD reload $NEXT_APP_NAME
                     else
                         echo "✨ Starting new PROD app"
-                        PORT=$NEXT_PORT $PM2_CMD start npm \
+                        $PM2_CMD start npx \
                             --name "$NEXT_APP_NAME" \
-                            -- start
+                            -- next start -p $NEXT_PORT
                     fi
 
                     $PM2_CMD save
