@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    // 1. Define Parameters
+    /* ================= PARAMETERS ================= */
     parameters {
         choice(
             name: 'DEPLOY_SCOPE', 
@@ -9,18 +9,20 @@ pipeline {
             description: 'Choose which components to build and deploy.'
         )
     }
+
+    /* ================= ENVIRONMENT ================= */
     environment {
-        // We keep these for the initial checkout
+        // Jenkins workspace paths
         WORKSPACE_FRONTEND = "${WORKSPACE}/frontend"
         WORKSPACE_BACKEND  = "${WORKSPACE}/backend"
 
-        // ✅ NEW: The actual Production Paths (Where the app lives)
+        // Production paths
         PROD_ROOT     = "/var/www/tutorlix-prod"
         PROD_FRONTEND = "/var/www/tutorlix-prod/frontend"
         PROD_BACKEND  = "/var/www/tutorlix-prod/backend"
 
-        NEXT_APP_NAME = "tutorlix-next-prod" 
-        NEXT_PORT     = "3700" 
+        NEXT_APP_NAME = "tutorlix-next-prod"
+        NEXT_PORT     = "3700"
 
         DJANGO_SETTINGS_MODULE = "tutorlix.settings"
         NEXT_PUBLIC_API_URL = "https://tutorlix.com"
@@ -36,20 +38,51 @@ pipeline {
             }
         }
 
-        /* ================= SYNC FILES ================= */
-        // We must move files from Jenkins Workspace to /var/www/tutorlix-prod
-        stage('Deploy Files to Prod') {
+        /* ================= PREPARE ROOT ================= */
+        stage('Prepare Prod Root') {
             steps {
-                echo "📂 Syncing files to ${PROD_ROOT}..."
-                // Using rsync to copy files (excluding heavy/temp folders)
-                // Ensure rsync is installed: sudo apt install rsync
                 sh '''
+                    echo "📂 Ensuring prod root exists: $PROD_ROOT"
                     mkdir -p $PROD_ROOT
-                    
-                    # Sync Frontend (Exclude node_modules to keep copies fast)
-                    rsync -av --delete --exclude 'node_modules' --exclude '.next' --exclude '.git' $WORKSPACE_FRONTEND/ $PROD_FRONTEND/
-                    
-                    # Sync Backend (Exclude venv and pycache)
+                '''
+            }
+        }
+
+        /* ================= FRONTEND FILE SYNC ================= */
+        stage('Sync Frontend Files') {
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
+            }
+            steps {
+                sh '''
+                    echo "📦 Syncing FRONTEND files"
+                    echo "SRC: $WORKSPACE_FRONTEND"
+                    echo "DST: $PROD_FRONTEND"
+
+                    mkdir -p $PROD_FRONTEND
+
+                    rsync -av --delete \
+                        --exclude 'node_modules' \
+                        --exclude '.next' \
+                        --exclude '.git' \
+                        $WORKSPACE_FRONTEND/ $PROD_FRONTEND/
+                '''
+            }
+        }
+
+        /* ================= BACKEND FILE SYNC ================= */
+        stage('Sync Backend Files') {
+            when { 
+                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
+            }
+            steps {
+                sh '''
+                    echo "🐍 Syncing BACKEND files"
+                    echo "SRC: $WORKSPACE_BACKEND"
+                    echo "DST: $PROD_BACKEND"
+
+                    mkdir -p $PROD_BACKEND
+
                     rsync -av --delete \
                         --exclude 'venv' \
                         --exclude '__pycache__' \
@@ -62,41 +95,36 @@ pipeline {
             }
         }
 
-        /* ================= FRONTEND STAGES ================= */
-        
+        /* ================= FRONTEND BUILD ================= */
         stage('Build Next.js (CI)') {
             when { 
                 expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
             }
             steps {
                 sh '''
-                    # ✅ Work in the PROD directory now
                     cd $PROD_FRONTEND
 
-                    echo "📦 Installing deps (Clean Install)"
-                    npm ci 
+                    echo "📦 Installing frontend deps"
+                    npm ci
 
-                    # Ensure PM2 is installed globally
-                    sudo npm install -g pm2
-
-                    echo "🏗️ Building Next.js with API URL: $NEXT_PUBLIC_API_URL"
+                    echo "🏗️ Building Next.js"
                     export NODE_ENV=production
                     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
                 '''
             }
         }
 
+        /* ================= FRONTEND PM2 ================= */
         stage('Start / Restart Next.js (PM2)') {
             when { 
                 expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
             }
             steps {
                 sh '''
-                    # ✅ Work in the PROD directory
                     cd $PROD_FRONTEND
-                    
+
                     PM2_CMD="sudo /usr/bin/pm2"
-                    
+
                     echo "🔁 Managing PM2 Process: $NEXT_APP_NAME on Port $NEXT_PORT"
 
                     if $PM2_CMD list | grep -q "$NEXT_APP_NAME"; then
@@ -112,37 +140,37 @@ pipeline {
             }
         }
 
-        /* ================= BACKEND STAGES ================= */
-
+        /* ================= BACKEND SETUP ================= */
         stage('Backend Setup') {
             when { 
                 expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
             }
             steps {
                 sh '''
-                    # ✅ Work in the PROD directory
                     cd $PROD_BACKEND
 
                     echo "🐍 Backend setup in $PROD_BACKEND"
-                    
-                    # 1. Clean and Create venv
+
+                    # Recreate venv safely
                     rm -rf venv
                     python3 -m venv venv
 
-                    # 2. Use the venv binaries DIRECTLY
                     ./venv/bin/pip install --upgrade pip
                     ./venv/bin/pip install -r requirements.txt
                     ./venv/bin/pip install gunicorn
 
                     export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-                    
-                    # 3. Migrate and Collect Static
+
+                    echo "🗄️ Running migrations"
                     ./venv/bin/python manage.py migrate || true
+
+                    echo "🎨 Collecting static files"
                     ./venv/bin/python manage.py collectstatic --noinput || true
                 '''
             }
         }
 
+        /* ================= GUNICORN ================= */
         stage('Start / Restart Gunicorn') {
             when { 
                 expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
@@ -168,10 +196,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ PROD Jenkins deploy ($params.DEPLOY_SCOPE) succeeded"
+            echo "✅ PROD Jenkins deploy (${params.DEPLOY_SCOPE}) succeeded"
         }
         failure {
-            echo "❌ PROD Jenkins deploy ($params.DEPLOY_SCOPE) failed"
+            echo "❌ PROD Jenkins deploy (${params.DEPLOY_SCOPE}) failed"
         }
     }
 }
