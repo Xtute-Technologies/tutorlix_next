@@ -10,6 +10,7 @@ export default function Footer() {
     { label: "Terms and Conditions", href: "/terms" },
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Cancellation Policy", href: "/cancellation" },
+    { label: "Shipping Policy", href: "/shipping" },
     { label: "Sitemaps", href: "/sitemap" },
   ];
 
