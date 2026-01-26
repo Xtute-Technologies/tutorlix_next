@@ -55,6 +55,15 @@ export const getNavItems = (role) => {
         ],
       },
       {
+        title: "Marketing",
+        url: "#",
+        icon: Settings2,
+        isActive: true,
+        items: [
+          { title: "Micro Video", url: "/admin/users-management", icon: Users },
+        ],
+      },
+      {
         title: "Academic",
         url: "#",
         icon: BookOpen,

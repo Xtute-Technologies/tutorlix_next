@@ -702,3 +702,25 @@ const exportVariable = { category: categoryAPI,
 }
 // Export all APIs
 export default exportVariable;
+
+/* =========================
+   🎬 VIDEO APIs (NEW)
+========================= */
+// lib/lmsService.js
+
+export const videoAPI = {
+  render: async (formData) => {
+      const response = await axiosInstance.post(
+          "/api/lms/videos/render/",
+          formData,
+          {
+              responseType: "blob", // ✅ THIS IS CRITICAL
+              headers: {
+                  "Content-Type": "multipart/form-data",
+              },
+          }
+      );
+
+      return response.data; // ✅ THIS WILL BE A BLOB
+  },
+};

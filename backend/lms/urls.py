@@ -19,9 +19,14 @@ router.register(r'seller-expenses', views.SellerExpenseViewSet, basename='seller
 router.register(r'teacher-expenses', views.TeacherExpenseViewSet, basename='teacher-expense')
 router.register(r'product-leads', views.ProductLeadViewSet, basename='product-lead')
 
-# The API URLs are now determined automatically by the router
+# 🎬 VIDEO RENDERING (ADMIN ONLY)
+router.register(r'videos', views.VideoViewSet, basename='video')
+
 urlpatterns = [
     path('', include(router.urls)),
-    re_path(r'^webhook/payment-status/?$', views.RazorpayWebhookView.as_view(), name='razorpay-webhook'),
+    re_path(
+        r'^webhook/payment-status/?$',
+        views.RazorpayWebhookView.as_view(),
+        name='razorpay-webhook'
+    ),
 ]
-
