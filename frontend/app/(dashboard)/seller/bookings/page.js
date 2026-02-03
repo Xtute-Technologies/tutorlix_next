@@ -10,6 +10,7 @@ import { Copy, Plus, Eye, ExternalLink, User, CreditCard, TrendingUp, Wallet, Do
 import DataTable from '@/components/DataTable';
 import CreateBookingForm from './CreateBookingForm';
 import { useAuth } from '@/context/AuthContext';
+import CopyButton from '@/components/ui/copy-button';
 
 export default function SellerBookingsPage() {
   const [bookings, setBookings] = useState([]);
@@ -136,15 +137,7 @@ export default function SellerBookingsPage() {
       header: "Link",
       cell: ({ row }) => (
         row.original.payment_link ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-blue-600 gap-1 hover:text-blue-700 hover:bg-blue-50"
-            onClick={() => copyToClipboard(row.original.payment_link)}
-          >
-            <Copy className="h-3 w-3" />
-            <span className="text-xs underline decoration-dotted">Copy</span>
-          </Button>
+          <CopyButton text={row.original.payment_link} />
         ) : <span className="text-gray-300">-</span>
       )
     },
