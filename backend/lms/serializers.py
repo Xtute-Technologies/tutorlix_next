@@ -86,77 +86,106 @@ class InstructorSerializer(serializers.ModelSerializer):
             return obj.profile_image.url
         return None
 
-# --- Main Product Serializers ---
-
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
-    effective_price = serializers.DecimalField(source='get_effective_price', max_digits=10, decimal_places=2, read_only=True)
+    effective_price = serializers.DecimalField(
+        source='get_effective_price',
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
     images = ProductImageSerializer(many=True, read_only=True)
-    
+
     instructors = serializers.PrimaryKeyRelatedField(
-        many=True, 
+        many=True,
         queryset=User.objects.filter(role='teacher'),
         required=False
     )
-    
+
     discount_percentage = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'slug',
-            'category', 'category_name',
-            'total_seats', 
+            'id',
+            'name',
+            'slug',
+            'category',
+            'category_name',
+            'total_seats',
             'duration_days',
             'description',
             'overview',
+            'manual_discount',
             'curriculum',
             'features',
-            'price', 'discounted_price', 'effective_price', 'discount_percentage',
-            'instructors', 
-            'is_active', 
-            'images', 
-            'created_at', 'updated_at'
+            'price',
+            'discounted_price',
+            'effective_price',
+            'discount_percentage',
+            'instructors',
+            'is_active',
+            'images',
+            'created_at',
+            'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'slug']
+        read_only_fields = ['id', 'slug', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
-        response['instructors'] = InstructorSerializer(instance.instructors.all(), many=True,context=self.context).data
+        response['instructors'] = InstructorSerializer(
+            instance.instructors.all(),
+            many=True,
+            context=self.context
+        ).data
         return response
-    
+
     def get_discount_percentage(self, obj):
-        """Use the model method or fallback logic"""
-        if hasattr(obj, 'get_discount_percentage'):
-            return obj.get_discount_percentage()
-        # Fallback if model method is missing
-        if obj.discounted_price and obj.price > 0:
+        if obj.discounted_price and obj.price and obj.price > 0:
             return round(((obj.price - obj.discounted_price) / obj.price) * 100)
         return 0
-    
+
     def validate(self, data):
         """
-        Validate discounted price against regular price.
-        Handles both Create (POST) and Update (PATCH/PUT) scenarios safely.
+        Validate discounted_price and manual_discount safely
         """
-        # Get values from input data or fallback to existing instance data
         price = data.get('price')
         discounted_price = data.get('discounted_price')
+        manual_discount = data.get('manual_discount')
 
         if self.instance:
-            # If updating, use existing values if not provided in payload
             price = price if price is not None else self.instance.price
-            discounted_price = discounted_price if discounted_price is not None else self.instance.discounted_price
+            discounted_price = (
+                discounted_price
+                if discounted_price is not None
+                else self.instance.discounted_price
+            )
+            manual_discount = (
+                manual_discount
+                if manual_discount is not None
+                else self.instance.manual_discount
+            )
 
-        # Perform the check
+        # discounted_price sanity
         if discounted_price is not None and price is not None:
             if discounted_price > price:
                 raise serializers.ValidationError({
-                    "discounted_price": "Discounted price cannot be greater than regular price."
+                    "discounted_price": "Discounted price cannot be greater than price."
                 })
-        
-        return data
 
+        # manual_discount sanity
+        if manual_discount is not None and price is not None:
+            if manual_discount < 0:
+                raise serializers.ValidationError({
+                    "manual_discount": "Manual discount cannot be negative."
+                })
+
+            if manual_discount > price * Decimal("0.5"):
+                raise serializers.ValidationError({
+                    "manual_discount": "Manual discount cannot exceed 50% of price."
+                })
+
+        return data
 
 class ProductListSerializer(serializers.ModelSerializer):
     """

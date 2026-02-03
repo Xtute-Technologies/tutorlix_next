@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -83,6 +84,14 @@ class Product(models.Model):
         blank=True, 
         null=True, 
         validators=[MinValueValidator(0)]
+    )
+
+    manual_discount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True, 
+        null=True, 
+        default=0
     )
 
     # 0. Duration (Days)
@@ -237,7 +246,11 @@ class CourseBooking(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='bookings')
     course_name = models.CharField(max_length=200)  # Can differ from product name
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    
+    manual_discount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0
+    )
     # Coupon/Offer
     coupon_code = models.ForeignKey(Offer, on_delete=models.SET_NULL, null=True, blank=True, related_name='used_in_bookings')
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -278,11 +291,18 @@ class CourseBooking(models.Model):
         return f"{self.student.get_full_name()} - {self.course_name}"
     
     def save(self, *args, **kwargs):
-        # Calculate final amount
+        total_discount = Decimal(0)
+
         if self.coupon_code and self.coupon_code.is_valid():
-            self.discount_amount = self.coupon_code.amount_off
-        self.final_amount = self.price - self.discount_amount
+            total_discount += self.coupon_code.amount_off
+
+        total_discount += self.manual_discount or Decimal(0)
+
+        self.discount_amount = total_discount
+        self.final_amount = max(self.price - total_discount, Decimal(0))
+
         super().save(*args, **kwargs)
+
     
     class Meta:
         verbose_name = 'Course Booking'
