@@ -93,6 +93,23 @@ export default function HomeHero({ categories = [] }) {
 
   return (
     <section className="relative bg-black text-white pt-16 pb-24 md:pt-24 md:pb-32">
+      <div className="absolute inset-0 h-full w-full">
+         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+           <DotGrid
+             dotSize={5}
+             gap={15}
+             baseColor="#271E37"
+             activeColor="#5227FF"
+             proximity={120}
+             speedTrigger={100}
+             shockRadius={250}
+             shockStrength={5}
+             maxSpeed={5000}
+             resistance={750}
+             returnDuration={1.5}
+           />
+         </div>
+      </div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
