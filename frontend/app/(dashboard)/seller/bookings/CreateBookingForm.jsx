@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { INDIAN_STATES } from "@/config/states";
 
 import {
@@ -38,6 +39,7 @@ const bookingFormSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   product: z.string().min(1, "Please select a course"),
   coupon_code: z.string().optional(),
+  manual_price: z.number().optional()
 });
 
 export default function CreateBookingForm({ onSuccess }) {
@@ -49,6 +51,7 @@ export default function CreateBookingForm({ onSuccess }) {
   const [calculatingPrice, setCalculatingPrice] = useState(false);
   const [openState, setOpenState] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const { user } = useAuth();
 
   // Setup Form
   const { 
@@ -67,13 +70,19 @@ export default function CreateBookingForm({ onSuccess }) {
       state: '',
       password: '',
       product: '',
-      coupon_code: ''
+      coupon_code: '',
+      manual_price: 0
     }
   });
 
   // Watch values for Price Preview
   const watchedProduct = watch("product");
   const watchedCoupon = watch("coupon_code");
+  const watchedPrice = watch("manual_price");
+  const safeManualPrice =
+  typeof watchedPrice === "number" && !Number.isNaN(watchedPrice)
+    ? watchedPrice
+    : 0.00;
   
   // Find selected product object for display
   const selectedProductObj = products.find(p => p.id.toString() === watchedProduct);
@@ -93,7 +102,8 @@ export default function CreateBookingForm({ onSuccess }) {
         setCalculatingPrice(true);
         const resp = await bookingAPI.previewPrice({
           product: watchedProduct,
-          coupon_code: watchedCoupon 
+          coupon_code: watchedCoupon, 
+          manual_price: safeManualPrice
         });
         setPriceInfo(resp);
       } catch (error) {
@@ -111,7 +121,7 @@ export default function CreateBookingForm({ onSuccess }) {
     }, 500);
 
     return () => clearTimeout(handler);
-  }, [watchedProduct, watchedCoupon]);
+  }, [watchedProduct, watchedCoupon, watchedPrice]);
 
   const fetchProducts = async () => {
     try {
@@ -307,6 +317,25 @@ export default function CreateBookingForm({ onSuccess }) {
                     />
                     {errors.product && <span className="text-xs text-red-500">{errors.product.message}</span>}
                 </div>
+                {user?.allow_manual_price && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">
+                      Manual Override Discount
+                    </label>
+                    <Input
+                      type="number"
+                      name="manual_price"
+                      placeholder="Enter manual discount"
+                      {...register("manual_price", {
+                        valueAsNumber: true,
+                      })}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Max allowed: 50% of course price
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                     <Label>Coupon (Optional)</Label>
                     <Input 
@@ -343,6 +372,18 @@ export default function CreateBookingForm({ onSuccess }) {
                             )}
                           </div>
                     )}
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-gray-600">Manual Discount:</span>
+                            {safeManualPrice && (
+                              <>
+                                {priceInfo.manual_discount_message ? (
+                                  <span className="text-red-500 text-xs">{priceInfo.manual_discount_message}</span>
+                                ) : (
+                                  <span className="text-green-600 font-medium">- ₹{safeManualPrice}.00</span>
+                                )}
+                              </>
+                            )}
+                          </div>
                     <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between items-center font-bold">
                         <span>Total:</span>
                         <span className="text-blue-600 text-lg">

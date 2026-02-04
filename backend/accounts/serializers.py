@@ -34,7 +34,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'state', 'role', 'student_status',
-            'profile_image', 'bio', 'created_at', 'updated_at', 'is_active'
+            'profile_image', 'bio', 'created_at', 'updated_at', 'is_active', 'allow_manual_price'
         ]
         # REMOVED 'is_active' from read_only_fields so it can be updated
         read_only_fields = ['id', 'username', 'created_at', 'updated_at']
@@ -62,6 +62,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
         
         return super().update(instance, validated_data)
     
+    def validateManualPricePermission(self, data):
+        role = self.instance.role if self.instance else None
+
+        if "allow_manual_price" in data and role != "seller":
+            raise serializers.ValidationError(
+                "Manual override permission can be set only for sellers."
+            )
+
+        return data
     
 class SimpleUserSerializer(serializers.ModelSerializer):
     """
@@ -71,7 +80,7 @@ class SimpleUserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'full_name', 'profile_image', 'email', 'phone', 'role']
+        fields = ['id', 'first_name', 'last_name', 'full_name', 'profile_image', 'email', 'phone', 'role', 'allow_manual_price']
     
     def get_full_name(self, obj):
         return obj.get_full_name()
