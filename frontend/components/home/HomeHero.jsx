@@ -52,7 +52,7 @@ export default function HomeHero({ categories = [] }) {
   }, [categories, profileType]);
 
   // Configuration for "More" logic
-  const MAX_VISIBLE = 1;
+  const MAX_VISIBLE = 3;
   const visibleCategories = finalInterests.slice(0, MAX_VISIBLE);
   const remainingCategories = finalInterests.slice(MAX_VISIBLE);
 
