@@ -83,7 +83,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white font-sans overflow-hidden">
       
-      <HomeHero />
+      <HomeHero categories={categories} />
       
       <HomeCourses 
         products={products}

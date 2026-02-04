@@ -647,6 +647,7 @@ class ProductLeadSerializer(serializers.ModelSerializer):
             'product', 
             'product_name', 
             'status', 
+            'interest_area',
             'assigned_to', 
             'assigned_to_name',
             'assigned_to_details', 
@@ -658,7 +659,7 @@ class ProductLeadSerializer(serializers.ModelSerializer):
 class ProductLeadCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductLead
-        fields = ['name', 'email', 'phone', 'state', 'product', 'source']
+        fields = ['name', 'email','interest_area', 'phone', 'state', 'product', 'source']
         # status, assigned_to, remarks are excluded, so they will use model defaults
         # Only product and contact details required on creation
         read_only_fields = ['id', 'assigned_to_name', 'product_name', 'assigned_to_details', 'created_at', 'updated_at']

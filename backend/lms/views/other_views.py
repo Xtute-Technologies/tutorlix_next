@@ -107,7 +107,7 @@ class ProductLeadViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated] # Overridden in get_permissions
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'assigned_to', 'product', 'source']
-    search_fields = ['name', 'email', 'phone', 'state', 'product__name']
+    search_fields = ['name', 'email', 'phone', 'state', 'product__name',"interest_area"]
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-created_at']
     

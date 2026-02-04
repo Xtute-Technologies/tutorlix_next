@@ -1,97 +1,91 @@
-'use client';
+"use client";
 
-import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { CheckCircle2, Check, Sparkles } from 'lucide-react';
-import DotGrid from '@/components/DotGrid';
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Check, Sparkles, Search, Plus } from "lucide-react";
+import DotGrid from "@/components/DotGrid";
 import { useProfile } from "@/context/ProfileContext";
-import { z } from 'zod';
-import FormBuilder from '@/components/FormBuilder';
-import { productLeadAPI } from '@/lib/lmsService';
+import { z } from "zod";
+import FormBuilder from "@/components/FormBuilder";
+import { productLeadAPI } from "@/lib/lmsService";
 import { profileContent } from "@/app/data/homeContent";
 
-// --- DYNAMIC INTEREST OPTIONS ---
-const PROFILE_INTERESTS = {
-  school: [
-    { id: 'foundation', label: 'Class 9-10 Foundation' },
-    { id: 'jee_neet', label: 'JEE/NEET Prep' },
-    { id: 'coding_kids', label: 'Coding' }
-  ],
-  college: [
-    { id: 'web', label: 'Full Stack Dev' },
-    { id: 'data', label: 'Data Science & AI' },
-    { id: 'dsa', label: 'DSA & Placement' }
-  ],
-  professional: [
-    { id: 'system', label: 'System Design' },
-    { id: 'cloud', label: 'Cloud & DevOps' },
-    { id: 'switch', label: 'Career Switch' }
-  ]
-};
+// Shadcn UI components for the "More" menu
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const leadSchema = z.object({
-  name: z.string().min(1, "Full Name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string()
-    .length(10, "Phone number must be exactly 10 digits")
-    .regex(/^\d+$/, "Phone number must contain only digits"),
-  state: z.string().min(1, "State is required"),
+  name: z.string().trim().min(1, "Please enter your full name"),
+  email: z.email("Please enter a valid email address"),
+  phone: z.string().length(10, "Phone number must be 10 digits").regex(/^\d+$/, "Only numbers allowed"),
+  state: z.string().min(1, "Please select your state"),
 });
 
-function HeroFeatureItem({ text }) {
-  return (
-    <div className="flex items-start gap-3">
-      <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0 mt-1" />
-      <p className="text-lg text-slate-200 font-medium leading-snug">{text}</p>
-    </div>
-  );
-}
+const PROFILE_INTERESTS = {
+  school: [
+    { id: "f1", name: "Class 9-10 Foundation" },
+    { id: "f2", name: "JEE/NEET Prep" },
+  ],
+  college: [
+    { id: "c1", name: "Full Stack Dev" },
+    { id: "c2", name: "Data Science & AI" },
+  ],
+  professional: [
+    { id: "p1", name: "System Design" },
+    { id: "p2", name: "Cloud & DevOps" },
+  ],
+};
 
-export default function HomeHero() {
+export default function HomeHero({ categories = [] }) {
   const { profileType } = useProfile();
-  
-  // Select content based on profile (fallback to college)
-  const activeProfile = profileContent[profileType] || profileContent.college;
-  const activeInterests = PROFILE_INTERESTS[profileType] || PROFILE_INTERESTS.college;
-
-  const [selectedInterest, setSelectedInterest] = useState('');
+  const [open, setOpen] = useState(false);
+  const [selectedInterest, setSelectedInterest] = useState("");
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
 
-  // Reset selected interest when profile changes to avoid invalid states
+  const activeProfile = profileContent[profileType] || profileContent.college;
+
+  const finalInterests = useMemo(() => {
+    if (categories && categories.length > 0) return categories;
+    return PROFILE_INTERESTS[profileType] || PROFILE_INTERESTS.college;
+  }, [categories, profileType]);
+
+  // Configuration for "More" logic
+  const MAX_VISIBLE = 1;
+  const visibleCategories = finalInterests.slice(0, MAX_VISIBLE);
+  const remainingCategories = finalInterests.slice(MAX_VISIBLE);
+
   useEffect(() => {
-    setSelectedInterest('');
+    setSelectedInterest("");
   }, [profileType]);
 
-  const leadFields = useMemo(() => [
-    { name: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe', required: true },
-    { name: 'phone', label: 'Phone Number', type: 'phone', placeholder: '98765 43210', required: true },
-    { name: 'email', label: 'Email', type: 'email', placeholder: 'john@example.com', required: true },
-    { name: 'state', label: 'State', type: 'state_names', placeholder: 'Select your state', required: true },
-  ], []);
+  const leadFields = useMemo(
+    () => [
+      { name: "name", label: "Full Name", type: "text", placeholder: "John Doe", required: true },
+      { name: "phone", label: "Phone Number", type: "phone", placeholder: "98765 43210", required: true },
+      { name: "email", label: "Email", type: "email", placeholder: "john@example.com", required: true },
+      { name: "state", label: "State", type: "state_names", placeholder: "Select your state", required: true },
+    ],
+    [],
+  );
 
   const handleLeadSubmit = async (formData) => {
     if (!selectedInterest) {
       alert("Please select an area of interest.");
       return;
     }
-
     try {
       setSubmittingLead(true);
       await productLeadAPI.create({
-        name: formData.name,
-        email: formData.email,
-        phone: `+91${formData.phone}`,
-        state: formData.state,
-        source: 'Home Page',
-        remarks: `Profile: ${activeProfile.formRole} | Interest: ${selectedInterest}`
+        ...formData,
+        phone: `${formData.phone}`,
+        source: "Home Page",
+        interest_area: `${selectedInterest}`,
       });
       setLeadSuccess(true);
-      setSelectedInterest('');
     } catch (error) {
-      console.error("Lead submission error", error);
-      alert("Something went wrong. Please try again.");
+      alert("Something went wrong.");
     } finally {
       setSubmittingLead(false);
     }
@@ -99,87 +93,100 @@ export default function HomeHero() {
 
   return (
     <section className="relative bg-black text-white pt-16 pb-24 md:pt-24 md:pb-32">
-      <div className="absolute inset-0 h-full w-full">
-         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-           <DotGrid
-             dotSize={5}
-             gap={15}
-             baseColor="#271E37"
-             activeColor="#5227FF"
-             proximity={120}
-             speedTrigger={100}
-             shockRadius={250}
-             shockStrength={5}
-             maxSpeed={5000}
-             resistance={750}
-             returnDuration={1.5}
-           />
-         </div>
-      </div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-
           {/* Left Content */}
           <div className="space-y-8">
-            <div className="space-y-4">
-              <p className="text-green-400 font-medium tracking-wide uppercase text-sm">
-                {activeProfile.tag}
-              </p>
-              <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-white">
-                {activeProfile.headline}
-              </h1>
-            </div>
-            <div className="space-y-6 pt-4">
+            <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{activeProfile.tag}</p>
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">{activeProfile.headline}</h1>
+            <div className="space-y-6">
               {activeProfile.bullets.map((text, i) => (
-                <HeroFeatureItem key={i} text={text} />
+                <div key={i} className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-400 mt-1" />
+                  <p className="text-lg text-slate-200">{text}</p>
+                </div>
               ))}
             </div>
           </div>
 
           {/* Right Form Card */}
           <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
-            <Card className="border-0 shadow-2xl shadow-slate-900/50 bg-white text-slate-900 rounded-2xl overflow-hidden">
-              <CardHeader className="border-slate-100 bg-slate-50/50 mb-0">
+            <Card className="border-0 shadow-2xl bg-white text-slate-900 rounded-2xl overflow-hidden">
+              <CardHeader className="bg-slate-50/50">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  Start your journey 
+                  <Sparkles className="h-4 w-4 text-blue-600" /> Start your journey
                 </CardTitle>
-                <p className="text-xs text-slate-500">Get a personalized learning roadmap</p>
               </CardHeader>
-              
-              <CardContent className="space-y-5 p-5 pt-0 mt-0">
+
+              <CardContent className="p-5 pt-2">
                 {leadSuccess ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
-                    <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
-                      <Check className="h-8 w-8" />
+                  <div className="text-center py-10">
+                    <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full mx-auto flex items-center justify-center mb-4">
+                      <Check />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900">Request Received!</h3>
-                    <p className="text-slate-600 text-sm">
-                      Thanks for your interest. Our team will contact you shortly to guide you forward.
-                    </p>
-                    <Button variant="outline" onClick={() => setLeadSuccess(false)} className="mt-4">
-                      Send another request
+                    <h3 className="font-bold">Sent!</h3>
+                    <Button variant="link" onClick={() => setLeadSuccess(false)}>
+                      Send another
                     </Button>
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-2 mb-2">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">I am interested in</label>
+                    <div className="space-y-2 mb-4">
+                      <label className="text-xs font-semibold text-slate-500 uppercase">I am interested in</label>
                       <div className="flex flex-wrap gap-2">
-                        {activeInterests.map((opt) => (
+                        {/* Visible categories */}
+                        {visibleCategories.map((cat) => (
                           <button
-                            type="button"
-                            key={opt.id}
-                            onClick={() => setSelectedInterest(opt.label)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 ${
-                              selectedInterest === opt.label 
-                                ? "bg-slate-900 text-white border-slate-900 shadow-md" 
-                                : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
-                            }`}
-                          >
-                            {opt.label}
+                            key={cat.id}
+                            onClick={() => setSelectedInterest(cat.name)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all ${
+                              selectedInterest === cat.name
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                            }`}>
+                            {cat.name}
                           </button>
                         ))}
+
+                        {remainingCategories.length > 0 && (
+                          <Popover open={open} onOpenChange={setOpen}>
+                            <PopoverTrigger asChild>
+                              <button
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md border flex items-center gap-1 ${
+                                  remainingCategories.some((c) => c.name === selectedInterest)
+                                    ? "bg-slate-900 text-white border-slate-900"
+                                    : "bg-slate-100 text-primary border-blue-100"
+                                }`}>
+                                <Plus className="h-3 w-3" />
+                                {remainingCategories.some((c) => c.name === selectedInterest)
+                                  ? selectedInterest
+                                  : `${remainingCategories.length} More`}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0 w-[200px]" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search interests..." />
+                                <CommandList>
+                                  <CommandEmpty>No results found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {remainingCategories.map((cat) => (
+                                      <CommandItem
+                                        key={cat.id}
+                                        value={cat.name}
+                                        onSelect={(value) => {
+                                          setSelectedInterest(cat.name);
+                                          setOpen(false);
+                                        }}>
+                                        <Check className={`mr-2 h-4 w-4 ${selectedInterest === cat.name ? "opacity-100" : "opacity-0"}`} />
+                                        {cat.name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </div>
                     </div>
 
@@ -189,7 +196,6 @@ export default function HomeHero() {
                       onSubmit={handleLeadSubmit}
                       submitLabel={activeProfile.cta}
                       isSubmitting={submittingLead}
-                      className="grid grid-cols-1 gap-y-2"
                       submitButton={{ text: activeProfile.cta, loadingText: "Submitting..." }}
                     />
                   </>
@@ -197,7 +203,6 @@ export default function HomeHero() {
               </CardContent>
             </Card>
           </div>
-
         </div>
       </div>
     </section>
