@@ -1,5 +1,6 @@
 # Admin Section
 
+
 - Products [Add/List]
     Name, Total Seats, Description, Category(FK), Price, Discounted Price, Product Images [5]
 - Categories [Add/List]
@@ -36,6 +37,11 @@
 - Courses Section
     1. Check Courses Details
 
+- Seller Expenses
+
+Total Revenue Paid To us
+Total Revenue Taken by us [seller will take credits or maybe cheaper rates lets see]
+Profit lost
 
 ## Student Section
 
@@ -70,3 +76,12 @@
 - Class
 - Scores
 - Recordings
+- Teacher Expenses
+
+
+History:-
+
+Course Class:-
+Recordings:- 
+Attendance:- 
+Test Scores:-
