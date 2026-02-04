@@ -6,6 +6,7 @@ import DataTableServer from "@/components/DataTableServer";
 import FormBuilder from "@/components/FormBuilder";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -21,7 +22,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { authService } from "@/lib/authService";
-import { Plus, Pencil, Trash2, Calendar, Loader2, Phone, MapPin, Clock, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Loader2, Phone, MapPin, Clock, Eye, ShieldCheck } from "lucide-react";
 import { z } from "zod";
 import { createTableAdapter } from "@/lib/createTableAdapter";
 
@@ -71,6 +72,7 @@ export default function UsersPage() {
   const [viewingUser, setViewingUser] = useState(null);
   const [viewingUserLoading, setViewingUserLoading] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [permission, setPermission] = useState(null);
 
   // --- 3. Deep Link Logic (Single User View) ---
   useEffect(() => {
@@ -139,6 +141,36 @@ export default function UsersPage() {
       setSubmitting(false);
     }
   };
+
+  const savePermission = async ({ userId, allowManualPrice }) => {
+    try {
+      setSubmitting(true);
+      setMessage({ type: "", text: "" });
+  
+      await authService.updateUser(userId, {
+        allow_manual_price: allowManualPrice,
+      });
+  
+      setMessage({
+        type: "success",
+        text: "Permission updated successfully",
+      });
+  
+      setPermission(null);
+      refreshTable();
+    } catch (error) {
+      console.error("Permission update failed", error);
+      setMessage({
+        type: "error",
+        text:
+          error.response?.data?.detail ||
+          "Failed to update permission",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
 
   const confirmDelete = async () => {
     if (!userToDelete) return;
@@ -260,6 +292,18 @@ export default function UsersPage() {
         header: "",
         cell: ({ row }) => (
           <div className="flex gap-1 justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                setPermission({
+                  ...row.original,
+                  allowManualPrice: row.original.allow_manual_price, // ✅ IMPORTANT
+                })
+              }
+            >
+              <ShieldCheck className="h-4 w-4 text-slate-400 hover:text-emerald-600" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setViewingUser(row.original)}>
               <Eye className="h-4 w-4 text-slate-400 hover:text-emerald-600" />
             </Button>
@@ -467,6 +511,62 @@ export default function UsersPage() {
           )}
         </SheetContent>
       </Sheet>
+      {/* Permission Dialog */}
+      <AlertDialog open={!!permission} onOpenChange={() => setPermission(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Manual Price Permission</AlertDialogTitle>
+            <AlertDialogDescription>
+              Control whether this seller can apply manual price overrides while
+              creating bookings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* ✅ ONLY FOR SELLER */}
+          {permission?.role === "seller" ? (
+            <div className="flex items-center gap-3 mt-4">
+              <Checkbox
+                id="manual-override"
+                checked={!!permission.allowManualPrice}
+                onCheckedChange={(checked) =>
+                  setPermission((prev) => ({
+                    ...prev,
+                    allowManualPrice: Boolean(checked),
+                  }))
+                }
+              />
+              <label
+                htmlFor="manual-override"
+                className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+              >
+                Allow Manual Override Price
+              </label>
+            </div>
+          ) : (
+            <div className="mt-4 text-sm text-gray-500">
+              This permission is only applicable to sellers.
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+            <AlertDialogAction
+              disabled={permission?.role !== "seller"}
+              onClick={() =>
+                savePermission({
+                  userId: permission.id,
+                  allowManualPrice: permission.allowManualPrice,
+                })
+              }
+              className="bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save Permission
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

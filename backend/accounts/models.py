@@ -42,6 +42,10 @@ class User(AbstractUser):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    allow_manual_price = models.BooleanField(
+        default=False,
+        help_text="Can seller apply manual price override"
+    )
     
     def __str__(self):
         return f"{self.get_full_name()} ({self.get_role_display()})"
