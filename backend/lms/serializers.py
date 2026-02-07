@@ -278,39 +278,118 @@ class OfferSerializer(serializers.ModelSerializer):
 # ============= Course Booking Serializers =============
 
 class CourseBookingSerializer(serializers.ModelSerializer):
+    # --- Student Info ---
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     student_email = serializers.CharField(source='student.email', read_only=True)
     student_phone = serializers.CharField(source='student.phone', read_only=True)
     student_state = serializers.CharField(source='student.state', read_only=True)
+
+    # --- Product Info ---
     product_name = serializers.CharField(source='product.name', read_only=True)
-    sales_rep_name = serializers.CharField(source='sales_representative.get_full_name', read_only=True)
-    sales_rep_email = serializers.CharField(source='sales_representative.email', read_only=True)
-    coupon_code_text = serializers.CharField(source='coupon_code.code', read_only=True)
-    
+
+    # --- Sales Rep Info ---
+    sales_rep_name = serializers.CharField(
+        source='sales_representative.get_full_name',
+        read_only=True
+    )
+    sales_rep_email = serializers.CharField(
+        source='sales_representative.email',
+        read_only=True
+    )
+
+    # --- Coupon ---
+    coupon_code_text = serializers.CharField(
+        source='coupon_code.code',
+        read_only=True
+    )
+
+    # --- NEW: Payment History ---
+    payment_history = serializers.JSONField(read_only=True)
+
     class Meta:
         model = CourseBooking
         fields = [
-            'id', 'student', 'student_name', 'student_email', 'student_phone', 'student_state',
-            'product', 'product_name', 'course_name', 'price', 'coupon_code', 'coupon_code_text',
-            'discount_amount', 'final_amount', 'payment_link', 'payment_status', 'payment_date',
-            'sales_representative', 'sales_rep_name', 'sales_rep_email', 'booked_by', 'student_status',
-            'booking_date', 'course_expiry_date', 'created_at', 'updated_at',
-            'booking_id', 'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature'
+            # IDs
+            'id',
+            'booking_id',
+
+            # Student
+            'student',
+            'student_name',
+            'student_email',
+            'student_phone',
+            'student_state',
+
+            # Course
+            'product',
+            'product_name',
+            'course_name',
+
+            # Pricing (FROZEN)
+            'price',
+            'manual_discount',
+            'coupon_code',
+            'coupon_code_text',
+            'discount_amount',
+            'final_amount',
+
+            # Payment
+            'payment_link',
+            'payment_status',
+            'payment_date',
+            'payment_history',
+
+            # Razorpay
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'razorpay_signature',
+
+            # Sales
+            'sales_representative',
+            'sales_rep_name',
+            'sales_rep_email',
+            'booked_by',
+
+            # Status
+            'student_status',
+            'course_expiry_date',
+
+            # Dates
+            'booking_date',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['id', 'discount_amount', 'final_amount', 'booking_date', 'created_at', 'updated_at',
-                            'booking_id', 'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature']
-    
+
+        read_only_fields = [
+            'id',
+            'booking_id',
+            'discount_amount',
+            'final_amount',
+            'payment_date',
+            'payment_history',
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'razorpay_signature',
+            'booking_date',
+            'created_at',
+            'updated_at',
+        ]
+
     def validate(self, data):
-        # Validate student role
+        # ✅ Student must be student
         student = data.get('student')
         if student and student.role != 'student':
-            raise serializers.ValidationError("Selected user must have student role.")
-        
-        # Validate sales representative role
+            raise serializers.ValidationError(
+                "Selected user must have student role."
+            )
+
+        # ✅ Sales rep must be seller/admin
         sales_rep = data.get('sales_representative')
         if sales_rep and sales_rep.role not in ['seller', 'admin']:
-            raise serializers.ValidationError("Sales representative must be a seller or admin.")
-        
+            raise serializers.ValidationError(
+                "Sales representative must be a seller or admin."
+            )
+
         return data
 
 

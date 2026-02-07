@@ -22,6 +22,9 @@ export default function SellerBookingsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [expireDialogOpen, setExpireDialogOpen] = useState(false);
+  const [bookingToExpire, setBookingToExpire] = useState(null);
+  const [expiring, setExpiring] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -42,6 +45,35 @@ export default function SellerBookingsPage() {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExpireClick = (booking) => {
+    setBookingToExpire(booking);
+    setExpireDialogOpen(true);
+  };
+
+  const confirmExpire = async () => {
+    if (!bookingToExpire) return;
+
+    try {
+      setExpiring(true);
+
+      await bookingAPI.expirePaymentLink({
+        booking_id: bookingToExpire.booking_id,
+      });
+
+      // Refresh data
+      await fetchData();
+
+      // Close dialogs
+      setExpireDialogOpen(false);
+      setStudentDialogOpen(false);
+    } catch (err) {
+      console.error("Expire failed", err);
+    } finally {
+      setExpiring(false);
+      setBookingToExpire(null);
     }
   };
 
@@ -79,6 +111,14 @@ export default function SellerBookingsPage() {
   const handleViewStudent = (bookingData) => {
     setSelectedBooking(bookingData);
     setStudentDialogOpen(true);
+  };
+
+  const formatDateTime = (ts) => {
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return "-";
+    }
   };
 
   // --- COLUMNS FOR TABLE ---
@@ -124,6 +164,7 @@ export default function SellerBookingsPage() {
           paid: "bg-green-50 text-green-700 border-green-200",
           pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
           failed: "bg-red-50 text-red-700 border-red-200",
+          expired: "bg-gray-100 text-gray-600 border-gray-300"
         };
         return (
           <Badge variant="outline" className={`${colors[row.original.payment_status] || "bg-gray-50"} capitalize border`}>
@@ -156,6 +197,23 @@ export default function SellerBookingsPage() {
       )
     }
   ];
+
+  const getExpireState = (booking) => {
+    if (!booking) {
+      return {
+        isExpired: false,
+        isPaid: false,
+        isThisBookingExpiring: false,
+      };
+    }
+
+    return {
+      isExpired: booking.payment_status === "expired",
+      isPaid: booking.payment_status === "paid",
+      isThisBookingExpiring:
+        expiring && bookingToExpire?.booking_id === booking.booking_id,
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -265,7 +323,13 @@ export default function SellerBookingsPage() {
       </div>
 
       {/* VIEW DETAILS DIALOG */}
-      <Dialog open={studentDialogOpen} onOpenChange={setStudentDialogOpen}>
+      <Dialog
+        open={studentDialogOpen}
+        onOpenChange={(open) => {
+          setStudentDialogOpen(open);
+          if (!open) setSelectedBooking(null);
+        }}
+      >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
@@ -332,21 +396,130 @@ export default function SellerBookingsPage() {
                             <ExternalLink className="h-3 w-3 mr-1" /> Open
                           </a>
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-red-500 text-red-600
+                            hover:bg-red-50 hover:text-red-700
+                            disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => handleExpireClick(selectedBooking)}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Expire
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
               </section>
 
-              {/* Footer Info */}
-              <div className="pt-2 text-center text-xs text-gray-400">
-                <p>Booking ID: {selectedBooking.booking_id}</p>
-                <p>Date: {new Date(selectedBooking.booking_date).toLocaleString()}</p>
-              </div>
+              {/* PAYMENT HISTORY */}
+              <section className="space-y-3">
+                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <CreditCard className="h-3 w-3" />
+                  Payment History
+                </h4>
+
+                {Array.isArray(selectedBooking.payment_history) &&
+                  selectedBooking.payment_history.length > 0 ? (
+                  <div className="rounded-md border divide-y">
+                    {[...selectedBooking.payment_history]
+                      .sort((a, b) => b.timestamp - a.timestamp)
+                      .map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 text-sm"
+                        >
+                          <div className="space-y-1">
+                            <div className="font-medium text-gray-900">
+                              ₹{p.amount}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {formatDateTime(p.timestamp)}
+                            </div>
+
+                            {p.razorpay_payment_id && (
+                              <div className="text-xs text-gray-400">
+                                Payment ID: {p.razorpay_payment_id}
+                              </div>
+                            )}
+                          </div>
+
+                          <Badge
+                            variant="outline"
+                            className={`capitalize ${p.status === "paid"
+                                ? "bg-green-50 text-green-700 border-green-200"
+                                : p.status === "failed"
+                                  ? "bg-red-50 text-red-700 border-red-200"
+                                  : p.status === "expired"
+                                    ? "bg-gray-100 text-gray-600 border-gray-300"
+                                    : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                              }`}
+                          >
+                            {p.status}
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 italic">
+                    No payment attempts yet.
+                  </div>
+                )}
+              </section>
+
             </div>
           ) : (
             <div className="py-8 text-center text-gray-500">Loading details...</div>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={expireDialogOpen} onOpenChange={setExpireDialogOpen}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+
+          {/* Header */}
+          <div className="flex items-start gap-4 p-6 border-b">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+              <ExternalLink className="h-5 w-5 text-red-600" />
+            </div>
+
+            <div className="space-y-1">
+              <DialogTitle className="text-lg font-semibold text-gray-900">
+                Expire payment link?
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600">
+                This will permanently disable the payment link.
+              </DialogDescription>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-4">
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <strong>Warning:</strong>
+              This action cannot be undone.
+              The student will no longer be able to make payment using this link.
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 bg-gray-50 px-6 py-4">
+            <Button
+              variant="outline"
+              onClick={() => setExpireDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={confirmExpire}
+              disabled={expiring}
+            >
+              {expiring ? "Expiring..." : "Yes, expire link"}
+            </Button>
+          </div>
+
         </DialogContent>
       </Dialog>
     </div>

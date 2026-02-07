@@ -257,115 +257,198 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(booking)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def expire_payment_link(self, request):
+        user = request.user
+        booking_id = request.data.get("booking_id")
 
-    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='details_public/(?P<uuid>[^/.]+)')
+        if not booking_id:
+            return Response(
+                {"booking_id": "Booking ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            old_booking = CourseBooking.objects.get(booking_id=booking_id)
+        except CourseBooking.DoesNotExist:
+            return Response(
+                {"detail": "Invalid booking ID."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 🔐 ROLE CHECK
+        if user.role not in ["admin", "seller"]:
+            return Response(
+                {"detail": "Permission denied."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 🔐 OWNERSHIP CHECK
+        if user.role == "seller" and old_booking.sales_representative != user:
+            return Response(
+                {"detail": "You cannot expire this payment link."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # ❌ Already expired
+        if old_booking.payment_status == "expired":
+            return Response(
+                {"detail": "Payment link is already expired."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 1️⃣ EXPIRE OLD BOOKING (DO NOT TOUCH PRICE)
+        old_booking.payment_status = "expired"
+        old_booking.payment_link = None
+        old_booking.save(update_fields=["payment_status", "payment_link"])
+        return Response(
+            {
+                "detail": "Payment link expired.",
+                "old_booking_id": old_booking.booking_id,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+    @action(
+    detail=False,
+    methods=['get'],
+    permission_classes=[AllowAny],
+    url_path='details_public/(?P<uuid>[^/.]+)'
+    )
     def get_payment_details(self, request, uuid=None):
         try:
-            # 1. Fetch the booking referenced in the URL
-            original_booking = CourseBooking.objects.get(booking_id=uuid)
+            booking = CourseBooking.objects.get(booking_id=uuid)
         except CourseBooking.DoesNotExist:
-            return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Booking not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        booking = original_booking
-
-        # 2. Logic for handling already paid/completed links
-        if booking.payment_status in ['paid', 'completed', 'cancelled', 'refunded']:
-            # Check if there is already a "retry" or "pending" version of this specific purchase
-            recent_pending = CourseBooking.objects.filter(
-                student=booking.student, 
-                product=booking.product, 
-                payment_status='pending'
-            ).order_by('-created_at').first()
-
-            if recent_pending:
-                booking = recent_pending
-            else:
-                # CLONE: Create a fresh booking with CURRENT pricing
-                product = booking.product
-                effective_price = product.discounted_price if product.discounted_price else product.price
-                
-                booking = CourseBooking.objects.create(
-                    student=booking.student,
-                    product=product,
-                    course_name=product.name, 
-                    price=effective_price, 
-                    sales_representative=booking.sales_representative,
-                    booked_by=booking.sales_representative.get_full_name() if booking.sales_representative else "System",
-                    payment_status="pending",
-                    student_status="in_process",
-                    final_amount=effective_price, 
-                    discount_amount=Decimal('0.00'), 
-                    manual_discount=Decimal('0.00'),
-                    coupon_code=None,
-                    razorpay_order_id=None  # CRITICAL: Force a new order creation
-                )
-
-        # 3. Handle Razorpay Order Creation
         service = PaymentService()
-        
-        # If order doesn't exist OR if price in DB doesn't match Razorpay (edge case), 
-        # we generate a new order.
-        if not booking.razorpay_order_id:
-            try:
-                # amount must be in paise for Razorpay (amount * 100)
-                # Ensure your PaymentService handles the Decimal conversion inside create_order
-                order = service.create_order(
-                    amount=booking.final_amount, 
-                    receipt=str(booking.id),
-                    notes={"booking_uuid": str(booking.booking_id)}
-                )
-                booking.razorpay_order_id = order['id']
-                booking.save()
-            except Exception as e:
-                logger.error(f"Error creating Razorpay order: {e}")
-                return Response({"detail": "Error initializing payment."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 4. Return the (potentially new) booking details
+
+        # 🔥 CRITICAL RULE:
+        # Razorpay order MUST be recreated on every retry
+        try:
+            order = service.create_order(
+                amount=booking.final_amount,  # ✅ frozen price from DB
+                receipt=str(booking.id),
+                notes={"booking_uuid": str(booking.booking_id)}
+            )
+
+            booking.razorpay_order_id = order["id"]
+            booking.save(update_fields=["razorpay_order_id"])
+
+        except Exception as e:
+            logger.error(f"Razorpay order creation failed: {e}")
+            return Response(
+                {"detail": "Error initializing payment."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         return Response({
             "booking": CourseBookingSerializer(booking).data,
             "razorpay_order_id": booking.razorpay_order_id,
-            "razorpay_key_id": settings.RAZORPAY_SECRET_ID, 
+            "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
             "status": booking.payment_status
         })
 
-    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='verify_payment')
+
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[AllowAny],
+        url_path='verify_payment'
+    )
     def verify_payment(self, request):
         booking_uuid = request.data.get('booking_id')
         payment_id = request.data.get('razorpay_payment_id')
         order_id = request.data.get('razorpay_order_id')
         signature = request.data.get('razorpay_signature')
-        
+
+        # 1️⃣ Basic validation
         if not all([booking_uuid, payment_id, order_id, signature]):
-             return Response({"detail": "Missing parameters."}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"detail": "Missing parameters."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2️⃣ Fetch booking (IMMUTABLE PRICING)
         try:
             booking = CourseBooking.objects.get(booking_id=booking_uuid)
         except CourseBooking.DoesNotExist:
-            return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+            return Response(
+                {"detail": "Booking not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         service = PaymentService()
         params = {
-            'razorpay_order_id': order_id,
-            'razorpay_payment_id': payment_id,
-            'razorpay_signature': signature
+            "razorpay_order_id": order_id,
+            "razorpay_payment_id": payment_id,
+            "razorpay_signature": signature,
         }
-        
-        if service.verify_order_signature(params):
-            booking.payment_status = 'paid'
-            booking.razorpay_payment_id = payment_id
-            booking.razorpay_signature = signature
-            booking.payment_date = timezone.now()
-            
-            # Set Course Expiry
-            if booking.product.duration_days and booking.product.duration_days > 0:
-                booking.course_expiry_date = timezone.localdate() + timedelta(days=booking.product.duration_days)
-            
-            booking.save()
-            return Response({"status": "success"})
-        else:
-            booking.payment_status = 'failed'
-            booking.save()
-            return Response({"detail": "Signature verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3️⃣ Verify Razorpay signature
+        if not service.verify_order_signature(params):
+            # ❌ Failed attempt → log history
+            history = booking.payment_history or []
+            history.append({
+                "timestamp": int(timezone.now().timestamp() * 1000),  # ms
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "amount": str(booking.final_amount),
+                "status": "failed",
+            })
+
+            booking.payment_history = history
+            booking.payment_status = "failed"
+            booking.save(update_fields=["payment_history", "payment_status"])
+
+            return Response(
+                {"detail": "Signature verification failed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4️⃣ SUCCESS → append payment history (DO NOT overwrite)
+        history = booking.payment_history or []
+        history.append({
+            "timestamp": int(timezone.now().timestamp() * 1000),  # milliseconds
+            "razorpay_order_id": order_id,
+            "razorpay_payment_id": payment_id,
+            "amount": str(booking.final_amount),
+            "status": "paid",
+        })
+
+        booking.payment_history = history
+        booking.payment_status = "paid"
+        booking.razorpay_payment_id = payment_id
+        booking.razorpay_signature = signature
+        booking.payment_date = timezone.now()
+
+        # 5️⃣ Course expiry (ONLY ON FIRST SUCCESS)
+        if (
+            booking.product.duration_days
+            and booking.product.duration_days > 0
+            and not booking.course_expiry_date
+        ):
+            booking.course_expiry_date = (
+                timezone.localdate() + timedelta(days=booking.product.duration_days)
+            )
+
+        # Optional: auto activate student
+        if booking.student_status == "in_process":
+            booking.student_status = "active"
+
+        booking.save()
+
+        return Response({
+            "status": "success",
+            "booking_id": str(booking.booking_id),
+            "final_amount": str(booking.final_amount),
+            "payment_attempts": len(history),
+        })
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check_payment_status')
     def check_payment_status(self, request):

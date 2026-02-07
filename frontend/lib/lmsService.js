@@ -214,6 +214,12 @@ export const bookingAPI = {
     return response.data;
   },
 
+  // Expire Active Booking
+  expirePaymentLink: async (data) => {
+    const response = await axiosInstance.post('/api/lms/bookings/expire_payment_link/', data);
+    return response.data;
+  },
+
   // Preview price for booking (no DB write)
   previewPrice: async (data) => {
     const response = await axiosInstance.post('/api/lms/bookings/preview_price/', data);

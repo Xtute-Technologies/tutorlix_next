@@ -224,6 +224,7 @@ class CourseBooking(models.Model):
         ('paid', 'Paid'),
         ('failed', 'Failed'),
         ('refunded', 'Refunded'),
+        ('expired', 'Expired'),
     )
 
     STUDENT_STATUS_CHOICES = [
@@ -266,6 +267,7 @@ class CourseBooking(models.Model):
     razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    payment_history = models.JSONField(default=list, blank=True)
     
     # Sales and tracking
     sales_representative = models.ForeignKey(
@@ -291,15 +293,16 @@ class CourseBooking(models.Model):
         return f"{self.student.get_full_name()} - {self.course_name}"
     
     def save(self, *args, **kwargs):
-        total_discount = Decimal(0)
+        if self.pk is None:  # ONLY on create
+            total_discount = Decimal(0)
 
-        if self.coupon_code and self.coupon_code.is_valid():
-            total_discount += self.coupon_code.amount_off
+            if self.coupon_code and self.coupon_code.is_valid():
+                total_discount += self.coupon_code.amount_off
 
-        total_discount += self.manual_discount or Decimal(0)
+            total_discount += self.manual_discount or Decimal(0)
 
-        self.discount_amount = total_discount
-        self.final_amount = max(self.price - total_discount, Decimal(0))
+            self.discount_amount = total_discount
+            self.final_amount = max(self.price - total_discount, Decimal(0))
 
         super().save(*args, **kwargs)
 
