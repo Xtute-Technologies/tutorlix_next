@@ -268,17 +268,17 @@ export default function BookingsPage() {
 
   const defaultValues = editingId
     ? {
-        ...bookings.find(b => b.id === editingId),
-        student: bookings.find(b => b.id === editingId)?.student,
-        product: bookings.find(b => b.id === editingId)?.product,
-        sales_representative: bookings.find(b => b.id === editingId)?.sales_representative || '',
-        payment_date: bookings.find(b => b.id === editingId)?.payment_date?.split('T')[0] || '',
-        course_expiry_date: bookings.find(b => b.id === editingId)?.course_expiry_date || '',
-      }
+      ...bookings.find(b => b.id === editingId),
+      student: bookings.find(b => b.id === editingId)?.student,
+      product: bookings.find(b => b.id === editingId)?.product,
+      sales_representative: bookings.find(b => b.id === editingId)?.sales_representative || '',
+      payment_date: bookings.find(b => b.id === editingId)?.payment_date?.split('T')[0] || '',
+      course_expiry_date: bookings.find(b => b.id === editingId)?.course_expiry_date || '',
+    }
     : {
-        payment_status: 'pending',
-        student_status: 'in_process',
-      };
+      payment_status: 'pending',
+      student_status: 'in_process',
+    };
 
   const columns = [
     {
@@ -370,216 +370,277 @@ export default function BookingsPage() {
   ];
 
   // Calculate total revenue
-  const totalRevenue = bookings
-    .filter(b => b.payment_status === 'paid')
-    .reduce((sum, b) => sum + parseFloat(b.final_amount), 0);
+  const totalRevenue = bookings.reduce((sum, booking) => {
+    if (!Array.isArray(booking.payment_histories)) return sum;
+
+    const paidAmount = booking.payment_histories
+      .filter(p => p.status === 'paid')
+      .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+
+    return sum + paidAmount;
+  }, 0);
 
   return (
-    
-      <div className="space-y-6">
+
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Course Bookings</h1>
+          <p className="text-gray-600 mt-1">Manage student course bookings and payments</p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditingId(null);
+            setShowForm(true);
+          }}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Booking
+        </Button>
+      </div>
+
+      {message.text && (
+        <Card className={`p-4 ${message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
+          {message.text}
+        </Card>
+      )}
+
+      {/* Revenue Card */}
+      <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Course Bookings</h1>
-            <p className="text-gray-600 mt-1">Manage student course bookings and payments</p>
+            <p className="text-green-100 text-sm">Total Revenue (Paid)</p>
+            <p className="text-3xl font-bold mt-1">₹{totalRevenue.toFixed(2)}</p>
           </div>
-          <Button
-            onClick={() => {
-              setEditingId(null);
-              setShowForm(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Booking
-          </Button>
+          <DollarSign className="h-12 w-12 text-green-200" />
         </div>
+      </Card>
 
-        {message.text && (
-          <Card className={`p-4 ${message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
-            {message.text}
-          </Card>
-        )}
+      <DataTable
+        columns={columns}
+        data={bookings}
+        loading={loading}
+        // searchKey="student_name"
+        searchPlaceholder="Search by student name..."
+      />
 
-        {/* Revenue Card */}
-        <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Total Revenue (Paid)</p>
-              <p className="text-3xl font-bold mt-1">₹{totalRevenue.toFixed(2)}</p>
-            </div>
-            <DollarSign className="h-12 w-12 text-green-200" />
-          </div>
-        </Card>
-
-          <DataTable
-            columns={columns}
-            data={bookings}
-            loading={loading}
-            // searchKey="student_name"
-            searchPlaceholder="Search by student name..."
+      {/* Form Dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Edit Booking' : 'Add New Booking'}</DialogTitle>
+            <DialogDescription>
+              {editingId ? 'Update booking details' : 'Create a new course booking'}
+            </DialogDescription>
+          </DialogHeader>
+          <FormBuilder
+            fields={formFields}
+            onSubmit={handleSubmit}
+            defaultValues={defaultValues}
+            submitLabel={editingId ? 'Update' : 'Create'}
+            submitting={submitting}
+            schema={bookingSchema}
           />
+        </DialogContent>
+      </Dialog>
 
-        {/* Form Dialog */}
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingId ? 'Edit Booking' : 'Add New Booking'}</DialogTitle>
-              <DialogDescription>
-                {editingId ? 'Update booking details' : 'Create a new course booking'}
-              </DialogDescription>
-            </DialogHeader>
-            <FormBuilder
-              fields={formFields}
-              onSubmit={handleSubmit}
-              defaultValues={defaultValues}
-              submitLabel={editingId ? 'Update' : 'Create'}
-              submitting={submitting}
-              schema={bookingSchema}
-            />
-          </DialogContent>
-        </Dialog>
+      {/* View Booking Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+            <DialogDescription>
+              Booking ID: {selectedBooking?.id}
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* View Booking Dialog */}
-        <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Booking Details</DialogTitle>
-              <DialogDescription>
-                Booking ID: {selectedBooking?.id}
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedBooking && (
-              <div className="space-y-6">
-                {/* Student Info */}
-                <Card className="p-4 bg-gray-50">
-                  <h3 className="font-semibold mb-3">Student Information</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Name:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.student_name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Email:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.student_email}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Phone:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.student_phone || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">State:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.student_state || 'N/A'}</span>
-                    </div>
+          {selectedBooking && (
+            <div className="space-y-6">
+              {/* Student Info */}
+              <Card className="p-4 bg-gray-50">
+                <h3 className="font-semibold mb-3">Student Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Name:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.student_name}</span>
                   </div>
-                </Card>
-
-                {/* Course Info */}
-                <Card className="p-4 bg-blue-50">
-                  <h3 className="font-semibold mb-3">Course Information</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Course Name:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.course_name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Product:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.product_name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Price:</span>
-                      <span className="ml-2 font-medium">₹{parseFloat(selectedBooking.price).toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Discount:</span>
-                      <span className="ml-2 font-medium text-green-600">
-                        -₹{parseFloat(selectedBooking.discount_amount).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-gray-600">Final Amount:</span>
-                      <span className="ml-2 font-bold text-lg">₹{parseFloat(selectedBooking.final_amount).toFixed(2)}</span>
-                    </div>
+                  <div>
+                    <span className="text-gray-600">Email:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.student_email}</span>
                   </div>
-                </Card>
-
-                {/* Payment & Status */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-4">
-                    <h3 className="font-semibold mb-3">Payment Status</h3>
-                    <div className="space-y-2">
-                      {getPaymentStatusBadge(selectedBooking.payment_status)}
-                      {selectedBooking.payment_date && (
-                        <p className="text-sm text-gray-600">
-                          Paid on: {new Date(selectedBooking.payment_date).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  </Card>
-                  <Card className="p-4">
-                    <h3 className="font-semibold mb-3">Student Status</h3>
-                    {getStudentStatusBadge(selectedBooking.student_status)}
-                  </Card>
+                  <div>
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.student_phone || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">State:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.student_state || 'N/A'}</span>
+                  </div>
                 </div>
+              </Card>
 
-                {/* Additional Info */}
+              {/* Course Info */}
+              <Card className="p-4 bg-blue-50">
+                <h3 className="font-semibold mb-3">Course Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Course Name:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.course_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Product:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.product_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Price:</span>
+                    <span className="ml-2 font-medium">₹{parseFloat(selectedBooking.price).toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Discount:</span>
+                    <span className="ml-2 font-medium text-green-600">
+                      -₹{parseFloat(selectedBooking.discount_amount).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-600">Final Amount:</span>
+                    <span className="ml-2 font-bold text-lg">₹{parseFloat(selectedBooking.final_amount).toFixed(2)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Payment & Status */}
+              <div className="grid grid-cols-2 gap-4">
                 <Card className="p-4">
-                  <h3 className="font-semibold mb-3">Additional Information</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Booked By:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.booked_by}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Sales Rep:</span>
-                      <span className="ml-2 font-medium">{selectedBooking.sales_rep_name || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Booking Date:</span>
-                      <span className="ml-2 font-medium">
-                        {new Date(selectedBooking.booking_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Expiry Date:</span>
-                      <span className="ml-2 font-medium">
-                        {selectedBooking.course_expiry_date
-                          ? new Date(selectedBooking.course_expiry_date).toLocaleDateString()
-                          : 'N/A'}
-                      </span>
-                    </div>
+                  <h3 className="font-semibold mb-3">Payment Status</h3>
+                  <div className="space-y-2">
+                    {getPaymentStatusBadge(selectedBooking.payment_status)}
+                    {selectedBooking.payment_date && (
+                      <p className="text-sm text-gray-600">
+                        Paid on: {new Date(selectedBooking.payment_date).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
-                  {selectedBooking.payment_link && (
-                    <div className="mt-3">
-                      <span className="text-gray-600">Payment Link:</span>
-                      <a
-                        href={selectedBooking.payment_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 text-blue-600 hover:underline"
-                      >
-                        View Payment
-                      </a>
-                    </div>
-                  )}
                 </Card>
-
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline" onClick={() => setShowViewDialog(false)}>
-                    Close
-                  </Button>
-                  <Button onClick={() => {
-                    setShowViewDialog(false);
-                    handleEdit(selectedBooking);
-                  }}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                </div>
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3">Student Status</h3>
+                  {getStudentStatusBadge(selectedBooking.student_status)}
+                </Card>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-    
+
+              {/* Additional Info */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3">Additional Information</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Booked By:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.booked_by}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Sales Rep:</span>
+                    <span className="ml-2 font-medium">{selectedBooking.sales_rep_name || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Booking Date:</span>
+                    <span className="ml-2 font-medium">
+                      {new Date(selectedBooking.booking_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Expiry Date:</span>
+                    <span className="ml-2 font-medium">
+                      {selectedBooking.course_expiry_date
+                        ? new Date(selectedBooking.course_expiry_date).toLocaleDateString()
+                        : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                {selectedBooking.payment_link && (
+                  <div className="mt-3">
+                    <span className="text-gray-600">Payment Link:</span>
+                    <a
+                      href={selectedBooking.payment_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-blue-600 hover:underline"
+                    >
+                      View Payment
+                    </a>
+                  </div>
+                )}
+              </Card>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowViewDialog(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setShowViewDialog(false);
+                  handleEdit(selectedBooking);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+
+              {/* PAYMENT HISTORY */}
+              <Card className="p-4 bg-gray-50">
+                <h3 className="font-semibold mb-3">Payment History</h3>
+
+                {Array.isArray(selectedBooking.payment_histories) &&
+                  selectedBooking.payment_histories.length > 0 ? (
+                  <div className="divide-y rounded-md border">
+                    {[...selectedBooking.payment_histories]
+                      .sort(
+                        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+                      )
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-3 text-sm"
+                        >
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              ₹{p.amount}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {p.created_at
+                                ? new Date(p.created_at).toLocaleString()
+                                : '-'}
+                            </div>
+                            {p.razorpay_payment_id && (
+                              <div className="text-xs text-gray-400">
+                                Payment ID: {p.razorpay_payment_id}
+                              </div>
+                            )}
+                          </div>
+
+                          <Badge
+                            variant="outline"
+                            className={
+                              p.status === 'paid'
+                                ? 'border-green-300 text-green-700'
+                                : p.status === 'failed'
+                                  ? 'border-red-300 text-red-700'
+                                  : 'border-yellow-300 text-yellow-700'
+                            }
+                          >
+                            {p.status}
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 italic">
+                    No payment attempts yet.
+                  </div>
+                )}
+              </Card>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+
   );
 }
