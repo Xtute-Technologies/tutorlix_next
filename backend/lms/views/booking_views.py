@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.db.models import Sum, Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum
 from django.utils import timezone
@@ -70,27 +71,65 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def statistics(self, request):
         """
-        Get aggregated statistics for dashboard.
+        Aggregated statistics for dashboard (HISTORY-DRIVEN)
         Endpoint: /api/lms/bookings/statistics/
         """
-        # queryset is already filtered by role via get_queryset
-        queryset = self.get_queryset()
-        
-        total_bookings = queryset.count()
-        paid_bookings = queryset.filter(payment_status='paid').count()
-        pending_bookings = queryset.filter(payment_status='pending').count()
-        
-        # Calculate total revenue (sum of final_amount for paid bookings)
-        revenue_data = queryset.filter(payment_status='paid').aggregate(
-            total_revenue=Sum('final_amount')
+
+        # bookings already role-filtered
+        bookings_qs = self.get_queryset()
+
+        # payment histories scoped to visible bookings
+        payment_qs = PaymentHistory.objects.filter(
+            booking__in=bookings_qs
         )
+
+        # ---------------------------
+        # CORE COUNTS
+        # ---------------------------
+        total_bookings = bookings_qs.count()
+
+        # bookings with at least one SUCCESS payment
+        paid_bookings = (
+            bookings_qs
+            .filter(payment_histories__status='paid')
+            .distinct()
+            .count()
+        )
+
+        # pending = no paid history & not expired
+        pending_bookings = (
+            bookings_qs
+            .exclude(payment_histories__status='paid')
+            .exclude(payment_status='expired')
+            .count()
+        )
+
+        # ---------------------------
+        # REVENUE (SOURCE OF TRUTH)
+        # ---------------------------
+        revenue_data = payment_qs.filter(
+            status='paid'
+        ).aggregate(
+            total_revenue=Sum('amount')
+        )
+
         total_revenue = revenue_data['total_revenue'] or 0
-        
+
+        # ---------------------------
+        # OPTIONAL: EXTRA INTELLIGENCE
+        # ---------------------------
+        failed_attempts = payment_qs.filter(status='failed').count()
+        successful_payments = payment_qs.filter(status='paid').count()
+        total_sales = successful_payments + pending_bookings
+
         return Response({
-            'total_bookings': total_bookings,
-            'paid_bookings': paid_bookings,
-            'pending_bookings': pending_bookings,
-            'total_revenue': total_revenue
+            "total_bookings": total_bookings,
+            "paid_bookings": paid_bookings,
+            "pending_bookings": pending_bookings,
+            "successful_payments": successful_payments,
+            "failed_payment_attempts": failed_attempts,
+            "total_revenue": total_revenue,
+            "total_sales": total_sales
         })
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])

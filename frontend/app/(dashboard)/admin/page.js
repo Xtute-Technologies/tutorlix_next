@@ -37,6 +37,8 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     totalGeneralExpenses: 0,
     totalSellerExpenses: 0,
+    totalSales: 0,
+    successfulPayments: 0
   });
   const [recentBookings, setRecentBookings] = useState([]);
 
@@ -73,13 +75,14 @@ export default function AdminDashboard() {
         totalBookings: bookingStatsRes.total_bookings || 0,
         paidBookings: bookingStatsRes.paid_bookings || 0,
         pendingBookings: bookingStatsRes.pending_bookings || 0,
+        totalSales: bookingStatsRes.total_sales || 0,
         totalRevenue: parseFloat(bookingStatsRes.total_revenue || 0),
-        
+        successfulPayments: bookingStatsRes.successful_payments || 0, 
         // Expense Stats (Handling different API response structures safely)
         totalGeneralExpenses: parseFloat(expenseSummaryRes.total_expenses || expenseSummaryRes.total || 0),
         totalSellerExpenses: parseFloat(sellerExpenseSummaryRes.total_amount || 0),
       });
-
+      console.log(bookingStatsRes);
       setRecentBookings(recentBookingsRes.slice(0, 5));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -178,12 +181,15 @@ export default function AdminDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-blue-500" />
-              Bookings Overview
+              Sales Overview
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-gray-900 mb-4">
-              {stats.totalBookings} <span className="text-sm font-normal text-gray-500">Total Orders</span>
+              {stats.totalSales} <span className="text-sm font-normal text-gray-500">Total Sales</span>
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-4">
+              {stats.totalBookings} <span className="text-sm font-normal text-gray-500">Total Bookings</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -192,7 +198,7 @@ export default function AdminDashboard() {
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="text-xs font-bold uppercase">Paid</span>
                 </div>
-                <span className="text-2xl font-bold text-gray-900">{stats.paidBookings}</span>
+                <span className="text-2xl font-bold text-gray-900">{stats.successfulPayments}</span>
               </div>
 
               <div className="flex flex-col p-3 bg-yellow-50 rounded-lg border border-yellow-100">

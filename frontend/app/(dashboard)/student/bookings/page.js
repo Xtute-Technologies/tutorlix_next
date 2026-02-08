@@ -124,7 +124,7 @@ export default function StudentBookingsPage() {
 
         return (
           <div className="flex gap-2 items-center">
-            {/* ✅ PAY NOW — allowed even if PAID (reusable link) */}
+            {/* ✅ PAY NOW — reusable until expired */}
             {booking.payment_status !== 'expired' && booking.payment_link && (
               <Button size="sm" variant="outline" asChild>
                 <a
@@ -186,43 +186,49 @@ export default function StudentBookingsPage() {
             <DialogTitle>Payment History</DialogTitle>
           </DialogHeader>
 
-          {historyBooking?.payment_history?.length ? (
+          {Array.isArray(historyBooking?.payment_histories) &&
+            historyBooking.payment_histories.length > 0 ? (
             <div className="space-y-3">
-              {historyBooking.payment_history.map((p, idx) => (
-                <div
-                  key={idx}
-                  className="flex justify-between items-center rounded-md border p-3 text-sm"
-                >
-                  <div>
-                    <div className="font-medium">
-                      ₹{p.amount} — {p.status.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {p.paid_at
-                        ? format(new Date(p.paid_at), 'PPpp')
-                        : '-'}
-                    </div>
-                    {p.razorpay_payment_id && (
-                      <div className="text-xs text-gray-400">
-                        Payment ID: {p.razorpay_payment_id}
-                      </div>
-                    )}
-                  </div>
-
-                  <Badge
-                    variant="outline"
-                    className={
-                      p.status === 'paid'
-                        ? 'border-green-300 text-green-700'
-                        : p.status === 'failed'
-                        ? 'border-red-300 text-red-700'
-                        : 'border-yellow-300 text-yellow-700'
-                    }
+              {[...historyBooking.payment_histories]
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at) - new Date(a.created_at)
+                )
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex justify-between items-center rounded-md border p-3 text-sm"
                   >
-                    {p.status}
-                  </Badge>
-                </div>
-              ))}
+                    <div>
+                      <div className="font-medium">
+                        ₹{p.amount} — {p.status.toUpperCase()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {p.created_at
+                          ? format(new Date(p.created_at), 'PPpp')
+                          : '-'}
+                      </div>
+                      {p.razorpay_payment_id && (
+                        <div className="text-xs text-gray-400">
+                          Payment ID: {p.razorpay_payment_id}
+                        </div>
+                      )}
+                    </div>
+
+                    <Badge
+                      variant="outline"
+                      className={
+                        p.status === 'paid'
+                          ? 'border-green-300 text-green-700'
+                          : p.status === 'failed'
+                            ? 'border-red-300 text-red-700'
+                            : 'border-yellow-300 text-yellow-700'
+                      }
+                    >
+                      {p.status}
+                    </Badge>
+                  </div>
+                ))}
             </div>
           ) : (
             <div className="text-sm text-gray-500">
