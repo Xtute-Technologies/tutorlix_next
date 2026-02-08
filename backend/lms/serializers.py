@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from accounts.serializers import SimpleUserSerializer
 from .models import (
-    Category, Product, ProductImage, Offer, CourseBooking,
+    Category, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
     Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead
@@ -277,6 +277,18 @@ class OfferSerializer(serializers.ModelSerializer):
 
 # ============= Course Booking Serializers =============
 
+class PaymentHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentHistory
+        fields = [
+            "id",
+            "amount",
+            "status",
+            "razorpay_order_id",
+            "razorpay_payment_id",
+            "created_at",
+        ]
+
 class CourseBookingSerializer(serializers.ModelSerializer):
     # --- Student Info ---
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
@@ -303,29 +315,28 @@ class CourseBookingSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
-    # --- NEW: Payment History ---
-    payment_history = serializers.JSONField(read_only=True)
+    # ✅ FK BASED PAYMENT HISTORY (CORRECT)
+    payment_histories = PaymentHistorySerializer(
+        many=True,
+        read_only=True
+    )
 
     class Meta:
         model = CourseBooking
         fields = [
-            # IDs
             'id',
             'booking_id',
 
-            # Student
             'student',
             'student_name',
             'student_email',
             'student_phone',
             'student_state',
 
-            # Course
             'product',
             'product_name',
             'course_name',
 
-            # Pricing (FROZEN)
             'price',
             'manual_discount',
             'coupon_code',
@@ -333,28 +344,25 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'discount_amount',
             'final_amount',
 
-            # Payment
             'payment_link',
             'payment_status',
             'payment_date',
-            'payment_history',
 
-            # Razorpay
+            # 🔥 THIS ONE
+            'payment_histories',
+
             'razorpay_order_id',
             'razorpay_payment_id',
             'razorpay_signature',
 
-            # Sales
             'sales_representative',
             'sales_rep_name',
             'sales_rep_email',
             'booked_by',
 
-            # Status
             'student_status',
             'course_expiry_date',
 
-            # Dates
             'booking_date',
             'created_at',
             'updated_at',
@@ -366,7 +374,7 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'discount_amount',
             'final_amount',
             'payment_date',
-            'payment_history',
+            'payment_histories',
             'razorpay_order_id',
             'razorpay_payment_id',
             'razorpay_signature',
@@ -374,24 +382,6 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-
-    def validate(self, data):
-        # ✅ Student must be student
-        student = data.get('student')
-        if student and student.role != 'student':
-            raise serializers.ValidationError(
-                "Selected user must have student role."
-            )
-
-        # ✅ Sales rep must be seller/admin
-        sales_rep = data.get('sales_representative')
-        if sales_rep and sales_rep.role not in ['seller', 'admin']:
-            raise serializers.ValidationError(
-                "Sales representative must be a seller or admin."
-            )
-
-        return data
-
 
 # ============= Class Serializers =============
 

@@ -30,6 +30,14 @@ export default function SellerBookingsPage() {
     fetchData();
   }, []);
 
+  const paidHistories = useMemo(() => {
+    return bookings.flatMap(b =>
+      Array.isArray(b.payment_histories)
+        ? b.payment_histories.filter(h => h.status === "paid")
+        : []
+    );
+  }, [bookings]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -81,14 +89,18 @@ export default function SellerBookingsPage() {
 
   // 1. Sales Made (Total Revenue from Paid Bookings)
   const totalSales = useMemo(() => {
-    return bookings
-      .filter(b => b.payment_status === 'paid')
-      .reduce((sum, b) => sum + parseFloat(b.final_amount || 0), 0);
-  }, [bookings]);
+    return paidHistories.reduce(
+      (sum, h) => sum + parseFloat(h.amount || 0),
+      0
+    );
+  }, [paidHistories]);
 
   // 2. Money Received (Total Payouts/Expenses given to Seller)
   const totalReceived = useMemo(() => {
-    return expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+    return expenses.reduce(
+      (sum, e) => sum + parseFloat(e.amount || 0),
+      0
+    );
   }, [expenses]);
 
   // 3. Profit Contribution (Sales - Received)
@@ -420,22 +432,25 @@ export default function SellerBookingsPage() {
                   Payment History
                 </h4>
 
-                {Array.isArray(selectedBooking.payment_history) &&
-                  selectedBooking.payment_history.length > 0 ? (
+                {Array.isArray(selectedBooking.payment_histories) &&
+                selectedBooking.payment_histories.length > 0 ? (
                   <div className="rounded-md border divide-y">
-                    {[...selectedBooking.payment_history]
-                      .sort((a, b) => b.timestamp - a.timestamp)
-                      .map((p, idx) => (
+                    {[...selectedBooking.payment_histories]
+                      .sort(
+                        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+                      )
+                      .map((p) => (
                         <div
-                          key={idx}
+                          key={p.id}
                           className="flex items-center justify-between p-3 text-sm"
                         >
                           <div className="space-y-1">
                             <div className="font-medium text-gray-900">
                               ₹{p.amount}
                             </div>
+
                             <div className="text-xs text-gray-500">
-                              {formatDateTime(p.timestamp)}
+                              {new Date(p.created_at).toLocaleString()}
                             </div>
 
                             {p.razorpay_payment_id && (
@@ -447,14 +462,13 @@ export default function SellerBookingsPage() {
 
                           <Badge
                             variant="outline"
-                            className={`capitalize ${p.status === "paid"
+                            className={`capitalize ${
+                              p.status === "paid"
                                 ? "bg-green-50 text-green-700 border-green-200"
                                 : p.status === "failed"
-                                  ? "bg-red-50 text-red-700 border-red-200"
-                                  : p.status === "expired"
-                                    ? "bg-gray-100 text-gray-600 border-gray-300"
-                                    : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                              }`}
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                            }`}
                           >
                             {p.status}
                           </Badge>

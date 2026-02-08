@@ -312,6 +312,53 @@ class CourseBooking(models.Model):
         verbose_name_plural = 'Course Bookings'
         ordering = ['-booking_date']
 
+class PaymentHistory(models.Model):
+    """
+    Immutable payment attempts for a booking
+    """
+
+    PAYMENT_STATUS_CHOICES = (
+        ('created', 'Created'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+    )
+
+    booking = models.ForeignKey(
+        CourseBooking,
+        on_delete=models.CASCADE,
+        related_name="payment_histories"  # ✅ SAFE
+    )
+
+    # SNAPSHOT (never FK product/user again)
+    course_name = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='created'
+    )
+
+    sales_representative = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_histories_as_sales_rep",  # ✅ UNIQUE
+        limit_choices_to={'role__in': ['seller', 'admin']}
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.booking.booking_id} - {self.status} - ₹{self.amount}"  
 
 class StudentSpecificClass(models.Model):
     """

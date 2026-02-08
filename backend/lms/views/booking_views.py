@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 from lms.models import (
-    Product, Offer, CourseBooking
+    Product, Offer, CourseBooking, PaymentHistory
 )
 from lms.serializers import (
     CourseBookingSerializer
@@ -354,7 +354,6 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             "status": booking.payment_status
         })
 
-
     @action(
         detail=False,
         methods=['post'],
@@ -390,44 +389,46 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             "razorpay_signature": signature,
         }
 
-        # 3️⃣ Verify Razorpay signature
+        # 3️⃣ VERIFY SIGNATURE
         if not service.verify_order_signature(params):
-            # ❌ Failed attempt → log history
-            history = booking.payment_history or []
-            history.append({
-                "timestamp": int(timezone.now().timestamp() * 1000),  # ms
-                "razorpay_order_id": order_id,
-                "razorpay_payment_id": payment_id,
-                "amount": str(booking.final_amount),
-                "status": "failed",
-            })
+            # ❌ FAILED ATTEMPT → CREATE PAYMENT HISTORY ROW
+            PaymentHistory.objects.create(
+                booking=booking,
+                course_name=booking.course_name,
+                amount=booking.final_amount,
+                razorpay_order_id=order_id,
+                razorpay_payment_id=payment_id,
+                status="failed",
+                sales_representative=booking.sales_representative,
+            )
 
-            booking.payment_history = history
             booking.payment_status = "failed"
-            booking.save(update_fields=["payment_history", "payment_status"])
+            booking.save(update_fields=["payment_status"])
 
             return Response(
                 {"detail": "Signature verification failed."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 4️⃣ SUCCESS → append payment history (DO NOT overwrite)
-        history = booking.payment_history or []
-        history.append({
-            "timestamp": int(timezone.now().timestamp() * 1000),  # milliseconds
-            "razorpay_order_id": order_id,
-            "razorpay_payment_id": payment_id,
-            "amount": str(booking.final_amount),
-            "status": "paid",
-        })
+        # 4️⃣ SUCCESS → CREATE PAYMENT HISTORY ROW
+        PaymentHistory.objects.create(
+            booking=booking,
+            course_name=booking.course_name,
+            amount=booking.final_amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            razorpay_signature=signature,
+            status="paid",
+            sales_representative=booking.sales_representative,
+        )
 
-        booking.payment_history = history
+        # 5️⃣ UPDATE BOOKING (ONLY STATUS FIELDS)
         booking.payment_status = "paid"
         booking.razorpay_payment_id = payment_id
         booking.razorpay_signature = signature
         booking.payment_date = timezone.now()
 
-        # 5️⃣ Course expiry (ONLY ON FIRST SUCCESS)
+        # Course expiry (only once)
         if (
             booking.product.duration_days
             and booking.product.duration_days > 0
@@ -437,7 +438,6 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 timezone.localdate() + timedelta(days=booking.product.duration_days)
             )
 
-        # Optional: auto activate student
         if booking.student_status == "in_process":
             booking.student_status = "active"
 
@@ -447,8 +447,9 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             "status": "success",
             "booking_id": str(booking.booking_id),
             "final_amount": str(booking.final_amount),
-            "payment_attempts": len(history),
+            "payment_attempts": booking.payment_histories.count(),  # ✅ FK based
         })
+
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check_payment_status')
     def check_payment_status(self, request):
@@ -526,68 +527,160 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
 
 class RazorpayWebhookView(APIView):
     """
-    Webhook handler for Razorpay events
+    Razorpay Webhook Handler
+    Handles:
+    - payment.captured
+    - order.paid
+    - payment.failed
     """
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request):
-        signature = request.headers.get('X-Razorpay-Signature')
+        # 1️⃣ SIGNATURE CHECK
+        signature = request.headers.get("X-Razorpay-Signature")
         if not signature:
-            logger.warning("Razorpay webhook called without signature")
-            return Response({'error': 'No signature provided'}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning("Webhook called without signature")
+            return Response({"error": "No signature"}, status=400)
 
-        # Verify signature
-        payment_service = PaymentService()
-        # Request body as string is needed for verification
-        body_str = request.body.decode('utf-8')
-        
-        if not payment_service.verify_webhook_signature(body_str, signature):
-            logger.error("Invalid Razorpay Webhook Signature")
-            return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+        body_str = request.body.decode("utf-8")
+
+        service = PaymentService()
+        if not service.verify_webhook_signature(body_str, signature):
+            logger.error("Invalid Razorpay webhook signature")
+            return Response({"error": "Invalid signature"}, status=400)
+
+        # 2️⃣ PARSE PAYLOAD
+        try:
+            payload = json.loads(body_str)
+            event = payload.get("event")
+        except Exception as e:
+            logger.error(f"Webhook JSON parse error: {e}")
+            return Response({"error": "Invalid payload"}, status=400)
+
+        logger.info(f"Razorpay webhook received: {event}")
+
+        # 3️⃣ HANDLE EVENTS
+        try:
+            if event in ["payment.captured", "order.paid"]:
+                return self._handle_payment_success(payload)
+
+            if event in ["payment.failed"]:
+                return self._handle_payment_failed(payload)
+
+            # Ignore other events safely
+            return Response({"status": "ignored"})
+
+        except Exception as e:
+            logger.exception("Webhook processing failed")
+            return Response({"error": "Internal error"}, status=500)
+
+    # ------------------------------------------------------------------
+    # SUCCESS HANDLER
+    # ------------------------------------------------------------------
+    def _handle_payment_success(self, payload):
+        payment = payload["payload"]["payment"]["entity"]
+
+        payment_id = payment.get("id")
+        order_id = payment.get("order_id")
+        amount = payment.get("amount") / 100  # paise → rupees
+        notes = payment.get("notes", {})
+        booking_uuid = notes.get("booking_uuid")
+
+        if not booking_uuid:
+            logger.warning("No booking_uuid in payment notes")
+            return Response({"status": "ignored"})
 
         try:
-            data = json.loads(body_str)
-            event = data.get('event')
-            
-            logger.info(f"Received Razorpay webhook event: {event}")
-            
-            if event == 'payment_link.paid':
-                payload = data.get('payload', {})
-                payment_link = payload.get('payment_link', {}).get('entity', {})
-                
-                # reference_id matches our Booking ID
-                booking_ref = payment_link.get('reference_id')
-                if booking_ref:
-                    try:
-                        booking = CourseBooking.objects.get(id=booking_ref)
-                        
-                        # Update status only if not already paid
-                        if booking.payment_status != 'paid':
-                            booking.payment_status = 'paid'
-                            booking.payment_date = timezone.now()
-                            
-                            # Set Course Expiry
-                            if booking.product.duration_days and booking.product.duration_days > 0:
-                                booking.course_expiry_date = (timezone.now() + timedelta(days=booking.product.duration_days)).date()
-                            
-                            if booking.student_status == 'in_process':
-                                booking.student_status = 'active'
-                                
-                            booking.save()
-                            logger.info(f"Booking {booking_ref} marked as paid via webhook.")
-                        else:
-                            logger.info(f"Booking {booking_ref} was already paid.")
-                            
-                    except CourseBooking.DoesNotExist:
-                        logger.error(f"Booking with ref {booking_ref} not found.")
-                else:
-                    logger.warning("No booking reference_id found in payment_link entity")
-            
-            return Response({'status': 'ok'})
-            
-        except Exception as e:
-            logger.error(f"Error processing webhook: {str(e)}")
-            return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            booking = CourseBooking.objects.get(booking_id=booking_uuid)
+        except CourseBooking.DoesNotExist:
+            logger.error(f"Booking not found for UUID {booking_uuid}")
+            return Response({"status": "booking_not_found"})
 
+        # 🧠 IDEMPOTENCY CHECK
+        if PaymentHistory.objects.filter(
+            razorpay_payment_id=payment_id,
+            status="paid"
+        ).exists():
+            logger.info("Duplicate webhook ignored (already processed)")
+            return Response({"status": "duplicate"})
 
+        # 4️⃣ CREATE PAYMENT HISTORY
+        PaymentHistory.objects.create(
+            booking=booking,
+            course_name=booking.course_name,
+            amount=booking.final_amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            status="paid",
+            sales_representative=booking.sales_representative,
+        )
+
+        # 5️⃣ UPDATE BOOKING (SAFE)
+        booking.payment_status = "paid"
+        booking.payment_date = timezone.now()
+        booking.razorpay_payment_id = payment_id
+        booking.razorpay_order_id = order_id
+
+        # Course expiry (ONLY once)
+        if (
+            booking.product.duration_days
+            and booking.product.duration_days > 0
+            and not booking.course_expiry_date
+        ):
+            booking.course_expiry_date = (
+                timezone.localdate() + timedelta(days=booking.product.duration_days)
+            )
+
+        if booking.student_status == "in_process":
+            booking.student_status = "active"
+
+        booking.save()
+
+        logger.info(f"Payment SUCCESS recorded for booking {booking.booking_id}")
+
+        return Response({"status": "success"})
+
+    # ------------------------------------------------------------------
+    # FAILED HANDLER
+    # ------------------------------------------------------------------
+    def _handle_payment_failed(self, payload):
+        payment = payload["payload"]["payment"]["entity"]
+
+        payment_id = payment.get("id")
+        order_id = payment.get("order_id")
+        notes = payment.get("notes", {})
+        booking_uuid = notes.get("booking_uuid")
+
+        if not booking_uuid:
+            return Response({"status": "ignored"})
+
+        try:
+            booking = CourseBooking.objects.get(booking_id=booking_uuid)
+        except CourseBooking.DoesNotExist:
+            return Response({"status": "booking_not_found"})
+
+        # Avoid duplicate failure rows
+        if PaymentHistory.objects.filter(
+            razorpay_payment_id=payment_id,
+            status="failed"
+        ).exists():
+            return Response({"status": "duplicate"})
+
+        PaymentHistory.objects.create(
+            booking=booking,
+            course_name=booking.course_name,
+            amount=booking.final_amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            status="failed",
+            sales_representative=booking.sales_representative,
+        )
+
+        booking.payment_status = "failed"
+        booking.save(update_fields=["payment_status"])
+
+        logger.info(f"Payment FAILED recorded for booking {booking.booking_id}")
+
+        return Response({"status": "failed"})
