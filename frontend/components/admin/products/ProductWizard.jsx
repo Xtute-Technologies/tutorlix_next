@@ -831,7 +831,7 @@ export default function ProductWizard({ initialData = null }) {
   const CurrentStep = steps[step].component;
 
   return (
-    <div className="relative min-h-screen bg-slate-50/50 w-full pb-32 font-sans text-foreground">
+    <div className="relative min-h-screen w-full pb-32 font-sans text-foreground">
         
         {/* Top Header */}
         <div className="bg-background border-b h-16 flex items-center px-6 sticky top-0 z-40 justify-between shadow-sm">
