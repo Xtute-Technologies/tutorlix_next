@@ -53,6 +53,36 @@ class ChangePasswordView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class CheckUserView(APIView):
+    """
+    Check if user exists by email and return basic info.
+    Used for booking creation forms.
+    POST /api/auth/check-user/
+    Body: { "email": "user@example.com" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+            return Response({
+                "exists": True,
+                "user": {
+                    "id": user.id,
+                    "student_name": user.get_full_name() or user.username, # Mapping to form field 'student_name'
+                    "email": user.email,
+                    "phone": user.phone,
+                    "state": user.state,
+                }
+            })
+        except User.DoesNotExist:
+            return Response({"exists": False}, status=status.HTTP_200_OK)
+
+
 class UserListCreateView(generics.ListCreateAPIView):
     """
     GET: List all users (with filters)

@@ -42,7 +42,8 @@ import {
   FileText,
   Layers,
   Settings,
-  Sparkles
+  Sparkles,
+  Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -74,15 +75,8 @@ const StepIndicator = ({ steps, currentStep, setStep, completedSteps, isProductC
 
           {steps.map((step, index) => {
             const isActive = index === currentStep;
-            // Allow access if product is created (saved), or if strictly previous step/completed
-            const isAccessible = isProductCreated || index <= currentStep + 1 || completedSteps.includes(index); 
-            // We can simplify: If product exists, all tabs are open. If not, only linear progression.
-            // Requirement: "if step one is only compulsary so allow chanign steps after taht"
-            // Step 1 is index 0. If product created, isProductCreated=true.
-            
             const isCompleted = index < currentStep || completedSteps.includes(index);
             const canNavigate = isProductCreated || isCompleted || index === currentStep;
-
             const Icon = step.icon;
 
             return (
@@ -188,7 +182,10 @@ const StepEssentials = ({ formData, setFormData, categories, teachers }) => {
                         </Select>
                     </div>
                     
-                  
+                    <div className="space-y-2">
+                        <Label>Primary Instructor</Label>
+                        <div className="text-xs text-muted-foreground mb-2">Select who is leading this course.</div>
+                    </div>
                 </div>
 
                 <div className="space-y-2">
@@ -229,13 +226,13 @@ const StepEssentials = ({ formData, setFormData, categories, teachers }) => {
           </Card>
         </div>
 
-        {/* Right Column: Pricing Strategy */}
+        {/* Right Column: Pricing & Access */}
         <div className="lg:col-span-1 space-y-6">
-          <Card className="border-l-4 border-l-primary shadow-md">
-            <CardHeader className="bg-primary/5 pb-4">
+          <Card className="shadow-md">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2 text-primary">
                 <IndianRupee className="w-5 h-5" />
-                Pricing Strategy
+                Pricing & Access
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
@@ -274,6 +271,60 @@ const StepEssentials = ({ formData, setFormData, categories, teachers }) => {
                     </p>
                 )}
               </div>
+
+              <Separator />
+
+              {/* ACCESS DURATION MOVED HERE */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    Access Duration
+                </Label>
+                <Select
+                  value={formData.duration_preset}
+                  onValueChange={(val) => {
+                    const updates = { duration_preset: val };
+                    if (val !== 'custom') {
+                        updates.duration_days = Number(val);
+                    }
+                    setFormData({ ...formData, ...updates });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Lifetime Access (Forever)</SelectItem>
+                    <SelectItem value="30">Monthly (30 Days)</SelectItem>
+                    <SelectItem value="90">Quarterly (90 Days)</SelectItem>
+                    <SelectItem value="180">Semi-Annual (180 Days)</SelectItem>
+                    <SelectItem value="365">Yearly (365 Days)</SelectItem>
+                    <SelectItem value="custom">Custom Duration...</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {(formData.duration_preset === 'custom' || (!['0','30','90','180','365'].includes(formData.duration_preset?.toString()) && formData.duration_preset)) && (
+                    <div className="animate-in fade-in slide-in-from-top-2 pt-2">
+                        <div className="relative">
+                            <Input
+                                type="number"
+                                value={formData.duration_days}
+                                onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
+                                className="pr-12"
+                                placeholder="Enter days"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Days</span>
+                        </div>
+                    </div>
+                )}
+                
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                    {formData.duration_days == 0 
+                        ? "Students will have unlimited access to this course content forever." 
+                        : `Access automatically expires ${formData.duration_days} days after enrollment.`}
+                </p>
+              </div>
+
             </CardContent>
           </Card>
 
@@ -311,10 +362,9 @@ const StepCurriculum = ({ formData, setFormData }) => {
                     id: l.id || Math.random().toString(36).substr(2, 9)
                 }))
             }));
-            // Use functional update to avoid dependency loops if relying on direct references
             setFormData(prev => ({ ...prev, curriculum: newCurriculum }));
         }
-    }, [curriculum.length]); // Simple dependency to catch loads/adds
+    }, [curriculum.length]); 
 
     const addModule = () => {
         const newCurriculum = [...curriculum, { id: Math.random().toString(36).substr(2, 9), title: "New Module", lessons: [] }];
@@ -570,10 +620,55 @@ const StepDetailedContent = ({ formData, setFormData }) => {
 
 // --- Step 4: Media ---
 const StepMedia = ({ existingImages, onUploadFile, onDeleteExisting }) => {
-    // We maintain the upload queue logic internal to StepImages in the previous version, 
-    // keeping it simplified here for brevity but assuming the Queue Logic exists (refer to previous snippet)
-    // Re-implementing simplified version:
-    
+    const [uploadQueue, setUploadQueue] = useState([]);
+
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        // Add to queue
+        const newItems = files.map(file => ({
+            id: Math.random().toString(36).substr(2, 9),
+            file,
+            preview: URL.createObjectURL(file),
+            progress: 0,
+            status: 'pending',
+            error: null
+        }));
+
+        setUploadQueue(prev => [...prev, ...newItems]);
+        e.target.value = '';
+
+        // Process uploads
+        newItems.forEach(item => processItem(item));
+    };
+
+    const processItem = async (item) => {
+        updateItem(item.id, { status: 'uploading' });
+        try {
+            await onUploadFile(item.file, (percent) => {
+                updateItem(item.id, { progress: percent });
+            });
+            updateItem(item.id, { status: 'success', progress: 100 });
+            setTimeout(() => removeItem(item.id), 1000); 
+        } catch (err) {
+            console.error(err);
+            updateItem(item.id, { status: 'error', error: "Upload failed" });
+        }
+    };
+
+    const updateItem = (id, updates) => {
+        setUploadQueue(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    };
+
+    const removeItem = (id) => {
+        setUploadQueue(prev => {
+            const item = prev.find(i => i.id === id);
+            if (item) URL.revokeObjectURL(item.preview);
+            return prev.filter(i => i.id !== id);
+        });
+    };
+
     return (
         <div className="space-y-8 max-w-6xl mx-auto animate-in fade-in zoom-in-95 duration-500">
              <div className="border-2 border-dashed rounded-2xl p-16 flex flex-col items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer relative group">
@@ -582,10 +677,7 @@ const StepMedia = ({ existingImages, onUploadFile, onDeleteExisting }) => {
                     multiple 
                     accept="image/*"
                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                    onChange={(e) => {
-                        Array.from(e.target.files).forEach(file => onUploadFile(file, () => {}));
-                        e.target.value = ''; // Reset
-                    }}
+                    onChange={handleFileSelect}
                  />
                  <div className="h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform shadow-inner">
                      <ImageIcon className="h-10 w-10" />
@@ -594,23 +686,53 @@ const StepMedia = ({ existingImages, onUploadFile, onDeleteExisting }) => {
                  <p className="text-muted-foreground">Drag & drop or click to browse</p>
              </div>
 
-             {existingImages.length > 0 && (
-                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                     {existingImages.map((img) => (
-                         <div key={img.id} className="group relative aspect-[4/3] border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all">
-                             <img src={img.image_url || img.image} alt="Product" className="w-full h-full object-cover" />
-                             {img.is_primary && (
-                                 <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded shadow-sm z-20">MAIN</span>
-                             )}
-                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10 backdrop-blur-[1px]">
-                                 <Button size="icon" variant="destructive" className="h-9 w-9 rounded-full" onClick={() => onDeleteExisting(img.id)}>
-                                     <Trash2 className="h-4 w-4" />
-                                 </Button>
-                             </div>
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                 {/* Existing Images */}
+                 {existingImages.map((img) => (
+                     <div key={img.id} className="group relative aspect-[4/3] border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all">
+                         <img src={img.image_url || img.image} alt="Product" className="w-full h-full object-cover" />
+                         {img.is_primary && (
+                             <span className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded shadow-sm z-20">MAIN</span>
+                         )}
+                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10 backdrop-blur-[1px]">
+                             <Button size="icon" variant="destructive" className="h-9 w-9 rounded-full" onClick={() => onDeleteExisting(img.id)}>
+                                 <Trash2 className="h-4 w-4" />
+                             </Button>
                          </div>
-                     ))}
-                 </div>
-             )}
+                     </div>
+                 ))}
+
+                 {/* Upload Queue Items */}
+                 {uploadQueue.map((item) => (
+                     <div key={item.id} className="relative aspect-[4/3] border rounded-xl overflow-hidden bg-slate-100 border-blue-200">
+                         <img src={item.preview} alt="Preview" className={`w-full h-full object-cover transition-opacity ${item.status === 'error' ? 'opacity-50 grayscale' : ''}`} />
+                         
+                         <div className="absolute top-2 right-2 z-20">
+                             <Button size="icon" variant="secondary" className="h-6 w-6 shadow-sm hover:bg-red-100 hover:text-red-500" onClick={() => removeItem(item.id)}>
+                                 <X className="h-3 w-3" />
+                             </Button>
+                         </div>
+
+                         <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm p-2">
+                             {item.status === 'error' ? (
+                                 <div className="text-red-400 text-xs font-bold text-center flex items-center justify-center gap-1">
+                                     <X className="h-3 w-3" /> Failed
+                                 </div>
+                             ) : (
+                                 <div className="space-y-1">
+                                     <div className="flex justify-between text-[10px] text-white font-medium">
+                                         <span>{item.status === 'pending' ? 'Pending...' : item.status === 'success' ? 'Complete' : 'Uploading...'}</span>
+                                         <span>{item.progress}%</span>
+                                     </div>
+                                     <div className="h-1.5 w-full bg-slate-600 rounded-full overflow-hidden">
+                                         <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+                                     </div>
+                                 </div>
+                             )}
+                         </div>
+                     </div>
+                 ))}
+             </div>
         </div>
     );
 };
@@ -624,27 +746,15 @@ const StepSettings = ({ formData, setFormData }) => {
                     <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-primary" /> Configuration</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        <div className="flex-1 space-y-2">
-                            <Label>Total Seats</Label>
-                            <Input
-                                type="number"
-                                value={formData.total_seats}
-                                onChange={(e) => setFormData({ ...formData, total_seats: e.target.value })}
-                                className="text-lg font-medium"
-                            />
-                            <p className="text-xs text-muted-foreground">Limit the number of enrollments (e.g. 100).</p>
-                        </div>
-                        <div className="flex-1 space-y-2">
-                            <Label>Access Duration (Days)</Label>
-                            <Input
-                                type="number"
-                                value={formData.duration_days}
-                                onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-                                className="text-lg font-medium"
-                            />
-                            <p className="text-xs text-muted-foreground">Enter '0' for lifetime access.</p>
-                        </div>
+                    <div className="space-y-2">
+                        <Label>Total Seats (Limit Enrollments)</Label>
+                        <Input
+                            type="number"
+                            value={formData.total_seats}
+                            onChange={(e) => setFormData({ ...formData, total_seats: e.target.value })}
+                            className="text-lg font-medium"
+                        />
+                        <p className="text-xs text-muted-foreground">Leave as 100 or increase for unlimited.</p>
                     </div>
 
                     <Separator />
@@ -687,7 +797,7 @@ export default function ProductWizard({ initialData = null }) {
 
   const [formData, setFormData] = useState({
     name: "", category: "", total_seats: 100, price: "", discounted_price: "",
-    duration_days: 0, description: "", overview: "", instructors: [],
+    duration_days: 0, duration_preset: "0", description: "", overview: "", instructors: [],
     is_active: false, curriculum: [], features: [],
   });
 
@@ -723,6 +833,9 @@ export default function ProductWizard({ initialData = null }) {
             price: initialData.price || "",
             discounted_price: initialData.discounted_price || "",
             duration_days: initialData.duration_days || 0,
+            duration_preset: (initialData.duration_days === 0 || [30,90,180,365].includes(initialData.duration_days)) 
+                ? initialData.duration_days.toString() 
+                : "custom",
             description: initialData.description || "",
             overview: initialData.overview || "",
             instructors: initialData.instructors?.map(i => i.id) || [],
@@ -735,14 +848,19 @@ export default function ProductWizard({ initialData = null }) {
     }
   }, [initialData]);
 
-  const preparePayload = (data) => ({
-    ...data,
-    category: parseInt(data.category),
-    total_seats: parseInt(data.total_seats),
-    price: parseFloat(data.price),
-    discounted_price: data.discounted_price ? parseFloat(data.discounted_price) : null,
-    duration_days: parseInt(data.duration_days),
-  });
+  const preparePayload = (data) => {
+    const payload = {
+        ...data,
+        category: parseInt(data.category),
+        total_seats: parseInt(data.total_seats),
+        price: parseFloat(data.price),
+        discounted_price: data.discounted_price ? parseFloat(data.discounted_price) : null,
+        duration_days: parseInt(data.duration_days),
+    };
+    // Ensure we don't send frontend-only fields if backend is strict (optional)
+    // delete payload.duration_preset; 
+    return payload;
+  };
 
   // --- Auto-Create & Save Logic ---
   const handleStepChange = async (newStep) => {

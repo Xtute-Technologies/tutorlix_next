@@ -38,6 +38,11 @@ export const authService = {
     }
   },
 
+  checkUser: async (email) => {
+    const response = await axiosInstance.post('/api/auth/check-user/', { email });
+    return response.data;
+  },
+
   // Get current user
   getCurrentUser: async () => {
     const response = await axiosInstance.get('/api/auth/profile/');

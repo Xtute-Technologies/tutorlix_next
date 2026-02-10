@@ -171,6 +171,12 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             phone = data.get('phone')
             state = data.get('state')
 
+            if not student_name:
+                return Response(
+                    {"student_name": "Student Name is required for new users."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if not password:
                 return Response(
                     {"password": "Password is required."},
@@ -194,12 +200,14 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
 
             # Auto-verify email for seller-created students
             if EmailAddress:
-                EmailAddress.objects.create(
+                email_obj, created = EmailAddress.objects.get_or_create(
                     user=student,
                     email=email,
-                    verified=True,
-                    primary=True
+                    defaults={'verified': True, 'primary': True}
                 )
+                if not created and not email_obj.verified:
+                    email_obj.verified = True
+                    email_obj.save()
 
         # 2️⃣ PRODUCT
         product_id = data.get('product')

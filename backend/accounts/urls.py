@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import ChangePasswordView, UserProfileView, UserListCreateView,UserDetailView
+from .views import ChangePasswordView, UserProfileView, UserListCreateView, UserDetailView, CheckUserView
 from dj_rest_auth.views import PasswordResetConfirmView
 
 urlpatterns = [
@@ -15,6 +15,7 @@ urlpatterns = [
     
     # Custom endpoints
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('check-user/', CheckUserView.as_view(), name='check_user'),
     path('profile/', UserProfileView.as_view(), name='user_profile'),
     path('users/', UserListCreateView.as_view(), name='user_list'),
     path('users/<int:pk>/', UserDetailView.as_view(), name='user-detail'),
