@@ -413,7 +413,7 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     
     # Custom fields for frontend logic
-    link = serializers.SerializerMethodField()
+    # link is a model field, handled by to_representation for security
     is_booking_expired = serializers.SerializerMethodField()
     join_allowed = serializers.SerializerMethodField()
     
@@ -432,6 +432,26 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
         if value and value.role != 'teacher':
             raise serializers.ValidationError("Selected user must have teacher role.")
         return value
+
+    def to_representation(self, instance):
+        """
+        Custom representation to hide link if not allowed
+        """
+        data = super().to_representation(instance)
+        
+        user = self.context['request'].user
+        should_show_link = False
+
+        # Always return link for Admin/Teacher
+        if hasattr(user, 'role') and user.role in ['admin', 'teacher']:
+            should_show_link = True
+        elif self.get_join_allowed(instance):
+            should_show_link = True
+            
+        if not should_show_link:
+            data['link'] = None
+            
+        return data
 
     def validate(self, data):
         start_time = data.get('start_time')
@@ -494,19 +514,6 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
             return True
             
         return False
-
-    def get_link(self, obj):
-        """Return link ONLY if join is currently allowed"""
-        user = self.context['request'].user
-        
-        # Always return link for Admin/Teacher
-        if hasattr(user, 'role') and user.role in ['admin', 'teacher']:
-            return obj.link
-            
-        if self.get_join_allowed(obj):
-            return obj.link
-            
-        return None # Hide link for students if not allowed
 
 
 # ============= Recording Serializers =============

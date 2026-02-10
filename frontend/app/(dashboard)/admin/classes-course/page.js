@@ -104,7 +104,7 @@ export default function CourseClassesPage() {
     const handleEdit = async (classItem) => {
         try {
             const fullClass = await courseClassAPI.getById(classItem.id);
-            
+
             // Helper to format date for datetime-local input (YYYY-MM-DDTHH:mm) in LOCAL time
             const toLocalDatetime = (dateStr) => {
                 if (!dateStr) return '';
@@ -225,15 +225,15 @@ export default function CourseClassesPage() {
             cell: ({ row }) => {
                 const start = row.original.start_time ? new Date(row.original.start_time) : null;
                 const end = row.original.end_time ? new Date(row.original.end_time) : null;
-                
+
                 if (!start) return <span className="text-sm text-gray-500">Not Scheduled</span>;
 
                 return (
                     <div className="flex flex-col text-sm">
                         <span className="font-medium">{start.toLocaleDateString()}</span>
                         <span className="text-muted-foreground text-xs">
-                            {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
-                            {end ? end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '???'}
+                            {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -
+                            {end ? end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '???'}
                         </span>
                     </div>
                 );
@@ -298,75 +298,75 @@ export default function CourseClassesPage() {
 
     if (loading) {
         return (
-            
-                <div className="flex items-center justify-center min-h-[60vh]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-            
+
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+
         );
     }
 
     return (
-        
-            <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Course Classes</h1>
-                        <p className="text-gray-600 mt-1">
-                            Manage classes organized by main courses
-                        </p>
-                    </div>
-                    <Button onClick={() => {
-                        setEditingClass(null);
-                        setShowForm(true);
-                    }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Class
-                    </Button>
+
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Course Classes</h1>
+                    <p className="text-gray-600 mt-1">
+                        Manage classes organized by main courses
+                    </p>
                 </div>
-
-                {/* Message */}
-                {message.text && (
-                    <div
-                        className={`p-4 rounded-lg ${message.type === 'success'
-                                ? 'bg-green-50 text-green-800 border border-green-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'
-                            }`}
-                    >
-                        {message.text}
-                    </div>
-                )}
-
-                {/* Table */}
-
-                <DataTable data={classes} columns={columns} />
-
-                {/* Add/Edit Form Dialog */}
-                <Dialog open={showForm} onOpenChange={setShowForm}>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {editingClass ? 'Edit Class' : 'Add New Class'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {editingClass
-                                    ? 'Update class information'
-                                    : 'Create a new course-specific class'}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <FormBuilder
-                            fields={classFields}
-                            defaultValues={editingClass}
-                            validationSchema={classSchema}
-                            onSubmit={handleSubmit}
-                            onCancel={handleCancel}
-                            submitLabel={editingClass ? 'Update Class' : 'Create Class'}
-                            isSubmitting={submitting}
-                        />
-                    </DialogContent>
-                </Dialog>
+                <Button onClick={() => {
+                    setEditingClass(null);
+                    setShowForm(true);
+                }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Class
+                </Button>
             </div>
-        
+
+            {/* Message */}
+            {message.text && (
+                <div
+                    className={`p-4 rounded-lg ${message.type === 'success'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}
+                >
+                    {message.text}
+                </div>
+            )}
+
+            {/* Table */}
+
+            <DataTable data={classes} columns={columns} />
+
+            {/* Add/Edit Form Dialog */}
+            <Dialog open={showForm} onOpenChange={setShowForm}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingClass ? 'Edit Class' : 'Add New Class'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingClass
+                                ? 'Update class information'
+                                : 'Create a new course-specific class'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <FormBuilder
+                        fields={classFields}
+                        defaultValues={editingClass}
+                        validationSchema={classSchema}
+                        onSubmit={handleSubmit}
+                        onCancel={handleCancel}
+                        submitLabel={editingClass ? 'Update Class' : 'Create Class'}
+                        isSubmitting={submitting}
+                    />
+                </DialogContent>
+            </Dialog>
+        </div>
+
     );
 }
