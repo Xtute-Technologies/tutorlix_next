@@ -147,21 +147,21 @@ export default function SellerBookingsPage() {
         let className = "capitalize font-bold border-transparent";
 
         switch (status) {
-            case 'paid':
-                className += " bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
-                break;
-            case 'pending':
-                className += " bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-                break;
-            case 'failed':
-                className += " bg-destructive/10 text-destructive border-destructive/20";
-                break;
-            case 'expired':
-                className += " bg-muted text-muted-foreground";
-                variant = "secondary";
-                break;
-            default:
-                className += " bg-muted text-muted-foreground";
+          case 'paid':
+            className += " bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+            break;
+          case 'pending':
+            className += " bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+            break;
+          case 'failed':
+            className += " bg-destructive/10 text-destructive border-destructive/20";
+            break;
+          case 'expired':
+            className += " bg-muted text-muted-foreground";
+            variant = "secondary";
+            break;
+          default:
+            className += " bg-muted text-muted-foreground";
         }
 
         return <Badge variant={variant} className={className}>{status}</Badge>;
@@ -227,8 +227,8 @@ export default function SellerBookingsPage() {
 
           {/* BOX 1: PROFIT CONTRIBUTION */}
           <Card className={cn(
-              "border-none shadow-xl relative overflow-hidden",
-              isProfitPositive ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
+            "border-none shadow-xl relative overflow-hidden",
+            isProfitPositive ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
           )}>
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <TrendingUp className="h-32 w-32 transform translate-x-8 -translate-y-8" />
@@ -251,18 +251,18 @@ export default function SellerBookingsPage() {
           <Card className="shadow-md border-border bg-card">
             <CardContent className="p-6 flex flex-col justify-between h-full min-h-[140px]">
               <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-muted-foreground font-bold text-xs tracking-widest uppercase">Money Received</span>
-                    <div className="text-3xl font-black tracking-tight mt-1 text-foreground">
-                        ₹{totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                    </div>
+                <div>
+                  <span className="text-muted-foreground font-bold text-xs tracking-widest uppercase">Money Received</span>
+                  <div className="text-3xl font-black tracking-tight mt-1 text-foreground">
+                    ₹{totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </div>
-                  <div className="p-2 bg-muted rounded-full">
-                      <Wallet className="h-5 w-5 text-muted-foreground" />
-                  </div>
+                </div>
+                <div className="p-2 bg-muted rounded-full">
+                  <Wallet className="h-5 w-5 text-muted-foreground" />
+                </div>
               </div>
               <div className="mt-4 text-xs text-muted-foreground font-medium">
-                 Total payouts & commissions received
+                Total payouts & commissions received
               </div>
             </CardContent>
           </Card>
@@ -271,18 +271,18 @@ export default function SellerBookingsPage() {
           <Card className="shadow-md border-border bg-card">
             <CardContent className="p-6 flex flex-col justify-between h-full min-h-[140px]">
               <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-muted-foreground font-bold text-xs tracking-widest uppercase">Total Sales</span>
-                    <div className="text-3xl font-black tracking-tight mt-1 text-foreground">
-                        ₹{totalSales.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                    </div>
+                <div>
+                  <span className="text-muted-foreground font-bold text-xs tracking-widest uppercase">Total Sales</span>
+                  <div className="text-3xl font-black tracking-tight mt-1 text-foreground">
+                    ₹{totalSales.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </div>
-                  <div className="p-2 bg-emerald-500/10 rounded-full">
-                      <CreditCard className="h-5 w-5 text-emerald-600" />
-                  </div>
+                </div>
+                <div className="p-2 bg-emerald-500/10 rounded-full">
+                  <CreditCard className="h-5 w-5 text-emerald-600" />
+                </div>
               </div>
               <div className="mt-4 text-xs text-emerald-600 font-bold">
-                 Gross value of confirmed bookings
+                Gross value of confirmed bookings
               </div>
             </CardContent>
           </Card>
@@ -290,22 +290,20 @@ export default function SellerBookingsPage() {
       }
 
       {/* RECENT BOOKINGS TABLE */}
-      <Card className="border-border shadow-sm">
-        <div className="p-6 border-b border-border bg-muted/20">
-          <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
-             Bookings History
-          </h3>
-        </div>
-        <div className="p-0">
-            <DataTable
-                columns={columns}
-                data={bookings}
-                loading={loading}
-                searchKey="student_name"
-                searchPlaceholder="Search student name..."
-            />
-        </div>
-      </Card>
+      <div className="p-6 border-b border-border bg-muted/20">
+        <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+          Bookings History
+        </h3>
+      </div>
+      <div className="p-0">
+        <DataTable
+          columns={columns}
+          data={bookings}
+          loading={loading}
+          searchKey="student_name"
+          searchPlaceholder="Search student name..."
+        />
+      </div>
 
       {/* VIEW DETAILS DIALOG */}
       <Dialog
@@ -409,8 +407,8 @@ export default function SellerBookingsPage() {
                             )}
                           </div>
                           <Badge variant="outline" className={cn(
-                              "capitalize text-[10px] font-bold border-transparent",
-                              p.status === "paid" ? "bg-emerald-500/10 text-emerald-600" :
+                            "capitalize text-[10px] font-bold border-transparent",
+                            p.status === "paid" ? "bg-emerald-500/10 text-emerald-600" :
                               p.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-yellow-500/10 text-yellow-600"
                           )}>
                             {p.status}
