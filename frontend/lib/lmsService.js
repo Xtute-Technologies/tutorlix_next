@@ -88,11 +88,16 @@ export const productAPI = {
   },
 
   // Upload product images
-  uploadImages: async (id, images) => {
+  uploadImages: async (id, images, onUploadProgress) => {
     const formData = new FormData();
-    images.forEach((image) => {
-      formData.append('images', image);
-    });
+    if (Array.isArray(images)) {
+        images.forEach((image) => {
+            formData.append('images', image);
+        });
+    } else {
+        // Single file support
+        formData.append('images', images);
+    }
 
     const response = await axiosInstance.post(
       `/api/lms/products/${id}/upload_images/`,
@@ -101,6 +106,7 @@ export const productAPI = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        onUploadProgress,
       }
     );
     return response.data;
