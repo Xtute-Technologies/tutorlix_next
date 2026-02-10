@@ -7,18 +7,40 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CheckCircle, XCircle, ArrowRight, Loader2 } from 'lucide-react';
 import axios from '@/lib/axios';
+import { toast } from 'sonner';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('processing');
   const [bookingDetails, setBookingDetails] = useState(null);
-  
-  // Params from Razorpay or our redirect
+  const router = useRouter(); // For redirection
+
+
+  // Params
   const paymentId = searchParams.get('razorpay_payment_id');
   const paymentLinkStatus = searchParams.get('razorpay_payment_link_status');
   const manualStatus = searchParams.get('status');
+  const type = searchParams.get('type'); // 'note' or course
+  const noteId = searchParams.get('noteId');
 
   useEffect(() => {
+    // 1. Handle Notes Logic separately
+    if (type === 'note' && manualStatus === 'success') {
+       setStatus('success');
+       // Auto-redirect logic or Toast
+       if (noteId) {
+          toast.success("Purchase Successful", {
+          description: "You have been enrolled in the note. Redirecting...",
+        });
+            
+            // Redirect after delay
+            setTimeout(() => {
+                router.push(`/student/notes/${noteId}`);
+            }, 2000);
+       }
+       return;
+    }
+
     const verifyPayment = async () => {
         if (!paymentId) {
             if (manualStatus === 'failed' || paymentLinkStatus === 'expired') {
@@ -50,7 +72,7 @@ function PaymentSuccessContent() {
         if (manualStatus === 'success') setStatus('success'); 
         else if (manualStatus) setStatus('failed'); // Default to fail if no explicit success
     }
-  }, [paymentId, manualStatus, paymentLinkStatus]);
+  }, [paymentId, manualStatus, paymentLinkStatus, type, noteId, router]);
 
 
   return (
@@ -73,7 +95,7 @@ function PaymentSuccessContent() {
           </CardTitle>
           <CardDescription className="text-gray-500">
             {status === 'success' 
-              ? `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.` 
+              ? (type === 'note' ? 'Your purchase has been confirmed. You will be redirected shortly.' : `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.`) 
               : 'We verified the transaction but found an issue.'}
           </CardDescription>
         </CardHeader>
@@ -97,19 +119,21 @@ function PaymentSuccessContent() {
            )}
 
            <div className="flex flex-col gap-3">
-             <Link href="/login" className="w-full">
-                <Button className="w-full" size="lg">
-                    Login to Continue
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-             </Link>
+             {type === 'note' && noteId ? (
+                  <Button asChild className="w-full bg-green-600 hover:bg-green-700">
+                    <Link href={`/student/notes/${noteId}`}>Go to Note</Link>
+                  </Button>
+             ) : (
+                 <Button asChild className="w-full">
+                    <Link href="/dashboard">Login to Continue</Link>
+                 </Button>
+             )}
            </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
 
 
 export default function PaymentSuccessPage() {

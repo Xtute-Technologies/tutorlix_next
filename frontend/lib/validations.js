@@ -35,6 +35,29 @@ export const registerSchema = z.object({
   path: ['password2'],
 });
 
+export const studentRegisterSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  password1: z.string().min(8, 'Password must be at least 8 characters'),
+  password2: z.string().min(8, 'Password must be at least 8 characters'),
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  phone: z.string()
+    .min(1, 'Phone number is required')
+    .length(10, 'Phone number must be exactly 10 digits')
+    .regex(/^\d+$/, 'Phone number must contain only numbers'),
+  
+  // State optional for simple registration
+    state: z.string().min(1, 'State is required'),
+
+  
+  // Force role to student
+  role: z.literal('student').default('student'),
+}).refine((data) => data.password1 === data.password2, {
+  message: 'Passwords do not match',
+  path: ['password2'],
+});
+
 
 export const profileSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),

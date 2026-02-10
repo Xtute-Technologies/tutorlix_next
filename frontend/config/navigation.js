@@ -12,6 +12,8 @@ import {
   GraduationCap,
   DollarSign,
   MessageSquare,
+  File,
+  FileText,
 } from "lucide-react";
 
 export const getNavItems = (role) => {
@@ -24,8 +26,8 @@ export const getNavItems = (role) => {
         icon: LayoutDashboard,
         isActive: true,
         items: [
-            { title: "View Bookings", url: "/seller/bookings" },
-            { title: "Finances", url: "/seller/finances" }
+          { title: "View Bookings", url: "/seller/bookings" },
+          { title: "Finances", url: "/seller/finances" }
         ],
       },
     ];
@@ -54,6 +56,18 @@ export const getNavItems = (role) => {
           { title: "Bookings", url: "/admin/bookings", icon: ShoppingCart },
         ],
       },
+       {
+        title: "Notes",
+        url: "#",
+        icon: FileText,
+        isActive: true,
+        items: [
+          { title: "Notes Manage", url: "/admin/notes", icon: FileText },
+          { title: "Student Enrollments", url: "/admin/notes-enrollments", icon: Users },
+          { title: "Transaction", url: "/admin/notes/transactions", icon: Users },
+
+        ],
+      },
       {
         title: "Marketing",
         url: "#",
@@ -76,6 +90,7 @@ export const getNavItems = (role) => {
           { title: "Test Scores", url: "/admin/test-scores", icon: GraduationCap },
         ],
       },
+
       {
         title: "Finance",
         url: "#",
@@ -93,7 +108,7 @@ export const getNavItems = (role) => {
         icon: MessageSquare,
         isActive: true,
         items: [
-          { title: "Contact Page", url: "/admin/messages", icon:MessageSquare  },
+          { title: "Contact Page", url: "/admin/messages", icon: MessageSquare },
           { title: "Product Leads", url: "/admin/product-leads", icon: MessageSquare }
         ],
 
@@ -128,6 +143,7 @@ export const getNavItems = (role) => {
           { title: "Recordings", url: "/student/recordings", icon: Video },
           { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/student/scores", icon: GraduationCap },
+          { title: "Notes", url: "/student/notes", icon: FileText },
         ],
       },
     ];
@@ -152,6 +168,19 @@ export const getNavItems = (role) => {
           { title: "Recordings", url: "/teacher/recordings", icon: Video },
           { title: "Attendance", url: "/teacher/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/teacher/test-scores", icon: GraduationCap },
+         
+        ],
+      },
+      {
+        title: "Notes",
+        url: "#",
+        icon: FileText,
+        isActive: true,
+        items: [
+          { title: "Notes Manage", url: "/teacher/notes", icon: FileText },
+          { title: "Student Enrollments", url: "/teacher/notes-enrollments", icon: Users },
+          { title: "Transaction", url: "/teacher/notes/transactions", icon: Users },
+
         ],
       },
       {
@@ -160,7 +189,7 @@ export const getNavItems = (role) => {
         icon: DollarSign,
         isActive: true,
         items: [
-            { title: "My Finances", url: "/teacher/finances", icon: DollarSign }
+          { title: "My Finances", url: "/teacher/finances", icon: DollarSign }
         ],
       },
     ];

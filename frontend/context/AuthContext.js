@@ -30,12 +30,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (credentials) => {
+  const login = async (credentials, shouldRedirect = true) => {
     try {
       const data = await authService.login(credentials);
       setUser(data.user);
-      router.push('/dashboard');
-      return { success: true };
+      if (shouldRedirect) {
+        router.push('/dashboard');
+      }
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Login error:', error);
       return {

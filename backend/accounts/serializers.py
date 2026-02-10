@@ -5,6 +5,11 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.conf import settings
+try:
+    from allauth.account.models import EmailAddress
+except ImportError:
+    EmailAddress = None
 from .models import User
 
 
@@ -28,19 +33,33 @@ class UserDetailSerializer(serializers.ModelSerializer):
     Used by: Admin (UserDetailView) and Self (UserProfileView)
     """
     full_name = serializers.SerializerMethodField()
+    email_verified = serializers.BooleanField(required=False, default=False)
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'state', 'role', 'student_status',
-            'profile_image', 'bio', 'created_at', 'updated_at', 'is_active', 'allow_manual_price'
+            'profile_image', 'bio', 'created_at', 'updated_at', 'is_active', 'allow_manual_price',
+            'email_verified'
         ]
         # REMOVED 'is_active' from read_only_fields so it can be updated
         read_only_fields = ['id', 'username', 'created_at', 'updated_at']
     
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if EmailAddress:
+            try:
+                email_obj = EmailAddress.objects.filter(user=instance, email=instance.email).first()
+                ret['email_verified'] = email_obj.verified if email_obj else False
+            except Exception:
+                ret['email_verified'] = False
+        else:
+            ret['email_verified'] = False
+        return ret
 
     def validate_is_active(self, value):
         """
@@ -59,6 +78,31 @@ class UserDetailSerializer(serializers.ModelSerializer):
         if 'is_active' in validated_data:
             if request and request.user.id == instance.id:
                 raise serializers.ValidationError({"is_active": "You cannot activate/deactivate your own account."})
+
+        # --- Handle Email Verification Status Update (Admin Only) ---
+        if 'email_verified' in validated_data:
+            # Check permissions (admins or staff only)
+            if request and (request.user.role == 'admin' or request.user.is_staff):
+                new_status = validated_data.pop('email_verified')
+                if EmailAddress:
+                    try:
+                        email_obj = EmailAddress.objects.filter(user=instance, email=instance.email).first()
+                        if email_obj:
+                            email_obj.verified = new_status
+                            email_obj.save()
+                        elif new_status:
+                            # If no email address record exists, create one if setting to verified
+                            EmailAddress.objects.create(
+                                user=instance,
+                                email=instance.email,
+                                verified=True,
+                                primary=True
+                            )
+                    except Exception:
+                        pass
+            else:
+                # Remove it if not authorized
+                validated_data.pop('email_verified', None)
         
         return super().update(instance, validated_data)
     
@@ -86,16 +130,48 @@ class SimpleUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name()
 
 
+class PublicUserSerializer(serializers.ModelSerializer):
+    """
+    Minimal user serializer for public display (notes, comments, etc.)
+    Only exposes id, name, and email
+    """
+    full_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'full_name',"profile_image"]
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
 class CustomRegisterSerializer(BaseRegisterSerializer):
     """
-    Custom registration serializer with additional fields
+    Custom registration serializer limited to Student and Seller roles only.
     """
+    # Define the allowed roles explicitly for the registration dropdown/field
+    ALLOWED_ROLES = (
+        ('student', 'Student'),
+        ('seller', 'Seller'),
+    )
+
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
     phone = serializers.CharField(required=True, max_length=15)
     state = serializers.CharField(required=False, max_length=100, allow_blank=True)
-    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, default='student')
+    # Use the restricted choices here
+    role = serializers.ChoiceField(choices=ALLOWED_ROLES, default='student')
     
+    def validate_role(self, value):
+        """
+        Extra security layer: explicitly block 'teacher' or 'admin'
+        even if someone tries to inject the value via API.
+        """
+        if value not in ['student', 'seller']:
+            raise serializers.ValidationError(
+                "Registration is only allowed for Students and Sellers."
+            )
+        return value
+
     def get_cleaned_data(self):
         data = super().get_cleaned_data()
         data['first_name'] = self.validated_data.get('first_name', '')
@@ -120,8 +196,7 @@ class CustomRegisterSerializer(BaseRegisterSerializer):
         user.role = self.validated_data.get('role', 'student')
         user.save()
         return user
-
-
+    
 class CustomLoginSerializer(BaseLoginSerializer):
     """
     Custom login serializer that allows login with email or phone
@@ -154,6 +229,21 @@ class CustomLoginSerializer(BaseLoginSerializer):
         # Did we get back an active user?
         if not user.is_active:
             raise serializers.ValidationError('User account is disabled.')
+
+        # Check Email Verification if mandatory
+        if getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'optional') == 'mandatory' and EmailAddress:
+            # Skip verification check for admins
+            if user.role != 'admin':
+                try:
+                    email_address = EmailAddress.objects.get(user=user, email=user.email)
+                    if not email_address.verified:
+                        raise serializers.ValidationError('E-mail is not verified.')
+                except EmailAddress.DoesNotExist:
+                    # If no email address record exists (rare if registered properly), treat as unverified or safe fall through depending on policy.
+                    # Usually allauth creates it. If mandatory, we should panic. 
+                    # But if created by admin or superuser without allauth flow, might happen.
+                    if not user.is_superuser:
+                        raise serializers.ValidationError('E-mail is not verified.')
         
         attrs['user'] = user
         return attrs

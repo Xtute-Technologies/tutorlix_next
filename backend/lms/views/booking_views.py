@@ -18,6 +18,10 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+try:
+    from allauth.account.models import EmailAddress
+except ImportError:
+    EmailAddress = None
 
 from lms.models import (
     Product, Offer, CourseBooking, PaymentHistory
@@ -187,6 +191,15 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 role='student',
                 student_status='in_process'
             )
+
+            # Auto-verify email for seller-created students
+            if EmailAddress:
+                EmailAddress.objects.create(
+                    user=student,
+                    email=email,
+                    verified=True,
+                    primary=True
+                )
 
         # 2️⃣ PRODUCT
         product_id = data.get('product')
@@ -620,11 +633,15 @@ class RazorpayWebhookView(APIView):
     # ------------------------------------------------------------------
     def _handle_payment_success(self, payload):
         payment = payload["payload"]["payment"]["entity"]
+        notes = payment.get("notes", {})
+        
+        # Check if it is a Note Purchase
+        if notes.get("type") == "note_purchase":
+            return self._handle_note_payment_success(payload, notes)
 
         payment_id = payment.get("id")
         order_id = payment.get("order_id")
         amount = payment.get("amount") / 100  # paise → rupees
-        notes = payment.get("notes", {})
         booking_uuid = notes.get("booking_uuid")
 
         if not booking_uuid:
@@ -681,15 +698,76 @@ class RazorpayWebhookView(APIView):
 
         return Response({"status": "success"})
 
+    def _handle_note_payment_success(self, payload, notes):
+        """
+        Handle successful payment for Note Purchase
+        """
+        from notes.models import NotePurchase, NoteAccess
+        
+        purchase_id = notes.get("purchase_id")
+        payment = payload["payload"]["payment"]["entity"]
+        payment_id = payment.get("id")
+        order_id = payment.get("order_id")
+        
+        if not purchase_id:
+             logger.warning("No purchase_id in note payment webhook")
+             return Response({"status": "ignored"})
+             
+        try:
+            purchase = NotePurchase.objects.get(purchase_id=purchase_id)
+        except NotePurchase.DoesNotExist:
+             logger.error(f"Note Purchase not found for ID {purchase_id}")
+             return Response({"status": "purchase_not_found"})
+             
+        # Idempotency check 
+        if purchase.payment_status == 'paid':
+             logger.info("Duplicate note payment webhook ignored")
+             return Response({"status": "duplicate"})
+             
+        # Update Purchase
+        purchase.payment_status = 'paid'
+        purchase.payment_date = timezone.now()
+        purchase.razorpay_payment_id = payment_id
+        purchase.razorpay_order_id = order_id
+        purchase.razorpay_signature = "" # Webhook doesn't give signature used for verification usually in payload, skip or store if needed
+        purchase.save()
+        
+        # Grant Access (Lifetime enforced by model save method now)
+        try:
+            acc, created = NoteAccess.objects.get_or_create(
+                student=purchase.student,
+                note=purchase.note,
+                access_type='purchase',
+                defaults={
+                    'purchase': purchase,
+                    'is_active': True
+                }
+            )
+            # Ensure it is active and lifetime if retrieved
+            acc.is_active = True
+            acc.purchase = purchase
+            acc.valid_until = None
+            acc.save()
+        except Exception as e:
+            logger.error(f"Failed to grant access for verified purchase {purchase_id}: {e}")
+        
+        logger.info(f"Payment SUCCESS recorded for Note Purchase {purchase.purchase_id}")
+        return Response({"status": "success"})
+
+
     # ------------------------------------------------------------------
     # FAILED HANDLER
     # ------------------------------------------------------------------
     def _handle_payment_failed(self, payload):
         payment = payload["payload"]["payment"]["entity"]
+        notes = payment.get("notes", {})
+        
+        # Check if it is a Note Purchase
+        if notes.get("type") == "note_purchase":
+             return self._handle_note_payment_failed(payload, notes)
 
         payment_id = payment.get("id")
         order_id = payment.get("order_id")
-        notes = payment.get("notes", {})
         booking_uuid = notes.get("booking_uuid")
 
         if not booking_uuid:
@@ -723,3 +801,25 @@ class RazorpayWebhookView(APIView):
         logger.info(f"Payment FAILED recorded for booking {booking.booking_id}")
 
         return Response({"status": "failed"})
+
+    def _handle_note_payment_failed(self, payload, notes):
+        """
+        Handle failed payment for Note Purchase
+        """
+        from notes.models import NotePurchase
+        
+        purchase_id = notes.get("purchase_id")
+        payment = payload["payload"]["payment"]["entity"]
+        
+        if not purchase_id:
+             return Response({"status": "ignored"})
+             
+        try:
+            purchase = NotePurchase.objects.get(purchase_id=purchase_id)
+            if purchase.payment_status != 'paid': # Don't mark as failed if already paid
+                purchase.payment_status = 'failed'
+                purchase.save()
+        except NotePurchase.DoesNotExist:
+             pass 
+             
+        return Response({"status": "success"})

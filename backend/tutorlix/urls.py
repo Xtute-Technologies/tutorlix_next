@@ -47,6 +47,7 @@ urlpatterns = [
     # API Routes
     path('api/auth/', include('accounts.urls')),
     path('api/lms/', include('lms.urls')),
+    path('api/notes/', include('notes.urls')),
 ]
 
 # Serve media files in development

@@ -43,6 +43,7 @@ export default function Header() {
   const navLinks = [
     { href: "/", label: "Home", public: true },
     { href: "/courses", label: "Live Classes", public: true },
+    { href: "/notes", label: "Notes", public: true },
     { href: "/dashboard", label: "Dashboard", auth: true },
     { href: "/contact", label: "Contact", public: true },
   ];
@@ -52,6 +53,7 @@ export default function Header() {
     admin: [{ href: "/admin", label: "Admin", icon: Settings }],
     teacher: [{ href: "/teacher", label: "Dashboard", icon: BookOpen }],
     seller: [{ href: "/", label: "Dashboard", icon: BookOpen }],
+    student: [{ href: "/student", label: "Dashboard", icon: BookOpen }],
   };
 
   return (
