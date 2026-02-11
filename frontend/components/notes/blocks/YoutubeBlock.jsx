@@ -1,6 +1,7 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { Youtube, MonitorPlay } from "lucide-react";
+import { Youtube, MonitorPlay, Check } from "lucide-react"; // Added Check icon
 import { defaultProps } from "@blocknote/core";
+import { useState } from "react"; // Added useState
 
 const getYoutubeId = (url) => {
   if (!url) return null;
@@ -12,6 +13,9 @@ const getYoutubeId = (url) => {
 const YoutubeBlock = ({ block, editor }) => {
   const { url, width } = block.props;
   const videoId = getYoutubeId(url);
+  
+  // Local state to manage input value before submitting
+  const [inputValue, setInputValue] = useState(url || "");
 
   const updateUrl = (val) => {
     const id = getYoutubeId(val);
@@ -34,13 +38,29 @@ const YoutubeBlock = ({ block, editor }) => {
             <Youtube size={24} />
             <span>YouTube Embed</span>
           </div>
-          <input
-            type="text"
-            placeholder="Paste link and press Enter..."
-            className="w-full max-w-md p-2.5 rounded-md border shadow-sm bg-background text-sm"
-            onKeyDown={(e) => e.key === "Enter" && updateUrl(e.target.value)}
-            autoFocus
-          />
+          
+          {/* Input Container */}
+          <div className="flex w-full max-w-md gap-2">
+            <input
+              type="text"
+              placeholder="Paste link here..."
+              className="flex-1 p-2.5 rounded-md border shadow-sm bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && updateUrl(inputValue)}
+              autoFocus
+            />
+            
+            {/* Done Button */}
+            <button
+              onClick={() => updateUrl(inputValue)}
+              className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-colors flex items-center justify-center"
+              title="Save Video"
+            >
+              <Check size={18} strokeWidth={3} />
+            </button>
+          </div>
+
         </div>
       ) : (
         <div className="flex flex-col items-center w-full gap-3" contentEditable={false}>
@@ -60,7 +80,10 @@ const YoutubeBlock = ({ block, editor }) => {
                 ))}
               </div>
               <button
-                onClick={() => updateUrl("")}
+                onClick={() => {
+                    updateUrl(""); 
+                    setInputValue(""); // Reset local state when removing video
+                }}
                 className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold text-destructive hover:bg-destructive/10 rounded-md"
               >
                 <MonitorPlay size={14} />
@@ -101,7 +124,6 @@ export const YoutubeBlockSpec = createReactBlockSpec(
   },
   {
     render: YoutubeBlock,
-    // FIX: Disables reordering/dragging and selection to prevent the "found: [object HTMLDivElement]" error
     meta: {
       selectable: false,
     },
@@ -113,7 +135,6 @@ export const YoutubeBlockSpec = createReactBlockSpec(
         };
       }
     },
-    // FIX: Changed from raw DOM manipulation to JSX for React compatibility
     toExternalHTML: ({ block }) => {
       const id = getYoutubeId(block.props.url);
       if (!id) return <div />;

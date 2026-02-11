@@ -80,9 +80,11 @@ export default function NoteDetailPage({ params }) {
   return (
     <div className="container mx-auto py-6 max-w-4xl min-h-screen pb-20 bg-background text-foreground">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-6 pl-0 hover:bg-transparent hover:text-primary transition-colors text-muted-foreground">
+      <Link href={"/student/notes"}>
+      <Button variant="ghost" size="sm" className="mb-6 pl-0 hover:bg-transparent hover:text-primary transition-colors text-muted-foreground">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
+      </Link>
 
       {/* Header Section */}
       <div className="space-y-4 border-b border-border pb-6">

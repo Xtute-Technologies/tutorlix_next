@@ -29,6 +29,7 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function NoteDetailClient({ initialNote, id }) {
   const router = useRouter();
@@ -70,11 +71,12 @@ export default function NoteDetailClient({ initialNote, id }) {
           router.replace(`/student/notes/${id}`);
           return;
        }
-       if (user.role === 'teacher') {
+       // Teacher Viewing Public Page: Do NOT redirect (as per requirement)
+       /* if (user.role === 'teacher') {
           setIsRedirecting(true);
           router.replace(`/teacher/notes/${id}`);
           return; 
-       }
+       } */
        if (user.role === 'admin') {
           setIsRedirecting(true);
           router.replace(`/admin/notes/${id}`);
@@ -202,9 +204,11 @@ export default function NoteDetailClient({ initialNote, id }) {
       {/* Hero / Header Section */}
       <div className="bg-muted/30 border-b pb-12 pt-8">
         <div className="container mx-auto max-w-5xl px-4 sm:px-6">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-6 pl-0 hover:pl-2 transition-all">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Library
+          <Link href="/notes">
+          <Button variant="ghost" className="mb-6 pl-0 hover:pl-2 transition-all">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Notes
           </Button>
+          </Link>
 
           <div className="flex flex-col md:flex-row justify-between items-start gap-6">
             <div className="flex-1 space-y-4">
@@ -304,13 +308,17 @@ export default function NoteDetailClient({ initialNote, id }) {
                     size="lg"
                     className="w-full font-semibold shadow-lg shadow-primary/20"
                     onClick={isFree ? handleEnroll : handlePurchase}
-                    disabled={isPurchasing}>
+                    disabled={isPurchasing || (isAuthenticated && user?.role === 'teacher')}>
                     {isPurchasing ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
                       </>
                     ) : isAuthenticated ? (
-                      <>{isFree ? "Enroll for Free" : "Get Access Now"}</>
+                      user?.role === 'teacher' ? (
+                         <><Lock className="mr-2 h-4 w-4" /> Student Only Content</>
+                      ) : (
+                         <>{isFree ? "Enroll for Free" : "Get Access Now"}</>
+                      )
                     ) : (
                       <>{isFree ? "Login to Enroll" : "Login to Purchase"}</>
                     )}
@@ -392,8 +400,21 @@ export default function NoteDetailClient({ initialNote, id }) {
                     This content is reserved for enrolled students or purchasers. Unlock this note to get immediate access to the full study
                     material and downloads.
                   </p>
-                  <Button size="lg" onClick={isFree ? handleEnroll : handlePurchase} className="px-8 shadow-lg">
-                    {isAuthenticated ? (isFree ? "Enroll for Free" : "Unlock Now") : (isFree ? "Login to Enroll" : "Login to Unlock")}
+                  <Button 
+                    size="lg" 
+                    onClick={isFree ? handleEnroll : handlePurchase} 
+                    className="px-8 shadow-lg"
+                    disabled={isAuthenticated && user?.role === 'teacher'}
+                  >
+                    {isAuthenticated ? (
+                      user?.role === 'teacher' ? (
+                        <><Lock className="mr-2 h-4 w-4" /> Student Only Content</>
+                      ) : (
+                        isFree ? "Enroll for Free" : "Unlock Now"
+                      )
+                    ) : (
+                      isFree ? "Login to Enroll" : "Login to Unlock"
+                    )}
                   </Button>
                 </div>
               </div>

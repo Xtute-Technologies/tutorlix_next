@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { bookingAPI, testScoreAPI, attendanceAPI } from '@/lib/lmsService'; // Check APIs
+import { bookingAPI, testScoreAPI, attendanceAPI } from '@/lib/lmsService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, BookOpen, Clock, Award, Calendar } from 'lucide-react';
+import { Loader2, BookOpen, Clock, Award, Calendar, StickyNote, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { format } from 'date-fns';
 
 export default function StudentDashboardPage() {
   const { user } = useAuth();
@@ -113,31 +112,49 @@ export default function StudentDashboardPage() {
         </Card>
       </div>
 
+      {/* Actions and Notes Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+        
+        {/* Quick Actions (Takes 4 columns) */}
+        <Card className="col-span-4 h-full">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 grid-cols-2">
             <Link href="/student/classes" className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 rounded-lg border border-dashed border-slate-300 transition-colors">
               <Calendar className="h-8 w-8 text-blue-500 mb-2" />
-              <span className="font-bold text-slate-700">Book / Join Class</span>
+              <span className="font-bold text-slate-700 text-center">Book Class</span>
             </Link>
             <Link href="/student/bookings" className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 rounded-lg border border-dashed border-slate-300 transition-colors">
               <BookOpen className="h-8 w-8 text-green-500 mb-2" />
-              <span className="font-bold text-slate-700">My Bookings</span>
+              <span className="font-bold text-slate-700 text-center">My Bookings</span>
             </Link>
           </CardContent>
         </Card>
-        {/* <Card className="col-span-3">
+
+        {/* Explore Notes Card (Takes 3 columns) */}
+        <Card className="col-span-3 md:col-span-3 h-full border-l-4 border-l-yellow-400 shadow-sm">
           <CardHeader>
-            <CardTitle>Need Help?</CardTitle>
-            <CardDescription>Contact your sales representative or support.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+                <StickyNote className="h-5 w-5 text-yellow-500" />
+                Study Material
+            </CardTitle>
+            <CardDescription>
+                Access lecture notes and explore more materials.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="outline" className="w-full">Contact Support</Button>
+          <CardContent className="space-y-4">
+            <div className="bg-yellow-50/50 p-4 rounded-md text-sm text-muted-foreground">
+                Reviewing your notes regularly helps improve retention. Check out the latest materials added for your courses.
+            </div>
+            <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold">
+                <Link href="/student/notes" className="flex items-center gap-2">
+                    Explore Notes <ArrowRight className="h-4 w-4" />
+                </Link>
+            </Button>
           </CardContent>
-        </Card> */}
+        </Card>
+
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ export const getNavItems = (role) => {
         ],
       },
        {
-        title: "Notes",
+        title: "Study Material",
         url: "#",
         icon: FileText,
         isActive: true,
@@ -143,7 +143,7 @@ export const getNavItems = (role) => {
           { title: "Recordings", url: "/student/recordings", icon: Video },
           { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/student/scores", icon: GraduationCap },
-          { title: "Notes", url: "/student/notes", icon: FileText },
+          { title: "Study Material", url: "/student/notes", icon: FileText },
         ],
       },
     ];
@@ -172,7 +172,7 @@ export const getNavItems = (role) => {
         ],
       },
       {
-        title: "Notes",
+        title: "Study Material",
         url: "#",
         icon: FileText,
         isActive: true,

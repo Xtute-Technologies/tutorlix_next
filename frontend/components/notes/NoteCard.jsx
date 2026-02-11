@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function NoteCard({ note }) {
   const { openAuthModal } = useAuthModal();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const isPurchaseable = note.privacy === 'purchaseable';
   const hasAccess = note.can_access;
@@ -83,7 +83,7 @@ export default function NoteCard({ note }) {
       
       <CardFooter className="pt-0">
         {hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated) ? (
-            <Link href={isAuthenticated ? `/student/notes/${note.id}` : `/notes/${note.id}`} className="w-full">
+            <Link href={isAuthenticated && user?.role === 'student' ? `/student/notes/${note.id}` : `/notes/${note.id}`} className="w-full">
                 <Button className="w-full gap-2" variant="default">
                     <Eye className="h-4 w-4" /> View Note
                 </Button>
@@ -97,6 +97,11 @@ export default function NoteCard({ note }) {
                 </Link>
 
                 {isAuthenticated ? (
+                    user?.role === 'teacher' ? (
+                        <Button className="flex-1 gap-2 cursor-not-allowed" variant="secondary" disabled>
+                             <Lock className="h-4 w-4" /> Student Only
+                        </Button>
+                    ) : (
                     <NoteEnrollmentDialog 
                         note={note} 
                         trigger={
@@ -113,6 +118,7 @@ export default function NoteCard({ note }) {
                             </Button>
                         } 
                     />
+                    )
                 ) : (
                     <Button 
                         className="flex-1 gap-2" 
