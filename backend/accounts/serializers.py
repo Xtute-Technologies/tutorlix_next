@@ -370,13 +370,33 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     """
     Serializer for password reset confirmation
     """
-    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password1 = serializers.CharField(required=True, write_only=True, validators=[validate_password])
     new_password2 = serializers.CharField(required=True, write_only=True)
     
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": "Password fields didn't match."})
+        if attrs['new_password1'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password1": "Password fields didn't match."})
         return attrs
+    
+    def save(self):
+        # This is where the actual password change happens
+        from django.utils.http import urlsafe_base64_decode
+        from django.contrib.auth.tokens import default_token_generator
+        
+        try:
+            uid = urlsafe_base64_decode(self.validated_data['uid']).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"uid": ["Invalid value"]})
+
+        if not default_token_generator.check_token(user, self.validated_data['token']):
+            raise serializers.ValidationError({"token": ["Invalid or expired token"]})
+
+        user.set_password(self.validated_data['new_password1'])
+        user.save()
+        return user
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
