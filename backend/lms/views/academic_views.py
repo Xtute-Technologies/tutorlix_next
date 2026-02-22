@@ -122,13 +122,12 @@ class StudentSpecificClassViewSet(viewsets.ModelViewSet):
 class MasterclassViewSet(viewsets.ModelViewSet):
     """
     Generic Masterclass CRUD operations.
-    - Admin only access.
     - No student/teacher specific logic.
     """
 
     queryset = Masterclass.objects.all()
     serializer_class = MasterClassSerializer
-    permission_classes = [IsAdmin]  # 🔐 Admin only
+    permission_classes = []
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active']
