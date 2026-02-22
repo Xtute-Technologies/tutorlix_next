@@ -134,7 +134,7 @@ export function FormBuilder({
 
   const form = useForm({
     resolver: schema ? zodResolver(schema) : undefined,
-    values: defaultValues,
+    defaultValues: defaultValues,
   });
 
   const { isSubmitting: formIsSubmitting } = form.formState;
@@ -142,6 +142,9 @@ export function FormBuilder({
 
   const handleSubmit = async (data) => {
     try {
+      console.log("FULL DATA:", data);
+      console.log("IMAGE VALUE:", data.image);
+      console.log("IS FILE:", data.image instanceof File);
       await onSubmit(data);
     } catch (error) {
       console.error("Form submission error:", error);
@@ -178,11 +181,17 @@ export function FormBuilder({
           <Input
             type="file"
             multiple={field.multiple || false}
-            accept={field.accept || "*"}
+            accept={field.accept || "image/*"}
             disabled={disabled || isSubmitting}
             onChange={(e) => {
-              const files = Array.from(e.target.files || []);
-              formField.onChange(field.multiple ? files : files[0]);
+              const file = e.target.files?.[0];
+      
+              if (!file) return;
+      
+              // 🔥 Important: store actual File object
+              form.setValue(name, file, {
+                shouldValidate: true,
+              });
             }}
           />
         );
@@ -319,8 +328,14 @@ export function FormBuilder({
       if (type === "checkbox") {
         return (
           <div className="flex items-center space-x-2">
-            <Checkbox checked={formField.value} onCheckedChange={formField.onChange} disabled={disabled || isSubmitting} />
-            <label className="text-sm font-normal cursor-pointer">{placeholder || label}</label>
+            <Checkbox
+              checked={!!formField.value}
+              onCheckedChange={(val) => form.setValue(name, val)}
+              disabled={disabled || isSubmitting}
+            />
+            <label className="text-sm font-normal cursor-pointer">
+              {placeholder || label}
+            </label>
           </div>
         );
       }

@@ -85,6 +85,7 @@ export const getNavItems = (role) => {
         items: [
           { title: "Student Classes", url: "/admin/classes-student", icon: Users },
           { title: "Course Classes", url: "/admin/classes-course", icon: BookOpen },
+          { title: "Masterclass", url: "/admin/masterclass", icon: GraduationCap },
           { title: "Recordings", url: "/admin/recordings", icon: Video },
           { title: "Attendance", url: "/admin/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/admin/test-scores", icon: GraduationCap },

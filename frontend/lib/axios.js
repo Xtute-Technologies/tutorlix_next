@@ -1,62 +1,63 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Create axios instance
+// ✅ REMOVE forced Content-Type
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
-// Request interceptor to add auth token
+// Request interceptor (auth only)
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = Cookies.get('accessToken');
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 🚀 DO NOT SET Content-Type manually
+    // Let axios decide automatically
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor (token refresh)
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // If error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = Cookies.get('refreshToken');
-        
+
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/api/auth/token/refresh/`, {
-            refresh: refreshToken,
-          });
+          const response = await axios.post(
+            `${API_BASE_URL}/api/auth/token/refresh/`,
+            { refresh: refreshToken }
+          );
 
           const { access } = response.data;
-          Cookies.set('accessToken', access, { expires: 1 }); // 1 day
+          Cookies.set('accessToken', access, { expires: 1 });
 
-          // Retry the original request with new token
           originalRequest.headers.Authorization = `Bearer ${access}`;
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        // If refresh fails, clear tokens and redirect to login
         Cookies.remove('accessToken');
         Cookies.remove('refreshToken');
+
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
+
         return Promise.reject(refreshError);
       }
     }

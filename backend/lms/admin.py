@@ -4,7 +4,7 @@ from .models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass, Recording,
     Attendance, TestScore, Expense, ContactFormMessage,
-    SellerExpense, TeacherExpense
+    SellerExpense, TeacherExpense, Masterclass
 )
 
 
@@ -125,6 +125,45 @@ class StudentSpecificClassAdmin(admin.ModelAdmin):
     search_fields = ['name', 'teacher__username']
     filter_horizontal = ['students']
     ordering = ['name']
+
+@admin.register(Masterclass)
+class MasterclassAdmin(admin.ModelAdmin):
+    list_display = [
+        'name',
+        'time',
+        'users_count',
+        'is_active',
+        'image_preview',
+        'created_at',
+    ]
+
+    list_filter = [
+        'is_active',
+        'created_at',
+    ]
+
+    search_fields = [
+        'name',
+        'users__username',
+        'users__email',
+    ]
+
+    readonly_fields = ['image_preview']
+
+    ordering = ['name']
+
+    def users_count(self, obj):
+        return obj.users.count()
+    users_count.short_description = "Users"
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" width="50" height="50" style="object-fit:cover;border-radius:5px;" />',
+                obj.image.url
+            )
+        return "No Image"
+    image_preview.short_description = "Image"
 
 
 @admin.register(CourseSpecificClass)

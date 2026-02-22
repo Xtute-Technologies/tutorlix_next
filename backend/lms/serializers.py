@@ -6,7 +6,7 @@ from .models import (
     Category, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead
+    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead, Masterclass
 )
 
 User = get_user_model()
@@ -407,6 +407,25 @@ class StudentSpecificClassSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Selected user must have teacher role.")
         return value
 
+# ============= Master Class Serializers =============
+class MasterClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Masterclass
+        fields = [
+            'id',
+            'name',
+            'time',
+            'class_link',
+            'image',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'created_at',
+            'updated_at',
+        ]
 
 class CourseSpecificClassSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
