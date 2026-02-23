@@ -44,6 +44,7 @@ export default function Header() {
     { href: "/", label: "Home", public: true },
     { href: "/courses", label: "Live Classes", public: true },
     { href: "/notes", label: "Notes", public: true },
+    { href: "/masterclass", label: "Masterclass", public: true },
     { href: "/dashboard", label: "Dashboard", auth: true },
     { href: "/contact", label: "Contact", public: true },
   ];

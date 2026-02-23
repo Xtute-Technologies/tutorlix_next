@@ -20,13 +20,13 @@ from ..models import (
     Category, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage
+    Expense, ContactFormMessage, Masterclass
 )
 from ..serializers import (
     CategorySerializer, CategoryListSerializer,
     ProductSerializer, ProductListSerializer, ProductImageSerializer,
     OfferSerializer, CourseBookingSerializer, StudentSpecificClassSerializer, CourseSpecificClassSerializer,
-    RecordingSerializer, AttendanceSerializer, TestScoreSerializer, ExpenseSerializer, ContactFormMessageSerializer
+    RecordingSerializer, AttendanceSerializer, TestScoreSerializer, ExpenseSerializer, ContactFormMessageSerializer, MasterClassSerializer
 )
 from ..permissions import (
     IsAdmin, IsAdminOrReadOnly, IsAdminOrTeacher, IsAdminOrTeacherOrReadOnly
@@ -116,8 +116,92 @@ class StudentSpecificClassViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(class_obj)
         return Response(serializer.data)
+    
+# ============= Masterclass ViewSet =============
 
+class MasterclassViewSet(viewsets.ModelViewSet):
+    """
+    Generic Masterclass CRUD operations.
+    - No student/teacher specific logic.
+    """
 
+    queryset = Masterclass.objects.all()
+    serializer_class = MasterClassSerializer
+    permission_classes = []
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name', 'time']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_queryset(self):
+        # Fully generic — no role filtering
+        return super().get_queryset()
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    # ==============================
+    # Add Users
+    # ==============================
+    @action(detail=True, methods=['post'])
+    def add_users(self, request, pk=None):
+        class_obj = self.get_object()
+        user_ids = request.data.get('user_ids', [])
+
+        if not isinstance(user_ids, list) or not user_ids:
+            return Response(
+                {'error': 'user_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        User = get_user_model()
+        users = User.objects.filter(id__in=user_ids)
+
+        if not users.exists():
+            return Response(
+                {'error': 'No valid users found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        class_obj.users.add(*users)
+
+        return Response(
+            self.get_serializer(class_obj).data,
+            status=status.HTTP_200_OK
+        )
+
+    # ==============================
+    # Remove Users
+    # ==============================
+    @action(detail=True, methods=['post'])
+    def remove_users(self, request, pk=None):
+        class_obj = self.get_object()
+        user_ids = request.data.get('user_ids', [])
+
+        if not isinstance(user_ids, list) or not user_ids:
+            return Response(
+                {'error': 'user_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        User = get_user_model()
+        users = User.objects.filter(id__in=user_ids)
+
+        if not users.exists():
+            return Response(
+                {'error': 'No valid users found'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        class_obj.users.remove(*users)
+
+        return Response(
+            self.get_serializer(class_obj).data,
+            status=status.HTTP_200_OK
+        )
+    
 # ============= Course Specific Class ViewSet =============
 
 class CourseSpecificClassViewSet(viewsets.ModelViewSet):

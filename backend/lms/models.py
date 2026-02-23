@@ -391,6 +391,27 @@ class StudentSpecificClass(models.Model):
         verbose_name_plural = 'Student Specific Classes'
         ordering = ['name']
 
+class Masterclass(models.Model):
+    """
+    Classes specific to students
+    """
+    name = models.CharField(max_length=255)
+    time = models.CharField(max_length=100, help_text="Class time as text")
+    class_link = models.URLField()
+    teacher = models.CharField(max_length=255, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    image = models.ImageField(upload_to='masterclasses/', null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.time}"
+    
+    class Meta:
+        verbose_name = 'Student Specific Class'
+        verbose_name_plural = 'Student Specific Classes'
+        ordering = ['name']
+
 
 class CourseSpecificClass(models.Model):
     """

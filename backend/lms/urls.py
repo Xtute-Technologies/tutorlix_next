@@ -4,10 +4,13 @@ from . import views
 
 # Create a router and register our viewsets
 router = DefaultRouter()
+
+# Core
 router.register(r'categories', views.CategoryViewSet, basename='category')
 router.register(r'products', views.ProductViewSet, basename='product')
 router.register(r'offers', views.OfferViewSet, basename='offer')
 router.register(r'bookings', views.CourseBookingViewSet, basename='booking')
+router.register(r'masterclasses', views.MasterclassViewSet, basename='masterclass')
 router.register(r'student-classes', views.StudentSpecificClassViewSet, basename='student-class')
 router.register(r'course-classes', views.CourseSpecificClassViewSet, basename='course-class')
 router.register(r'recordings', views.RecordingViewSet, basename='recording')

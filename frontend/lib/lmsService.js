@@ -542,6 +542,55 @@ export const studentClassAPI = {
   },
 };
 
+// ============= Masterclass APIs (Admin Only + Image Support) =============
+
+export const masterclassAPI = {
+
+  // Get all masterclasses
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get(
+      '/api/lms/masterclasses/',
+      { params }
+    );
+    return extractResults(response);
+  },
+
+  // Get single masterclass
+  getById: async (id) => {
+    const response = await axiosInstance.get(
+      `/api/lms/masterclasses/${id}/`
+    );
+    return response.data;
+  },
+
+  // Create masterclass (supports image upload)
+  create: async (formData) => {
+    const response = await axiosInstance.post(
+      '/api/lms/masterclasses/',
+      formData
+    );
+    return response.data;
+  },
+
+  // Update masterclass (supports image upload)
+  update: async (id, formData) => {
+    const response = await axiosInstance.patch(
+      `/api/lms/masterclasses/${id}/`,
+      formData
+    );
+    return response.data;
+  },
+
+  // Delete masterclass
+  delete: async (id) => {
+    const response = await axiosInstance.delete(
+      `/api/lms/masterclasses/${id}/`
+    );
+    return response.data;
+  },
+
+};
+
 // ============= Course Specific Class APIs =============
 
 export const courseClassAPI = {
