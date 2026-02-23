@@ -4,14 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { publicNoteAPI } from "@/lib/notesService";
+import { useProfile } from "@/context/ProfileContext";
 import {
   BookOpen,
   Search,
@@ -27,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 export default function PublicNotesPage() {
+  const { profileType } = useProfile();
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,10 +32,13 @@ export default function PublicNotesPage() {
     count: 0,
   });
 
-  // Load notes when page or type changes
+  // Load notes when page, privacy filter, or profile type changes (unless searching)
   useEffect(() => {
+    // If there is a search query, we don't want to reload just because profileType changes
+    // But if searchQuery is empty, we DO want to reload when profileType changes.
+    // The debounced effect handles searchQuery changes.
     loadNotes();
-  }, [pagination.page, typeFilter]);
+  }, [pagination.page, typeFilter, profileType]); 
 
   // Debounced search effect
   useEffect(() => {
@@ -60,9 +58,16 @@ export default function PublicNotesPage() {
       const params = {
         page: pagination.page,
         page_size: pagination.page_size,
-        search: searchQuery || undefined,
         privacy: typeFilter !== "all" ? typeFilter : undefined,
       };
+
+      if (searchQuery) {
+        params.search = searchQuery;
+        // When searching, we do NOT filter by profile_type to allow global search
+      } else {
+        // When browsing, strict filter by current profile type
+        params.profile_type = profileType;
+      }
 
       const response = await publicNoteAPI.browse(params);
       setNotes(response.results || []);
@@ -172,7 +177,7 @@ export default function PublicNotesPage() {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-2xl px-8 font-bold border-border hover:bg-primary hover:border-primary transition-all"
+              className="rounded-2xl px-8 font-bold border-border transition-all"
               onClick={() => {
                 setSearchQuery("");
                 setTypeFilter("all");

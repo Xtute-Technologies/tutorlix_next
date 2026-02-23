@@ -5,7 +5,7 @@ import NoteDetailClient from "./NoteDetailClient";
 
 export default function Page() {
   const params = useParams();
-  const id = params?.id;
+  const slug = params?.slug;
 
-  return <NoteDetailClient id={id} />;
+  return <NoteDetailClient slug={slug} />;
 }

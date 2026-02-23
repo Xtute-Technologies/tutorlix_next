@@ -14,7 +14,6 @@ export default function TeacherNotesList({
   adapter, 
   dependencies, 
   userRole = 'teacher', // 'admin' or 'teacher'
-  onEdit, // Kept for backwards compatibility or specialized actions, though Links prefered
   onDelete,
   defaultPageSize = 10 
 }) {
@@ -173,7 +172,7 @@ export default function TeacherNotesList({
           return (
             <div className="flex items-center gap-2">
               <Link 
-                href={`${basePath}/notes/${note.id}/preview`}
+                href={`${basePath}/notes/${note.slug}/preview`}
                 className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 text-muted-foreground hover:text-primary")}
                 title="Preview"
               >
@@ -181,7 +180,7 @@ export default function TeacherNotesList({
               </Link>
               
               <Link 
-                href={`${basePath}/notes/${note.id}`}
+                href={`${basePath}/notes/${note.slug}`}
                 className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 text-muted-foreground hover:text-primary")}
                 title="Edit"
               >

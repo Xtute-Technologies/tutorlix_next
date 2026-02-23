@@ -83,6 +83,7 @@ class NoteListSerializer(serializers.ModelSerializer):
             'access_duration_days',
             'is_draft',
             'is_active',
+            'profileTypes',
             'created_at',
             'updated_at',
             'can_access',
@@ -144,6 +145,7 @@ class NoteDetailSerializer(serializers.ModelSerializer):
             'access_duration_days',
             'is_draft',
             'is_active',
+            'profileTypes',
             'attachments',
             'can_access',
             'has_purchased',
@@ -217,6 +219,7 @@ class NoteCreateUpdateSerializer(serializers.ModelSerializer):
             'access_duration_days',
             'is_draft',
             'is_active',
+            'profileTypes',
             'attachments',
             'created_at',
             'updated_at'
@@ -270,6 +273,7 @@ class NotePurchaseSerializer(serializers.ModelSerializer):
     student = PublicUserSerializer(read_only=True)
     note_title = serializers.CharField(source='note.title', read_only=True)
     note_id = serializers.IntegerField(source='note.id', read_only=True)
+    note_slug = serializers.CharField(source='note.slug', read_only=True)
     is_access_valid = serializers.SerializerMethodField()
     
     class Meta:
@@ -280,6 +284,7 @@ class NotePurchaseSerializer(serializers.ModelSerializer):
             'student',
             'note',
             'note_id',
+            'note_slug',
             'note_title',
             'price',
             'discount_amount',

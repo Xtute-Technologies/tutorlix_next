@@ -83,14 +83,14 @@ export default function NoteCard({ note }) {
       
       <CardFooter className="pt-0">
         {hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated) ? (
-            <Link href={isAuthenticated && user?.role === 'student' ? `/student/notes/${note.id}` : `/notes/${note.id}`} className="w-full">
+            <Link href={isAuthenticated && user?.role === 'student' ? `/student/notes/${note.slug}` : `/notes/${note.slug}`} className="w-full">
                 <Button className="w-full gap-2" variant="default">
                     <Eye className="h-4 w-4" /> View Note
                 </Button>
             </Link>
         ) : (
             <div className="flex gap-2 w-full">
-                <Link href={`/notes/${note.id}`} className="flex-1">
+                <Link href={`/notes/${note.slug}`} className="flex-1">
                     <Button variant="outline" className="w-full gap-2">
                        <Info className="h-4 w-4" /> Preview
                     </Button>
@@ -131,7 +131,7 @@ export default function NoteCard({ note }) {
                                 </>
                             ) : (
                                 <>
-                                    <Lock className="h-4 w-4" /> Login to Access
+                                    <Lock className="h-4 w-4" /> Login
                                 </>
                             )}
                     </Button>

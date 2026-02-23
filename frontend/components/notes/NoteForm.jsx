@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { profileSelectionOptions } from "@/app/data/homeContent";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { noteAPI, noteAttachmentAPI } from "@/lib/notesService";
 import { productAPI } from "@/lib/lmsService";
 import axiosInstance from "@/lib/axios";
-import { ArrowLeft, CheckCircle2, CloudUpload, Settings2, Pencil, Sparkles, Tag, Paperclip, FileText, Image as ImageIcon, File, Loader2, User as UserIcon, Eye } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CloudUpload,
+  Settings2,
+  Pencil,
+  Sparkles,
+  Tag,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  File,
+  Loader2,
+  User as UserIcon,
+  Eye,
+} from "lucide-react";
 import { toast } from "sonner";
 import TutorlixEditor from "@/components/notes/TutorlixEditor";
 import { AttachmentsDialog } from "@/components/notes/AttachmentsDialog";
@@ -22,7 +38,8 @@ import { cn } from "@/lib/utils";
 export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false }) {
   const router = useRouter();
   const params = useParams();
-  const noteId = params.id !== "new" ? params.id : null;
+  const slugParam = params.slug === "new" ? null : params.slug;
+  const [noteId, setNoteId] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,6 +55,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
 
   const [formData, setFormData] = useState({
     title: "",
+    slug: "",
     description: "",
     content: {},
     note_type: "individual",
@@ -47,6 +65,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
     price: "",
     discounted_price: "",
     // access_duration_days: "",
+    profileTypes: [],
     is_draft: true,
   });
 
@@ -96,14 +115,17 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
   const buildPayload = () => {
     const payload = {
       title: formData.title,
+      slug: formData.slug,
       description: formData.description,
       content: formData.content,
       note_type: formData.note_type,
       is_draft: formData.is_draft,
+      profileTypes: formData.profileTypes,
+      is_draft: formData.is_draft,
     };
-    
+
     if (isAdmin && formData.creator) {
-        payload.creator = formData.creator;
+      payload.creator = formData.creator;
     }
 
     if (formData.note_type === "course_specific") {
@@ -124,27 +146,29 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
     try {
       const promises = [
         productAPI.getAll(isAdmin ? {} : { my_products: "true" }), // Admin gets all products
-        noteId ? noteAPI.getById(noteId) : Promise.resolve(null),
+        slugParam ? noteAPI.getById(slugParam) : Promise.resolve(null),
       ];
-      
+
       if (isAdmin) {
-          // Fetch users (Teachers and Admins)
-          promises.push(axiosInstance.get('/api/auth/users/')); 
+        // Fetch users (Teachers and Admins)
+        promises.push(axiosInstance.get("/api/auth/users/"));
       }
 
       const [productsData, noteData, usersData] = await Promise.all(promises);
       setProducts(Array.isArray(productsData) ? productsData : productsData.results || []);
 
       if (isAdmin && usersData) {
-          const allUsers = usersData.data?.results || usersData.data || [];
-          // Filter for teachers and admins
-          const eligibleCreators = allUsers.filter(u => ['teacher', 'admin'].includes(u.role));
-          setCreators(eligibleCreators);
+        const allUsers = usersData.data?.results || usersData.data || [];
+        // Filter for teachers and admins
+        const eligibleCreators = allUsers.filter((u) => ["teacher", "admin"].includes(u.role));
+        setCreators(eligibleCreators);
       }
 
       if (noteData) {
+        setNoteId(noteData.id);
         setFormData({
           title: noteData.title || "",
+          slug: noteData.slug || "",
           description: noteData.description || "",
           content: noteData.content || {},
           note_type: noteData.note_type || "individual",
@@ -155,14 +179,16 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
           discounted_price: noteData.discounted_price || "",
           // access_duration_days: noteData.access_duration_days || "",
           is_draft: noteData.is_draft ?? true,
+          profileTypes: noteData.profileTypes || [],
         });
-        
-        if (noteData.creator) {
-            setCreatorName(typeof noteData.creator === 'object' ? 
-                `${noteData.creator.first_name || ''} ${noteData.creator.last_name || ''}`.trim() || noteData.creator.email : 
-                "");
-        }
 
+        if (noteData.creator) {
+          setCreatorName(
+            typeof noteData.creator === "object"
+              ? `${noteData.creator.first_name || ""} ${noteData.creator.last_name || ""}`.trim() || noteData.creator.email
+              : "",
+          );
+        }
       } else {
         // If new note, open dialog immediately
         setIsConfigOpen(true);
@@ -181,12 +207,15 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
     try {
       const payload = buildPayload();
       if (noteId) {
-        await noteAPI.update(noteId, payload);
+        const updated = await noteAPI.update(noteId, payload);
         toast.success("Changes saved successfully");
+        if (updated.slug && updated.slug !== slugParam) {
+           router.replace(`${basePath}/${updated.slug}`);
+        }
       } else {
         const created = await noteAPI.create(payload);
         toast.success("Note initialized!");
-        router.push(`${basePath}/${created.id}`);
+        router.replace(`${basePath}/${created.slug || created.id}`);
         return;
       }
     } catch (error) {
@@ -241,11 +270,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur transition-all">
         <div className="container mx-auto max-w-5xl flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push(basePath)}
-              className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" onClick={() => router.push(basePath)} className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
 
@@ -284,29 +309,29 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
             </div>
 
             {/* Attachments Dialog (Only for saved notes) */}
-            {noteId && (
-              <>
-                 <Button
+            {noteId &&
+              (slugParam || (
+                <>
+                  <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => router.push(`${basePath}/${noteId}/preview`)}
+                    onClick={() => router.push(`${basePath}/${slugParam}/preview`)}
                     className="text-muted-foreground hover:text-foreground"
-                    title="Preview Note"
-                  >
+                    title="Preview Note">
                     <Eye className="h-5 w-5" />
-                 </Button>
+                  </Button>
 
-                <AttachmentsDialog 
-                  noteId={noteId} 
-                  onUpdate={fetchAttachments}
-                  trigger={
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
-                  } 
-                />
-              </>
-            )}
+                  <AttachmentsDialog
+                    noteId={noteId}
+                    onUpdate={fetchAttachments}
+                    trigger={
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                    }
+                  />
+                </>
+              ))}
 
             <Button
               variant="ghost"
@@ -391,19 +416,19 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                 </Badge>
               </div>
             )}
-            
+
             {/* Admin Creator Info */}
             {isAdmin && creatorName && (
-                <>
+              <>
                 <div className="h-8 w-px bg-border hidden sm:block" />
                 <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Creator</span>
-                     <div className="flex items-center gap-1">
-                        <UserIcon className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium text-foreground">{creatorName}</span>
-                    </div>
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Creator</span>
+                  <div className="flex items-center gap-1">
+                    <UserIcon className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{creatorName}</span>
+                  </div>
                 </div>
-                </>
+              </>
             )}
 
             {/* Item 3: Pricing (Conditional) */}
@@ -424,47 +449,53 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
 
           {/* Attachments List */}
           {attachments.length > 0 && (
-             <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                   <Paperclip className="h-4 w-4" /> Attachments ({attachments.length})
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                   {attachments.map((file) => (
-                      <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors group">
-                         <div className="h-10 w-10 flex items-center justify-center bg-muted rounded-md shrink-0">
-                            {file.file_type === 'pdf' ? <FileText className="h-5 w-5 text-red-500" /> : 
-                             file.file_type === 'image' ? <ImageIcon className="h-5 w-5 text-blue-500" /> : 
-                             <File className="h-5 w-5 text-gray-500" />}
-                         </div>
-                         <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate" title={file.file_name}>
-                               {file.file_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{file.file_size_display}</p>
-                         </div>
-                         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <AttachmentsDialog 
-                               noteId={noteId} 
-                               onUpdate={fetchAttachments}
-                               trigger={
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                                     <Settings2 className="h-3 w-3" />
-                                  </Button>
-                               } 
-                            />
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Paperclip className="h-4 w-4" /> Attachments ({attachments.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {attachments.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors group">
+                    <div className="h-10 w-10 flex items-center justify-center bg-muted rounded-md shrink-0">
+                      {file.file_type === "pdf" ? (
+                        <FileText className="h-5 w-5 text-red-500" />
+                      ) : file.file_type === "image" ? (
+                        <ImageIcon className="h-5 w-5 text-blue-500" />
+                      ) : (
+                        <File className="h-5 w-5 text-gray-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate" title={file.file_name}>
+                        {file.file_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{file.file_size_display}</p>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <AttachmentsDialog
+                        noteId={noteId}
+                        onUpdate={fetchAttachments}
+                        trigger={
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                            <Settings2 className="h-3 w-3" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Editor Canvas */}
           <div className="min-h-[60vh]">
             <TutorlixEditor
-                noteId={noteId}
-                initialContent={formData.content} 
-                onChange={(content) => setFormData({ ...formData, content })} 
+              noteId={noteId}
+              initialContent={formData.content}
+              onChange={(content) => setFormData({ ...formData, content })}
             />
           </div>
         </div>
@@ -500,6 +531,22 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                   className="text-lg font-medium"
                 />
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Slug (URL)</Label>
+                  <span className="text-[10px] text-muted-foreground">Optional</span>
+                </div>
+                <Input
+                  placeholder="custom-url-slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                  className="font-mono text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Unique identifier for the note URL. Min 4 chars. Leave empty to auto-generate.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Description</Label>
                 <Textarea
@@ -510,27 +557,54 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                   className="resize-none"
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Target Audience <span className="text-red-500">*</span></Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {profileSelectionOptions.map((option) => {
+                    const isSelected = formData.profileTypes.includes(option.id);
+                    const Icon = option.icon;
+                    return (
+                      <div
+                        key={option.id}
+                        onClick={() => {
+                          const current = formData.profileTypes || [];
+                          const newTypes = current.includes(option.id) ? current.filter((t) => t !== option.id) : [...current, option.id];
+                          setFormData({ ...formData, profileTypes: newTypes });
+                        }}
+                        className={cn(
+                          "cursor-pointer rounded-lg border p-3 flex flex-col items-center gap-2 text-center transition-all hover:bg-muted/50",
+                          isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border",
+                        )}>
+                        <Icon className={cn("h-5 w-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                        <span className={cn("text-xs font-medium", isSelected ? "text-foreground" : "text-muted-foreground")}>
+                          {option.title}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="h-px bg-border/50" />
-            
+
             {/* Admin Creator Select */}
             {isAdmin && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Creator (Author)</Label>
-                  <Select value={formData.creator} onValueChange={(v) => setFormData({ ...formData, creator: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select teacher/admin..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {creators.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                           {user.first_name} {user.last_name} ({user.email}) - {user.role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Creator (Author)</Label>
+                <Select value={formData.creator} onValueChange={(v) => setFormData({ ...formData, creator: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select teacher/admin..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {creators.map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.first_name} {user.last_name} ({user.email}) - {user.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             {/* Classification */}
@@ -640,14 +714,18 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
             <Button
               onClick={(e) => {
                 // Close dialog first, then submit
-                if (formData.title) {
-                  setIsConfigOpen(false);
-                  handleSubmit(e);
-                } else {
+                if (!formData.title) {
                   toast.error("Title is required");
+                  return;
                 }
+                if (!formData.profileTypes || formData.profileTypes.length === 0) {
+                  toast.error("Please select at least one target audience (Profile Type)");
+                  return;
+                }
+                setIsConfigOpen(false);
+                handleSubmit(e);
               }}
-              disabled={!formData.title || isSubmitting}
+              disabled={!formData.title || formData.profileTypes.length === 0 || isSubmitting}
               className="w-full sm:w-auto">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {noteId ? "Update Details" : "Start Writing"}

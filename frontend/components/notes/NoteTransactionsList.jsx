@@ -58,13 +58,13 @@ export default function NoteTransactionsList({
             id: row.original.note_id || row.original.note,
             title: row.original.note_title,
             price: row.original.price, // Available in transaction response
-            // Add other fields if NoteHoverCard needs them and they are not in response (they might be fetched inside HoverCard if it supports ID loading)
+            note_slug: row.original.note_slug // Add other fields if NoteHoverCard needs them and they are not in response (they might be fetched inside HoverCard if it supports ID loading)
         };
         
         // Dynamic link based on role
         const link = userRole === 'admin' 
-            ? `/admin/notes/${noteData.id}/preview` 
-            : `/teacher/notes/${noteData.id}`;
+            ? `/admin/notes/${noteData.note_slug}/preview` 
+            : `/teacher/notes/${noteData.note_slug}`;
 
         return (
             <NoteHoverCard note={noteData} linkHref={link}>

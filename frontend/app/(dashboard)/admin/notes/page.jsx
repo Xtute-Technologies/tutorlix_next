@@ -49,7 +49,7 @@ export default function AdminNotesPage() {
   }, []);
 
   const handlePreview = (id) => router.push(`/admin/notes/${id}/preview`);
-  const handleEdit = (note) => router.push(`/admin/notes/${note.id}`);
+  const handleEdit = (note) => router.push(`/admin/notes/${note.slug}`);
   const handleDeleteTrigger = (id) => {
     setDeleteNoteId(id);
     setIsDeleteDialogOpen(true);

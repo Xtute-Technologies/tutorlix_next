@@ -39,7 +39,38 @@ class NoteViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'creator__email', 'creator__first_name', 'creator__last_name']
     ordering_fields = ['created_at', 'updated_at', 'title', 'price']
     ordering = ['-created_at']
-    lookup_value_regex = '[0-9]+'
+    lookup_field = 'slug'
+    lookup_value_regex = '[^/]+'
+    
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get the lookup value from URL kwargs
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+
+        # 1. Try lookup by slug first
+        filter_kwargs = {self.lookup_field: lookup_value}
+        try:
+             obj = queryset.get(**filter_kwargs)
+        except (queryset.model.DoesNotExist, ValueError):
+             obj = None
+
+        # 2. If not found via slug, try lookup by ID (pk) if value looks like an integer
+        if obj is None and lookup_value and str(lookup_value).isdigit():
+             filter_kwargs = {'pk': lookup_value}
+             try:
+                 obj = queryset.get(**filter_kwargs)
+             except queryset.model.DoesNotExist:
+                 pass
+        
+        if obj is None:
+            from django.http import Http404
+            raise Http404
+
+        # Check object permissions
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     @action(detail=False, methods=['get'], url_path='public/browse')
     def public_browse(self, request):
@@ -56,6 +87,11 @@ class NoteViewSet(viewsets.ModelViewSet):
                 Q(title__icontains=search) | 
                 Q(description__icontains=search)
             )
+
+        # Profile Type Filtering
+        profile_type = request.query_params.get('profile_type')
+        if profile_type:
+             queryset = queryset.filter(profileTypes__icontains=profile_type)
             
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -66,10 +102,10 @@ class NoteViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='public_detail')
-    def public_detail(self, request, pk=None):
+    def public_detail(self, request, slug=None):
         try:
             note = Note.objects.get(
-                pk=pk,
+                slug=slug,
                 is_draft=False,
                 is_active=True
             )
@@ -203,7 +239,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         serializer.save(**extra_data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def enroll(self, request, pk=None):
+    def enroll(self, request, pk=None, slug=None):
         """
         Enroll in a note (free enrollment for public/logged-in notes)
         """
