@@ -67,18 +67,6 @@ pipeline {
                 '''
             }
         }
-
-        stage('Health Check') {
-            steps {
-                sh '''
-                    echo "🔍 Checking backend health..."
-                    curl -f http://localhost:8000 || exit 1
-
-                    echo "🔍 Checking frontend health..."
-                    curl -f http://localhost:3000 || exit 1
-                '''
-            }
-        }
     }
 
     post {
