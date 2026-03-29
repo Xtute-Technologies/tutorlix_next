@@ -37,7 +37,7 @@ export default function MasterclassesPage() {
             <div className="bg-gradient-to-r from-slate-900 to-slate-600 py-20 text-white">
                 <div className="max-w-7xl mx-auto px-6 text-center">
                     <h1 className="text-5xl font-bold">
-                        Tutorlix Masterclasses
+                        Tutorlix Free Masterclasses
                     </h1>
                     <p className="mt-4 text-lg text-blue-100">
                         Learn directly from industry professionals through live sessions.
