@@ -1,80 +1,43 @@
 pipeline {
     agent any
 
-    parameters {
-        choice(
-            name: 'DEPLOY_SCOPE', 
-            choices: ['All', 'Frontend', 'Backend'], 
-            description: 'Choose which components to deploy.'
-        )
-    }
-
     environment {
-        COMPOSE_FILE = "docker-compose.yml"
-        PROJECT_NAME = "tutorlix"
+        COMPOSE_FILE = "docker-compose.dev.yml"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "🚀 Starting Docker Deploy: ${params.DEPLOY_SCOPE}"
                 checkout scm
             }
         }
 
-        stage('Stop Existing Containers') {
+        stage('Stop Containers') {
             steps {
-                sh '''
-                    echo "🛑 Stopping old containers..."
-                    docker compose down || true
-                '''
+                sh 'docker compose -f $COMPOSE_FILE down || true'
             }
         }
 
-        stage('Build Docker Images') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' || params.DEPLOY_SCOPE == 'Backend' } 
-            }
+        stage('Build') {
             steps {
-                sh '''
-                    echo "🏗️ Building Docker images..."
-                    docker compose build --no-cache
-                '''
+                sh 'docker compose -f $COMPOSE_FILE build --no-cache'
             }
         }
 
-        stage('Run Containers') {
+        stage('Run') {
             steps {
-                sh '''
-                    echo "🚀 Starting containers..."
-                    docker compose up -d
-                '''
+                sh 'docker compose -f $COMPOSE_FILE up -d'
             }
         }
 
-        stage('Run Migrations') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
-            }
+        stage('Migrate') {
             steps {
                 sh '''
-                    echo "📦 Running Django migrations..."
                     docker exec backend python manage.py migrate
-
-                    echo "📁 Collecting static..."
                     docker exec backend python manage.py collectstatic --noinput
                 '''
             }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Docker deploy succeeded 🚀"
-        }
-        failure {
-            echo "❌ Docker deploy failed"
         }
     }
 }
