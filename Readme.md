@@ -1,87 +1,190 @@
-# Admin Section
+# 🚀 Tutorlix – Local Kubernetes Setup (Minikube)
 
+This guide helps you run the **Next.js + Django (DRF)** application on Kubernetes using Minikube.
 
-- Products [Add/List]
-    Name, Total Seats, Description, Category(FK), Price, Discounted Price, Product Images [5]
-- Categories [Add/List]
-    Name,Heading,Description
-- Offers [Add/List]
-    Voucer Name, Code, Product With Current Price(FK), Amount Off
-    (Price Off on Product)
-- Class (Student Specific) [Add/List]
-    Name, Time(text), Students (MTM), Class Link, Teacher(FK)
-- Class (Course Specific) [Add/List]
-    Main Course(FK), Name, Time(text), Link Teacher(FK)
-- Recording [Add/List]
-    Class Name, Recording Link, Students[MTM], Teacher[FK]
-- Attendance [Add/List]
-    Class Name, Class Time, Students[MTM], Status(AB/P,Partial)
-- Test Score [Add/List]
-    Student(FK), Test Name, M Obtained, Total Marks, Remarks, Teacher (FK)
-- Expense [add/list]
-    Name, Amount, Date
-- Course Bookings [List]
-    Payment Link, Booked By, Date/Time, CourseName, Name, Price, Sales Representative, Student State, Payment Status
-- Contact Form Messages [List]
+---
 
-## Seller Section
+# 🧱 Prerequisites
 
-- Course Bookings
-    1. Student Name, Email, CourseName_Amount, Student Whatsapp, Student State, Student Password, Add Coupon Code
-    2. Generate Payment Link
-    3. See Status of Course Bookings, (Student Name, Payment Link, Phone, Amount, Email, Order Date, Payment Status, Sales Representative)
+* Docker Desktop (running)
+* Minikube installed
+* kubectl installed
 
-- Profile Section [Second Priority]
-    1. Post Kind of Thing
+---
 
-- Courses Section
-    1. Check Courses Details
+# ⚙️ Step 1: Start Minikube
 
-- Seller Expenses
+```bash
+minikube start --memory=8192 --cpus=4
+```
 
-Total Revenue Paid To us
-Total Revenue Taken by us [seller will take credits or maybe cheaper rates lets see]
-Profit lost
+---
 
-## Student Section
+# 🔗 Step 2: Connect Docker to Minikube
 
-- Bookings
-    1. Check Bookings - (Shows List of Bookings)
-    (Payment Link	Booked By	Booking Date/Time	Course Expiry Date	Course Name	Name	Price	Sales Representative	Student Phone	Student State	Payment Status)
+```bash
+eval $(minikube docker-env)
+```
 
+👉 This ensures Docker builds images inside Minikube.
 
-- Classess
-    1. Book New Class
-    2. Join Class
+---
 
-- Recordings
-    1. Check Recordings
-    (Class Name	Student Email	Recording Link	Note)
+# 🏗️ Step 3: Build Images
 
-- Attendance
-    1. Check Attendance
-    (Class Name	Class Time	Student	Status)
+```bash
+docker build -t tutorlix-backend ./backend
+docker build -t tutorlix-frontend ./frontend
+```
 
-- Scores
-    1. Check Scores
-    (Student Email	Test Name	Marks Obtained	Total Marks	Remarks)
+---
 
-- Vouchers
-    1. Check Vouchers
+# 📦 Step 4: Deploy to Kubernetes
 
+```bash
+kubectl apply -f k8s/
+```
 
-## Teacher Section (All things same as admin, in given feature.)
+---
 
-- Attendance
-- Class
-- Scores
-- Recordings
-- Teacher Expenses
+# 🔍 Step 5: Verify Pods
 
+```bash
+kubectl get pods
+```
 
-History:-
+Expected:
 
-Course Class:-
-Recordings:- 
-Attendance:- 
-Test Scores:-
+```
+backend-xxxx   Running
+frontend-xxxx  Running
+```
+
+---
+
+# 🌐 Step 6: Access Frontend
+
+```bash
+minikube service frontend
+```
+
+👉 Opens app in browser
+
+---
+
+# 🔥 Step 7: Fix Backend API Access (IMPORTANT)
+
+Kubernetes internal DNS (`backend:8000`) **does NOT work in browser**
+
+### Use port-forward instead:
+
+```bash
+kubectl port-forward service/backend 8000:8000
+```
+
+👉 Now backend available at:
+
+```
+http://localhost:8000
+```
+
+---
+
+# ⚛️ Step 8: Configure Frontend API URL
+
+Update frontend deployment:
+
+```yaml
+env:
+  - name: NEXT_PUBLIC_API_URL
+    value: "http://localhost:8000"
+```
+
+---
+
+# 🔁 Step 9: Rebuild Frontend (IMPORTANT)
+
+```bash
+eval $(minikube docker-env)
+
+docker build -t tutorlix-frontend ./frontend
+kubectl rollout restart deployment frontend
+```
+
+---
+
+# 🛡️ Step 10: Fix Django ALLOWED_HOSTS
+
+In `settings.py`:
+
+```python
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "dev.tutorlix.com",
+]
+```
+
+---
+
+# 🧪 Testing
+
+* Frontend loads ✅
+* API calls hit backend ✅
+* No `DisallowedHost` error ✅
+
+---
+
+# ⚠️ Common Issues
+
+## ❌ ERR_CONNECTION_REFUSED
+
+* Backend not exposed correctly
+* Fix → use port-forward
+
+---
+
+## ❌ DisallowedHost error
+
+* Add `127.0.0.1` to `ALLOWED_HOSTS`
+* Rebuild backend
+
+---
+
+## ❌ Changes not reflecting
+
+* Rebuild image + restart deployment
+
+```bash
+kubectl rollout restart deployment <name>
+```
+
+---
+
+# 🧠 Key Learnings
+
+* Kubernetes does NOT build images
+* Next.js env variables are build-time
+* `localhost` behaves differently across environments
+* Always rebuild + redeploy after changes
+
+---
+
+# 🚀 Next Steps
+
+* Ingress (domain routing)
+* HTTPS (cert-manager)
+* Autoscaling
+* CI/CD with Kubernetes
+
+---
+
+# 💬 Notes
+
+* Keep `kubectl port-forward` running while testing locally
+* Do NOT use `backend:8000` in frontend for browser calls
+* Use service names ONLY inside cluster
+
+---
+
+🔥 You're now running a full-stack app on Kubernetes!
