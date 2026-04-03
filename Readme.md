@@ -1,6 +1,6 @@
-# 🚀 Tutorlix – Kubernetes (Minikube) Local Setup
+# 🚀 Tutorlix – Local Development Setup (Skaffold + Kubernetes)
 
-This guide explains how to run the **Next.js + Django (DRF)** app locally using Kubernetes via Minikube.
+This guide explains how to run the **Next.js + Django (DRF)** app locally using **Skaffold + Minikube** for a fast and automatic development workflow.
 
 ---
 
@@ -9,6 +9,7 @@ This guide explains how to run the **Next.js + Django (DRF)** app locally using 
 * Docker Desktop (running)
 * Minikube installed
 * kubectl installed
+* Skaffold installed
 
 ---
 
@@ -26,135 +27,95 @@ minikube start --memory=8192 --cpus=4
 eval $(minikube docker-env)
 ```
 
-👉 Ensures images are built inside Minikube.
+👉 Ensures images are built inside Minikube
 
 ---
 
-# 🏗️ 3. Build Images
+# 📁 3. Project Structure
 
-```bash
-docker build -t tutorlix-backend ./backend
-docker build -t tutorlix-frontend ./frontend
+```
+tutorlix/
+ ├── backend/
+ ├── frontend/
+ ├── k8s/
+ └── skaffold.yaml
 ```
 
 ---
 
-# 📦 4. Deploy to Kubernetes
+# ⚙️ 4. Skaffold Configuration
 
-```bash
-kubectl apply -f k8s/
+Create `skaffold.yaml` in root:
+
+```yaml
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: tutorlix
+
+build:
+  local:
+    push: false
+  artifacts:
+    - image: tutorlix-backend
+      context: backend
+    - image: tutorlix-frontend
+      context: frontend
+
+deploy:
+  kubectl:
+    manifests:
+      - k8s/*.yaml
+
+portForward:
+  - resourceType: service
+    resourceName: frontend
+    port: 3000
+    localPort: 3000
+
+  - resourceType: service
+    resourceName: backend
+    port: 8000
+    localPort: 8000
 ```
 
 ---
 
-# 🔍 5. Verify Pods
+# ⚠️ 5. Kubernetes Service Update (IMPORTANT)
 
-```bash
-kubectl get pods
-```
-
-Expected:
-
-```
-backend-xxxx   Running
-frontend-xxxx  Running
-```
-
----
-
-# 🌐 6. Use LoadBalancer (IMPORTANT)
-
-Since NodePort is unreliable on Mac, we use LoadBalancer with Minikube tunnel.
-
----
-
-## Update services
+Use **ClusterIP** instead of LoadBalancer:
 
 ### backend-service.yaml
 
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend
-spec:
-  type: LoadBalancer
-  selector:
-    app: backend
-  ports:
-    - port: 8000
-      targetPort: 8000
+type: ClusterIP
 ```
-
----
 
 ### frontend-service.yaml
 
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-spec:
-  type: LoadBalancer
-  selector:
-    app: frontend
-  ports:
-    - port: 3000
-      targetPort: 3000
+type: ClusterIP
 ```
 
----
-
-## Apply changes
-
-```bash
-kubectl apply -f k8s/
-```
+👉 No need for `minikube tunnel` in dev
 
 ---
 
-# 🚀 7. Start Tunnel
-
-```bash
-minikube tunnel
-```
-
-👉 Keep this terminal running
-
----
-
-# 🌍 8. Access App
-
-* Frontend → http://localhost:3000
-* Backend → http://localhost:8000
-
----
-
-# ⚛️ 9. Frontend API Config
+# ⚛️ 6. Frontend API Config (VERY IMPORTANT)
 
 In `frontend-deployment.yaml`:
 
 ```yaml
 env:
   - name: NEXT_PUBLIC_API_URL
-    value: "http://localhost:8000"
+    value: "http://backend:8000"
 ```
+
+👉 Inside Kubernetes, services communicate via DNS (`backend`)
 
 ---
 
-# 🔁 10. Rebuild Frontend (IMPORTANT)
-
-```bash
-eval $(minikube docker-env)
-
-docker build -t tutorlix-frontend ./frontend
-kubectl rollout restart deployment frontend
-```
-
----
-
-# 🛡️ 11. Django Configuration
+# 🛡️ 7. Django Configuration
 
 ### ALLOWED_HOSTS
 
@@ -166,9 +127,7 @@ ALLOWED_HOSTS = [
 ]
 ```
 
----
-
-### CORS (Required)
+### CORS
 
 ```python
 INSTALLED_APPS = [
@@ -186,6 +145,33 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 ---
 
+# 🚀 8. Start Development
+
+```bash
+skaffold dev
+```
+
+---
+
+# 🎉 What Happens Now
+
+* Code change → auto build
+* Auto deploy to Kubernetes
+* Auto port-forward
+* Live logs in terminal
+
+💀 No manual docker build
+💀 No kubectl restart
+
+---
+
+# 🌍 9. Access App
+
+* Frontend → http://localhost:3000
+* Backend → http://localhost:8000
+
+---
+
 # 🧪 Testing Checklist
 
 * Frontend loads ✅
@@ -197,50 +183,59 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 # ⚠️ Common Issues
 
-## ❌ NodePort not working (Mac)
+### ❌ Changes not reflecting
 
-Use:
-
-```
-minikube tunnel
-```
-
----
-
-## ❌ API not working
-
-* Ensure frontend env is correct
-* Ensure backend is accessible at `localhost:8000`
-
----
-
-## ❌ Changes not reflecting
+Ensure you are running:
 
 ```bash
-kubectl rollout restart deployment <name>
+skaffold dev
 ```
 
 ---
 
-## ❌ DisallowedHost error
+### ❌ Image pull error
 
-Add `127.0.0.1` in ALLOWED_HOSTS
+Add in deployments:
+
+```yaml
+imagePullPolicy: Never
+```
 
 ---
 
-## ❌ CORS error
+### ❌ API not working
 
-Enable `CORS_ALLOW_ALL_ORIGINS = True`
+* Ensure frontend env is correct (`backend:8000`)
+* Ensure backend pod is running
+
+---
+
+### ❌ Port already in use
+
+```bash
+lsof -i :3000
+kill -9 <pid>
+```
 
 ---
 
 # 🧠 Key Learnings
 
-* Kubernetes does not build images
+* Skaffold automates build + deploy
+* Kubernetes services use internal DNS
+* No LoadBalancer needed for local dev
+* Port-forward replaces tunnel
 * Next.js env variables are build-time
-* Mac + Minikube requires tunnel for LoadBalancer
-* Services communicate via DNS inside cluster
-* Browser requires externally accessible URLs
+
+---
+
+# 🚀 Dev vs Prod
+
+| Environment | Setup               |
+| ----------- | ------------------- |
+| Local Dev   | Skaffold + Minikube |
+| Dev Server  | Jenkins + Minikube  |
+| Production  | Cloud Kubernetes    |
 
 ---
 
@@ -248,9 +243,9 @@ Enable `CORS_ALLOW_ALL_ORIGINS = True`
 
 * Ingress setup (domain-based routing)
 * HTTPS with cert-manager
+* CI/CD pipeline improvements
 * Autoscaling
-* CI/CD with Kubernetes
 
 ---
 
-🔥 You now have a full local Kubernetes setup running!
+🔥 You now have a **modern Kubernetes dev workflow with Skaffold!**
