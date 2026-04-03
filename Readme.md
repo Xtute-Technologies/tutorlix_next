@@ -1,6 +1,6 @@
-# 🚀 Tutorlix – Local Kubernetes Setup (Minikube)
+# 🚀 Tutorlix – Kubernetes (Minikube) Local Setup
 
-This guide helps you run the **Next.js + Django (DRF)** application on Kubernetes using Minikube.
+This guide explains how to run the **Next.js + Django (DRF)** app locally using Kubernetes via Minikube.
 
 ---
 
@@ -12,7 +12,7 @@ This guide helps you run the **Next.js + Django (DRF)** application on Kubernete
 
 ---
 
-# ⚙️ Step 1: Start Minikube
+# ⚙️ 1. Start Minikube
 
 ```bash
 minikube start --memory=8192 --cpus=4
@@ -20,17 +20,17 @@ minikube start --memory=8192 --cpus=4
 
 ---
 
-# 🔗 Step 2: Connect Docker to Minikube
+# 🔗 2. Use Minikube Docker
 
 ```bash
 eval $(minikube docker-env)
 ```
 
-👉 This ensures Docker builds images inside Minikube.
+👉 Ensures images are built inside Minikube.
 
 ---
 
-# 🏗️ Step 3: Build Images
+# 🏗️ 3. Build Images
 
 ```bash
 docker build -t tutorlix-backend ./backend
@@ -39,7 +39,7 @@ docker build -t tutorlix-frontend ./frontend
 
 ---
 
-# 📦 Step 4: Deploy to Kubernetes
+# 📦 4. Deploy to Kubernetes
 
 ```bash
 kubectl apply -f k8s/
@@ -47,7 +47,7 @@ kubectl apply -f k8s/
 
 ---
 
-# 🔍 Step 5: Verify Pods
+# 🔍 5. Verify Pods
 
 ```bash
 kubectl get pods
@@ -62,37 +62,78 @@ frontend-xxxx  Running
 
 ---
 
-# 🌐 Step 6: Access Frontend
+# 🌐 6. Use LoadBalancer (IMPORTANT)
 
-```bash
-minikube service frontend
-```
-
-👉 Opens app in browser
+Since NodePort is unreliable on Mac, we use LoadBalancer with Minikube tunnel.
 
 ---
 
-# 🔥 Step 7: Fix Backend API Access (IMPORTANT)
+## Update services
 
-Kubernetes internal DNS (`backend:8000`) **does NOT work in browser**
+### backend-service.yaml
 
-### Use port-forward instead:
-
-```bash
-kubectl port-forward service/backend 8000:8000
-```
-
-👉 Now backend available at:
-
-```
-http://localhost:8000
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: LoadBalancer
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
 ```
 
 ---
 
-# ⚛️ Step 8: Configure Frontend API URL
+### frontend-service.yaml
 
-Update frontend deployment:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+```
+
+---
+
+## Apply changes
+
+```bash
+kubectl apply -f k8s/
+```
+
+---
+
+# 🚀 7. Start Tunnel
+
+```bash
+minikube tunnel
+```
+
+👉 Keep this terminal running
+
+---
+
+# 🌍 8. Access App
+
+* Frontend → http://localhost:3000
+* Backend → http://localhost:8000
+
+---
+
+# ⚛️ 9. Frontend API Config
+
+In `frontend-deployment.yaml`:
 
 ```yaml
 env:
@@ -102,7 +143,7 @@ env:
 
 ---
 
-# 🔁 Step 9: Rebuild Frontend (IMPORTANT)
+# 🔁 10. Rebuild Frontend (IMPORTANT)
 
 ```bash
 eval $(minikube docker-env)
@@ -113,9 +154,9 @@ kubectl rollout restart deployment frontend
 
 ---
 
-# 🛡️ Step 10: Fix Django ALLOWED_HOSTS
+# 🛡️ 11. Django Configuration
 
-In `settings.py`:
+### ALLOWED_HOSTS
 
 ```python
 ALLOWED_HOSTS = [
@@ -127,33 +168,53 @@ ALLOWED_HOSTS = [
 
 ---
 
-# 🧪 Testing
+### CORS (Required)
+
+```python
+INSTALLED_APPS = [
+    ...
+    "corsheaders",
+]
+
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    ...
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+```
+
+---
+
+# 🧪 Testing Checklist
 
 * Frontend loads ✅
-* API calls hit backend ✅
-* No `DisallowedHost` error ✅
+* Backend API responds ✅
+* No CORS error ✅
+* No DisallowedHost error ✅
 
 ---
 
 # ⚠️ Common Issues
 
-## ❌ ERR_CONNECTION_REFUSED
+## ❌ NodePort not working (Mac)
 
-* Backend not exposed correctly
-* Fix → use port-forward
+Use:
+
+```
+minikube tunnel
+```
 
 ---
 
-## ❌ DisallowedHost error
+## ❌ API not working
 
-* Add `127.0.0.1` to `ALLOWED_HOSTS`
-* Rebuild backend
+* Ensure frontend env is correct
+* Ensure backend is accessible at `localhost:8000`
 
 ---
 
 ## ❌ Changes not reflecting
-
-* Rebuild image + restart deployment
 
 ```bash
 kubectl rollout restart deployment <name>
@@ -161,30 +222,35 @@ kubectl rollout restart deployment <name>
 
 ---
 
+## ❌ DisallowedHost error
+
+Add `127.0.0.1` in ALLOWED_HOSTS
+
+---
+
+## ❌ CORS error
+
+Enable `CORS_ALLOW_ALL_ORIGINS = True`
+
+---
+
 # 🧠 Key Learnings
 
-* Kubernetes does NOT build images
+* Kubernetes does not build images
 * Next.js env variables are build-time
-* `localhost` behaves differently across environments
-* Always rebuild + redeploy after changes
+* Mac + Minikube requires tunnel for LoadBalancer
+* Services communicate via DNS inside cluster
+* Browser requires externally accessible URLs
 
 ---
 
 # 🚀 Next Steps
 
-* Ingress (domain routing)
-* HTTPS (cert-manager)
+* Ingress setup (domain-based routing)
+* HTTPS with cert-manager
 * Autoscaling
 * CI/CD with Kubernetes
 
 ---
 
-# 💬 Notes
-
-* Keep `kubectl port-forward` running while testing locally
-* Do NOT use `backend:8000` in frontend for browser calls
-* Use service names ONLY inside cluster
-
----
-
-🔥 You're now running a full-stack app on Kubernetes!
+🔥 You now have a full local Kubernetes setup running!
