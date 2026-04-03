@@ -15,11 +15,23 @@ pipeline {
             }
         }
 
-        stage('Set Minikube Docker Env') {
+        stage('Start Minikube') {
+            steps {
+                sh '''
+                    echo "🚀 Starting Minikube if not running..."
+
+                    minikube status || minikube start --driver=docker
+                '''
+            }
+        }
+
+        stage('Set Docker Env') {
             steps {
                 sh '''
                     echo "🔗 Connecting to Minikube Docker..."
+
                     eval $(minikube docker-env)
+                    docker ps
                 '''
             }
         }
@@ -52,8 +64,8 @@ pipeline {
                 sh '''
                     echo "🔄 Restarting deployments..."
 
-                    kubectl rollout restart deployment backend
-                    kubectl rollout restart deployment frontend
+                    kubectl rollout restart deployment/backend
+                    kubectl rollout restart deployment/frontend
                 '''
             }
         }
@@ -63,8 +75,10 @@ pipeline {
                 sh '''
                     echo "📦 Running migrations..."
 
-                    kubectl exec deployment/backend -- python manage.py migrate
-                    kubectl exec deployment/backend -- python manage.py collectstatic --noinput
+                    POD=$(kubectl get pods -l app=backend -o jsonpath="{.items[0].metadata.name}")
+
+                    kubectl exec $POD -- python manage.py migrate
+                    kubectl exec $POD -- python manage.py collectstatic --noinput
                 '''
             }
         }
