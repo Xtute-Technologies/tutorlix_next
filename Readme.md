@@ -1,15 +1,17 @@
-# 🚀 Tutorlix – Local Development Setup (Skaffold + Kubernetes)
+# 🚀 Tutorlix – Local Development Setup (Skaffold + Kubernetes + Kustomize)
 
-This guide explains how to run the **Next.js + Django (DRF)** app locally using **Skaffold + Minikube** for a fast and automatic development workflow.
+This guide explains how to run the **Next.js + Django (DRF)** app locally using **Skaffold + Minikube + Kustomize** for a fast, automatic, and production-like workflow.
 
 ---
 
 # 🧱 Prerequisites
 
+Make sure the following are installed and running:
+
 * Docker Desktop (running)
-* Minikube installed
-* kubectl installed
-* Skaffold installed
+* Minikube
+* kubectl
+* Skaffold
 
 ---
 
@@ -27,7 +29,7 @@ minikube start --memory=8192 --cpus=4
 eval $(minikube docker-env)
 ```
 
-👉 Ensures images are built inside Minikube
+👉 Ensures images are built inside Minikube (no need to push)
 
 ---
 
@@ -38,14 +40,22 @@ tutorlix/
  ├── backend/
  ├── frontend/
  ├── k8s/
+ │    ├── base/
+ │    │    ├── all-in-one.yaml
+ │    │    └── kustomization.yaml
+ │    │
+ │    └── overlays/
+ │         ├── local/
+ │         │    └── kustomization.yaml
+ │         └── vps/
+ │              └── kustomization.yaml
+ │
  └── skaffold.yaml
 ```
 
 ---
 
 # ⚙️ 4. Skaffold Configuration
-
-Create `skaffold.yaml` in root:
 
 ```yaml
 apiVersion: skaffold/v4beta6
@@ -56,16 +66,33 @@ metadata:
 build:
   local:
     push: false
+    useBuildkit: true
   artifacts:
     - image: tutorlix-backend
       context: backend
+      docker:
+        dockerfile: Dockerfile.local
+      sync:
+        manual:
+          - src: "**/*.py"
+            dest: .
+
     - image: tutorlix-frontend
       context: frontend
+      docker:
+        dockerfile: Dockerfile.local
+      sync:
+        manual:
+          - src: "**/*.{js,jsx,ts,tsx}"
+            dest: .
+
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/local
 
 deploy:
-  kubectl:
-    manifests:
-      - k8s/*.yaml
+  kubectl: {}
 
 portForward:
   - resourceType: service
@@ -81,37 +108,59 @@ portForward:
 
 ---
 
-# ⚠️ 5. Kubernetes Service Update (IMPORTANT)
+# ⚠️ 5. Kubernetes Config (IMPORTANT)
 
-Use **ClusterIP** instead of LoadBalancer:
+### ✅ Service Type
 
-### backend-service.yaml
-
-```yaml
-type: ClusterIP
-```
-
-### frontend-service.yaml
+Use:
 
 ```yaml
 type: ClusterIP
 ```
 
-👉 No need for `minikube tunnel` in dev
+👉 No LoadBalancer needed in local dev
 
 ---
 
-# ⚛️ 6. Frontend API Config (VERY IMPORTANT)
+# ⚛️ 6. Frontend API Config (Kustomize-based)
 
-In `frontend-deployment.yaml`:
+Environment variables are managed via **Kustomize overlays**
+
+### Local (k8s/overlays/local)
 
 ```yaml
-env:
-  - name: NEXT_PUBLIC_API_URL
-    value: "http://backend:8000"
+configMapGenerator:
+  - name: frontend-config
+    literals:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+
+generatorOptions:
+  disableNameSuffixHash: true
 ```
 
-👉 Inside Kubernetes, services communicate via DNS (`backend`)
+---
+
+### VPS / Production (k8s/overlays/vps)
+
+```yaml
+configMapGenerator:
+  - name: frontend-config
+    literals:
+      - NEXT_PUBLIC_API_URL=https://api.tutorlix.com
+
+generatorOptions:
+  disableNameSuffixHash: true
+```
+
+---
+
+### Deployment usage
+
+```yaml
+envFrom:
+  - configMapRef:
+      name: frontend-config
+```
 
 ---
 
@@ -127,7 +176,9 @@ ALLOWED_HOSTS = [
 ]
 ```
 
-### CORS
+---
+
+### CORS Setup
 
 ```python
 INSTALLED_APPS = [
@@ -155,7 +206,7 @@ skaffold dev
 
 # 🎉 What Happens Now
 
-* Code change → auto build
+* Code change → auto sync/build
 * Auto deploy to Kubernetes
 * Auto port-forward
 * Live logs in terminal
@@ -185,7 +236,7 @@ skaffold dev
 
 ### ❌ Changes not reflecting
 
-Ensure you are running:
+Run:
 
 ```bash
 skaffold dev
@@ -195,18 +246,41 @@ skaffold dev
 
 ### ❌ Image pull error
 
-Add in deployments:
-
 ```yaml
 imagePullPolicy: Never
 ```
 
 ---
 
+### ❌ Slow builds
+
+👉 Add `.dockerignore`:
+
+**frontend/.dockerignore**
+
+```
+node_modules
+.next
+.git
+.env
+```
+
+**backend/.dockerignore**
+
+```
+__pycache__
+*.pyc
+venv
+.git
+.env
+```
+
+---
+
 ### ❌ API not working
 
-* Ensure frontend env is correct (`backend:8000`)
-* Ensure backend pod is running
+* Check env (`NEXT_PUBLIC_API_URL`)
+* Check backend pod running
 
 ---
 
@@ -222,30 +296,22 @@ kill -9 <pid>
 # 🧠 Key Learnings
 
 * Skaffold automates build + deploy
+* Kustomize manages environment configs
 * Kubernetes services use internal DNS
 * No LoadBalancer needed for local dev
 * Port-forward replaces tunnel
-* Next.js env variables are build-time
+* Next.js env vars are build-time dependent
 
 ---
 
 # 🚀 Dev vs Prod
 
-| Environment | Setup               |
-| ----------- | ------------------- |
-| Local Dev   | Skaffold + Minikube |
-| Dev Server  | Jenkins + Minikube  |
-| Production  | Cloud Kubernetes    |
+| Environment | Setup                           |
+| ----------- | ------------------------------- |
+| Local Dev   | Skaffold + Minikube + Kustomize |
+| Dev Server  | Jenkins + Kubernetes            |
+| Production  | VPS / Cloud Kubernetes          |
 
 ---
 
-# 🚀 Next Steps
-
-* Ingress setup (domain-based routing)
-* HTTPS with cert-manager
-* CI/CD pipeline improvements
-* Autoscaling
-
----
-
-🔥 You now have a **modern Kubernetes dev workflow with Skaffold!**
+🔥 You now have a production-grade Kubernetes dev workflow!
