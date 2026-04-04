@@ -50,17 +50,6 @@ pipeline {
             }
         }
 
-        stage('Setup Kubeconfig') {
-            steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-                    sh '''
-                        mkdir -p $HOME/.kube
-                        cp $KUBECONFIG_FILE $HOME/.kube/config
-                    '''
-                }
-            }
-        }
-
         stage('Deploy') {
             steps {
                 sh '''
