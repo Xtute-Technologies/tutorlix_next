@@ -22,12 +22,12 @@ pipeline {
 
                     docker build \
                     --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG \
+                    -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
                     ./backend
 
                     docker build \
                     --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG \
+                    -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
                     ./frontend
                 '''
             }
@@ -44,8 +44,8 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
-                    docker push $DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG
-                    docker push $DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG
+                    docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
+                    docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
                 '''
             }
         }
@@ -65,10 +65,10 @@ pipeline {
                     echo "🚀 Deploying to Kubernetes..."
 
                     kubectl set image deployment/backend \
-                      backend=$DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG
+                    backend=$DOCKER_CREDS_USR/tutorlix-backend:latest
 
                     kubectl set image deployment/frontend \
-                      frontend=$DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG
+                    frontend=$DOCKER_CREDS_USR/tutorlix-frontend:latest
                 '''
             }
         }
@@ -76,6 +76,8 @@ pipeline {
         stage('Rollout Wait') {
             steps {
                 sh '''
+                    kubectl rollout restart deployment/backend
+                    kubectl rollout restart deployment/frontend
                     kubectl rollout status deployment/backend
                     kubectl rollout status deployment/frontend
                 '''
