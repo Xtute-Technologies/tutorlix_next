@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_BACKEND = "tutorlix-backend"
-        IMAGE_FRONTEND = "tutorlix-frontend"
-        KUBE_NAMESPACE = "default"
+        DOCKER_CREDS = credentials('dockerhub')
+        KUBE_CONFIG = credentials('kubeconfig')
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_REPO = "yourdockerhub"
     }
 
     stages {
@@ -15,81 +16,68 @@ pipeline {
             }
         }
 
-        stage('Start Minikube') {
-            steps {
-                sh '''
-                    echo "🚀 Starting Minikube if not running..."
-
-                    minikube status || minikube start --driver=docker
-                '''
-            }
-        }
-
-        stage('Set Docker Env') {
-            steps {
-                sh '''
-                    echo "🔗 Connecting to Minikube Docker..."
-
-                    eval $(minikube docker-env)
-                    docker ps
-                '''
-            }
-        }
-
         stage('Build Images') {
             steps {
                 sh '''
-                    echo "🏗️ Building Docker images..."
+                    echo "🚀 Building Docker images..."
 
-                    eval $(minikube docker-env)
+                    docker build \
+                      -t $DOCKER_REPO/tutorlix-backend:$IMAGE_TAG \
+                      ./backend
 
-                    docker build -t $IMAGE_BACKEND ./backend
-                    docker build -t $IMAGE_FRONTEND ./frontend
+                    docker build \
+                      --build-arg NEXT_PUBLIC_API_URL=https://dev.tutorlix.com \
+                      -t $DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG \
+                      ./frontend
                 '''
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Docker Login') {
             steps {
                 sh '''
-                    echo "🚀 Applying Kubernetes manifests..."
-
-                    kubectl apply -f k8s/
+                    echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin
                 '''
             }
         }
 
-        stage('Restart Deployments') {
+        stage('Push Images') {
             steps {
                 sh '''
-                    echo "🔄 Restarting deployments..."
-
-                    kubectl rollout restart deployment/backend
-                    kubectl rollout restart deployment/frontend
+                    docker push $DOCKER_REPO/tutorlix-backend:$IMAGE_TAG
+                    docker push $DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG
                 '''
             }
         }
 
-        stage('Run Migrations') {
+        stage('Setup Kubeconfig') {
             steps {
                 sh '''
-                    echo "📦 Running migrations..."
-
-                    POD=$(kubectl get pods -l app=backend -o jsonpath="{.items[0].metadata.name}")
-
-                    kubectl exec $POD -- python manage.py migrate
-                    kubectl exec $POD -- python manage.py collectstatic --noinput
+                    mkdir -p $HOME/.kube
+                    echo "$KUBE_CONFIG" > $HOME/.kube/config
                 '''
             }
         }
 
-        stage('Verify') {
+        stage('Deploy') {
             steps {
                 sh '''
-                    echo "🔍 Checking pods..."
+                    echo "🚀 Deploying to Kubernetes..."
 
-                    kubectl get pods
-                    kubectl get svc
+                    kubectl set image deployment/backend \
+                      backend=$DOCKER_REPO/tutorlix-backend:$IMAGE_TAG
+
+                    kubectl set image deployment/frontend \
+                      frontend=$DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Rollout Wait') {
+            steps {
+                sh '''
+                    kubectl rollout status deployment/backend
+                    kubectl rollout status deployment/frontend
                 '''
             }
         }
@@ -97,10 +85,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Kubernetes deploy succeeded 🚀"
+            echo "✅ Deploy successful"
         }
         failure {
-            echo "❌ Kubernetes deploy failed"
+            echo "❌ Deploy failed"
         }
     }
 }

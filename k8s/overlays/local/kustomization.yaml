@@ -1,0 +1,27 @@
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: frontend-config
+    literals:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+patches:
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never

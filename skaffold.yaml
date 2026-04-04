@@ -1,0 +1,46 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: tutorlix
+
+build:
+  local:
+    push: false
+    useBuildkit: true 
+  artifacts:
+    - image: tutorlix-backend
+      context: backend
+      docker:
+        dockerfile: Dockerfile.local
+      sync:
+        manual:
+          - src: "**/*.py"
+            dest: .
+
+    - image: tutorlix-frontend
+      context: frontend
+      docker:
+        dockerfile: Dockerfile.local
+      sync:
+        manual:
+          - src: "**/*.{js,jsx,ts,tsx}"
+            dest: .
+
+manifests:
+  kustomize:
+    paths:
+      - k8s/overlays/local   # 👈 IMPORTANT change
+
+deploy:
+  kubectl: {}
+
+portForward:
+  - resourceType: service
+    resourceName: frontend
+    port: 3000
+    localPort: 3000
+
+  - resourceType: service
+    resourceName: backend
+    port: 8000
+    localPort: 8000
