@@ -5,7 +5,6 @@ pipeline {
         DOCKER_CREDS = credentials('dockerhub')
         KUBE_CONFIG = credentials('kubeconfig')
         IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_REPO = "yourdockerhub"
     }
 
     stages {
@@ -22,13 +21,14 @@ pipeline {
                     echo "🚀 Building Docker images..."
 
                     docker build \
-                      -t $DOCKER_REPO/tutorlix-backend:$IMAGE_TAG \
-                      ./backend
+                    --network=host \
+                    -t tutorlix-backend:$IMAGE_TAG \
+                    ./backend
 
                     docker build \
-                      --build-arg NEXT_PUBLIC_API_URL=https://dev.tutorlix.com \
-                      -t $DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG \
-                      ./frontend
+                    --network=host \
+                    -t tutorlix-frontend:$IMAGE_TAG \
+                    ./frontend
                 '''
             }
         }
@@ -44,8 +44,8 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
-                    docker push $DOCKER_REPO/tutorlix-backend:$IMAGE_TAG
-                    docker push $DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG
+                    docker push tutorlix-backend:$IMAGE_TAG
+                    docker push tutorlix-frontend:$IMAGE_TAG
                 '''
             }
         }
@@ -65,10 +65,10 @@ pipeline {
                     echo "🚀 Deploying to Kubernetes..."
 
                     kubectl set image deployment/backend \
-                      backend=$DOCKER_REPO/tutorlix-backend:$IMAGE_TAG
+                      backend=tutorlix-backend:$IMAGE_TAG
 
                     kubectl set image deployment/frontend \
-                      frontend=$DOCKER_REPO/tutorlix-frontend:$IMAGE_TAG
+                      frontend=tutorlix-frontend:$IMAGE_TAG
                 '''
             }
         }
