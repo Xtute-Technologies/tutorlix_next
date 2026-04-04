@@ -25,12 +25,13 @@ kind: Service
 metadata:
   name: backend
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: backend
   ports:
     - port: 8000
       targetPort: 8000
+      nodePort: 31234
 
 ---
 apiVersion: apps/v1
@@ -63,9 +64,10 @@ kind: Service
 metadata:
   name: frontend
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: frontend
   ports:
     - port: 3000
       targetPort: 3000
+      nodePort: 31567
