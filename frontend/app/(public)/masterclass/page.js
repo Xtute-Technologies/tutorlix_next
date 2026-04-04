@@ -40,7 +40,7 @@ export default function MasterclassesPage() {
                         Tutorlix Free Masterclasses
                     </h1>
                     <p className="mt-4 text-lg text-blue-100">
-                        Learn directly from industry professionals through live sessions.
+                        Learn directly from industry professionals through live sessions for free.
                     </p>
                 </div>
             </div>
