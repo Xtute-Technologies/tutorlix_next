@@ -22,12 +22,12 @@ pipeline {
 
                     docker build \
                     --network=host \
-                    -t tutorlix-backend:$IMAGE_TAG \
+                    -t $DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG \
                     ./backend
 
                     docker build \
                     --network=host \
-                    -t tutorlix-frontend:$IMAGE_TAG \
+                    -t $DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG \
                     ./frontend
                 '''
             }
@@ -44,8 +44,8 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
-                    docker push tutorlix-backend:$IMAGE_TAG
-                    docker push tutorlix-frontend:$IMAGE_TAG
+                    docker push $DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG
+                    docker push $DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG
                 '''
             }
         }
@@ -65,10 +65,10 @@ pipeline {
                     echo "🚀 Deploying to Kubernetes..."
 
                     kubectl set image deployment/backend \
-                      backend=tutorlix-backend:$IMAGE_TAG
+                      backend=$DOCKER_CREDS_USR/tutorlix-backend:$IMAGE_TAG
 
                     kubectl set image deployment/frontend \
-                      frontend=tutorlix-frontend:$IMAGE_TAG
+                      frontend=$DOCKER_CREDS_USR/tutorlix-frontend:$IMAGE_TAG
                 '''
             }
         }
