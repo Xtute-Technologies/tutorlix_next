@@ -4,7 +4,6 @@ pipeline {
     environment {
         DOCKER_CREDS = credentials('dockerhub')
         KUBE_CONFIG = credentials('kubeconfig')
-        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -44,6 +43,8 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh '''
+                    echo "📤 Pushing images..."
+
                     docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
                     docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
                 '''
@@ -61,18 +62,14 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Apply Kubernetes') {
             steps {
                 sh '''
-                    echo "🚀 Deploying to Kubernetes..."
+                    echo "📦 Applying Kubernetes manifests..."
 
                     export KUBECONFIG=$HOME/.kube/config
 
-                    kubectl set image deployment/backend \
-                    backend=$DOCKER_CREDS_USR/tutorlix-backend:latest
-
-                    kubectl set image deployment/frontend \
-                    frontend=$DOCKER_CREDS_USR/tutorlix-frontend:latest
+                    kubectl apply -k k8s/overlays/vps
                 '''
             }
         }
@@ -80,10 +77,9 @@ pipeline {
         stage('Rollout Wait') {
             steps {
                 sh '''
-                    export KUBECONFIG=$HOME/.kube/config
+                    echo "⏳ Waiting for rollout..."
 
-                    kubectl rollout restart deployment/backend
-                    kubectl rollout restart deployment/frontend
+                    export KUBECONFIG=$HOME/.kube/config
 
                     kubectl rollout status deployment/backend
                     kubectl rollout status deployment/frontend
@@ -94,7 +90,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deploy successful"
+            echo "✅ Deploy successful 🚀"
         }
         failure {
             echo "❌ Deploy failed"
