@@ -1,14 +1,14 @@
 services:
   backend:
     build: ./backend
-    container_name: backend-prod-config
+    container_name: backend-prod
     ports:
       - "8001:8001"
     command: gunicorn tutorlix.wsgi:application --bind 0.0.0.0:8001
 
   frontend:
     build: ./frontend
-    container_name: frontend-prod-config
+    container_name: frontend-prod
     ports:
       - "3001:3001"
     command: npm run start
