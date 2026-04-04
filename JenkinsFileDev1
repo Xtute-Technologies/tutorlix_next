@@ -52,10 +52,12 @@ pipeline {
 
         stage('Setup Kubeconfig') {
             steps {
-                sh '''
-                    mkdir -p $HOME/.kube
-                    printf "%s" "$KUBE_CONFIG" > $HOME/.kube/config
-                '''
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        mkdir -p $HOME/.kube
+                        cp $KUBECONFIG_FILE $HOME/.kube/config
+                    '''
+                }
             }
         }
 
