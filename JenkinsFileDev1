@@ -14,17 +14,17 @@ pipeline {
             }
         }
 
-        stage('Build Images') {
+        stage('Build Images (NO CACHE)') {
             steps {
                 sh '''
-                    echo "🚀 Building Docker images..."
+                    echo "🚀 Building Docker images (no cache)..."
 
-                    docker build \
+                    docker build --no-cache \
                     --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
                     ./backend
 
-                    docker build \
+                    docker build --no-cache \
                     --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
                     ./frontend
@@ -70,6 +70,19 @@ pipeline {
                     export KUBECONFIG=$HOME/.kube/config
 
                     kubectl apply -k k8s/overlays/vps
+                '''
+            }
+        }
+
+        stage('Force Fresh Deployment') {
+            steps {
+                sh '''
+                    echo "♻️ Forcing fresh pods (no cache)..."
+
+                    export KUBECONFIG=$HOME/.kube/config
+
+                    kubectl rollout restart deployment/backend
+                    kubectl rollout restart deployment/frontend
                 '''
             }
         }
