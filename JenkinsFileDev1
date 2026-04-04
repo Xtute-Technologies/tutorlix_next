@@ -50,6 +50,17 @@ pipeline {
             }
         }
 
+        stage('Setup Kubeconfig') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        mkdir -p $HOME/.kube
+                        cp $KUBECONFIG_FILE $HOME/.kube/config
+                    '''
+                }
+            }
+        }
+
         stage('Deploy') {
             steps {
                 sh '''
@@ -69,8 +80,11 @@ pipeline {
         stage('Rollout Wait') {
             steps {
                 sh '''
+                    export KUBECONFIG=$HOME/.kube/config
+
                     kubectl rollout restart deployment/backend
                     kubectl rollout restart deployment/frontend
+
                     kubectl rollout status deployment/backend
                     kubectl rollout status deployment/frontend
                 '''
