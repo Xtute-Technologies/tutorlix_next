@@ -2,7 +2,7 @@ resources:
   - ../../base/prod
 
 configMapGenerator:
-  - name: frontend-config
+  - name: frontend-prod-config
     literals:
       - NEXT_PUBLIC_API_URL=https://tutorlix.com
 
