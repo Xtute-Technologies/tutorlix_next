@@ -1,194 +1,101 @@
 pipeline {
     agent any
 
-    /* ================= PARAMETERS ================= */
-    parameters {
-        choice(
-            name: 'DEPLOY_SCOPE', 
-            choices: ['All', 'Frontend', 'Backend'], 
-            description: 'Choose which components to build and deploy.'
-        )
-    }
-
-    /* ================= ENVIRONMENT ================= */
     environment {
-        // Jenkins workspace paths
-        WORKSPACE_FRONTEND = "${WORKSPACE}/frontend"
-        WORKSPACE_BACKEND  = "${WORKSPACE}/backend"
-
-        // Production paths
-        PROD_ROOT     = "/var/www/tutorlix-prod"
-        PROD_FRONTEND = "/var/www/tutorlix-prod/frontend"
-        PROD_BACKEND  = "/var/www/tutorlix-prod/backend"
-
-        NEXT_APP_NAME = "tutorlix-next-prod"
-        NEXT_PORT     = "3700"
-
-        DJANGO_SETTINGS_MODULE = "tutorlix.settings"
-        NEXT_PUBLIC_API_URL = "https://tutorlix.com"
+        DOCKER_CREDS = credentials('dockerhub')
+        KUBE_CONFIG = credentials('kubeconfig')
     }
 
     stages {
 
-        /* ================= CHECKOUT ================= */
         stage('Checkout') {
             steps {
-                echo "🚀 Starting PROD deploy. Scope: ${params.DEPLOY_SCOPE}"
                 checkout scm
             }
         }
 
-        /* ================= PREPARE ROOT ================= */
-        stage('Prepare Prod Root') {
+        stage('Build Images (NO CACHE)') {
             steps {
                 sh '''
-                    echo "📂 Ensuring prod root exists: $PROD_ROOT"
-                    mkdir -p $PROD_ROOT
+                    echo "🚀 Building Docker images (no cache)..."
+
+                    docker build --no-cache \
+                    --network=host \
+                    -t $DOCKER_CREDS_USR/tutorlix-backend-prod:latest \
+                    ./backend
+
+                    docker build --no-cache \
+                    --network=host \
+                    -t $DOCKER_CREDS_USR/tutorlix-frontend-prod:latest \
+                    ./frontend
                 '''
             }
         }
 
-        /* ================= FRONTEND FILE SYNC ================= */
-        stage('Sync Frontend Files') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
-            }
+        stage('Docker Login') {
             steps {
                 sh '''
-                    echo "📦 Syncing FRONTEND files"
-                    echo "SRC: $WORKSPACE_FRONTEND"
-                    echo "DST: $PROD_FRONTEND"
-
-                    mkdir -p $PROD_FRONTEND
-
-                    rsync -av --delete \
-                        --exclude 'node_modules' \
-                        --exclude '.next' \
-                        --exclude '.git' \
-                        $WORKSPACE_FRONTEND/ $PROD_FRONTEND/
+                    echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin
                 '''
             }
         }
 
-        /* ================= BACKEND FILE SYNC ================= */
-        stage('Sync Backend Files') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
-            }
+        stage('Push Images') {
             steps {
                 sh '''
-                    echo "🐍 Syncing BACKEND files"
-                    echo "SRC: $WORKSPACE_BACKEND"
-                    echo "DST: $PROD_BACKEND"
+                    echo "📤 Pushing images..."
 
-                    mkdir -p $PROD_BACKEND
-
-                    rsync -av --delete \
-                        --exclude 'venv' \
-                        --exclude '__pycache__' \
-                        --exclude '*.pyc' \
-                        --exclude '.git' \
-                        --exclude 'db.sqlite3' \
-                        --exclude 'media' \
-                        $WORKSPACE_BACKEND/ $PROD_BACKEND/
+                    docker push $DOCKER_CREDS_USR/tutorlix-backend-prod:latest
+                    docker push $DOCKER_CREDS_USR/tutorlix-frontend-prod:latest
                 '''
             }
         }
 
-        /* ================= FRONTEND BUILD ================= */
-        stage('Build Next.js (CI)') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
+        stage('Setup Kubeconfig') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        mkdir -p $HOME/.kube
+                        cp $KUBECONFIG_FILE $HOME/.kube/config
+                    '''
+                }
             }
+        }
+
+        stage('Apply Kubernetes') {
             steps {
                 sh '''
-                    cd $PROD_FRONTEND
+                    echo "📦 Applying Kubernetes manifests..."
 
-                    echo "📦 Installing frontend deps"
-                    npm ci
+                    export KUBECONFIG=$HOME/.kube/config
 
-                    echo "🏗️ Building Next.js"
-                    export NODE_ENV=production
-                    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
+                    kubectl apply -k k8s/overlays/prod
                 '''
             }
         }
 
-        /* ================= FRONTEND PM2 ================= */
-        stage('Start / Restart Next.js (PM2)') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Frontend' } 
-            }
+        stage('Force Fresh Deployment') {
             steps {
                 sh '''
-                    cd $PROD_FRONTEND
+                    echo "♻️ Forcing fresh pods (no cache)..."
 
-                    PM2_CMD="sudo /usr/bin/pm2"
+                    export KUBECONFIG=$HOME/.kube/config
 
-                    echo "🔁 Managing PM2 Process: $NEXT_APP_NAME on Port $NEXT_PORT"
-
-                    if $PM2_CMD list | grep -q "$NEXT_APP_NAME"; then
-                        echo "✅ Process found. Reloading..."
-                        sudo PORT=$NEXT_PORT $PM2_CMD reload $NEXT_APP_NAME --update-env
-                    else
-                        echo "✨ Process not found. Starting new..."
-                        sudo PORT=$NEXT_PORT NODE_ENV=production $PM2_CMD start npm --name "$NEXT_APP_NAME" -- start
-                    fi
-
-                    $PM2_CMD save
+                    kubectl rollout restart deployment/backend-prod
+                    kubectl rollout restart deployment/frontend-prod
                 '''
             }
         }
 
-        /* ================= BACKEND SETUP ================= */
-        stage('Backend Setup') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
-            }
+        stage('Rollout Wait') {
             steps {
                 sh '''
-                    cd $PROD_BACKEND
+                    echo "⏳ Waiting for rollout..."
 
-                    echo "🐍 Backend setup in $PROD_BACKEND"
+                    export KUBECONFIG=$HOME/.kube/config
 
-                    # Recreate venv safely
-                    rm -rf venv
-                    python3 -m venv venv
-
-                    ./venv/bin/pip install --upgrade pip
-                    ./venv/bin/pip install -r requirements.txt
-                    ./venv/bin/pip install gunicorn
-
-                    export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-
-                    echo "🗄️ Running migrations"
-                    ./venv/bin/python manage.py migrate || true
-
-                    echo "🎨 Collecting static files"
-                    ./venv/bin/python manage.py collectstatic --noinput || true
-                '''
-            }
-        }
-
-        /* ================= GUNICORN ================= */
-        stage('Start / Restart Gunicorn') {
-            when { 
-                expression { return params.DEPLOY_SCOPE == 'All' || params.DEPLOY_SCOPE == 'Backend' } 
-            }
-            steps {
-                sh '''
-                    echo "🔁 Restarting Tutorlix Gunicorn Service"
-                    sudo systemctl restart tutorlix-gunicorn-prod
-                '''
-            }
-        }
-
-        /* ================= NGINX ================= */
-        stage('Reload Nginx') {
-            steps {
-                sh '''
-                    echo "🔄 Reloading nginx configuration"
-                    sudo nginx -t && sudo systemctl reload nginx
+                    kubectl rollout status deployment/backend-prod
+                    kubectl rollout status deployment/frontend-prod
                 '''
             }
         }
@@ -196,10 +103,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ PROD Jenkins deploy (${params.DEPLOY_SCOPE}) succeeded"
+            echo "✅ Deploy successful 🚀"
         }
         failure {
-            echo "❌ PROD Jenkins deploy (${params.DEPLOY_SCOPE}) failed"
+            echo "❌ Deploy failed"
         }
     }
 }
