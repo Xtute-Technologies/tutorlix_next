@@ -64,6 +64,8 @@ pipeline {
                 sh '''
                     echo "🚀 Deploying to Kubernetes..."
 
+                    export KUBECONFIG=$HOME/.kube/config
+
                     kubectl set image deployment/backend \
                     backend=$DOCKER_CREDS_USR/tutorlix-backend:latest
 
