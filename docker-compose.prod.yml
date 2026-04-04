@@ -2,11 +2,11 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     command: npm run start
 
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
-    command: gunicorn tutorlix.wsgi:application --bind 0.0.0.0:8000
+      - "8001:8001"
+    command: gunicorn tutorlix.wsgi:application --bind 0.0.0.0:8001

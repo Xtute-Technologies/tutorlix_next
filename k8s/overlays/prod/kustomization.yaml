@@ -1,0 +1,10 @@
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: frontend-config
+    literals:
+      - NEXT_PUBLIC_API_URL=https://tutorlix.com
+
+generatorOptions:
+  disableNameSuffixHash: true
