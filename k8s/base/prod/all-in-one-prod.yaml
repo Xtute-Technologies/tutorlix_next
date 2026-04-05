@@ -22,14 +22,14 @@ spec:
             - containerPort: 8000
 
           volumeMounts:
-        - name: db-storage
-          mountPath: /app/db.sqlite3
+            - name: db-storage
+              mountPath: /app/db.sqlite3
 
       volumes:
         - name: db-storage
           hostPath:
             path: /var/www/tutorlix-prod/backend/db.sqlite3
-            type: File
+            type: FileOrCreate   # 👈 FIX
 ---
 apiVersion: v1
 kind: Service
