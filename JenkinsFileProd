@@ -19,13 +19,11 @@ pipeline {
                 sh '''
                     echo "🚀 Building Docker images (no cache)..."
 
-                    docker build --no-cache \
-                    --network=host \
+                    docker build --no-cache --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-backend-prod:latest \
                     ./backend
 
-                    docker build --no-cache \
-                    --network=host \
+                    docker build --no-cache --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-frontend-prod:latest \
                     ./frontend
                 '''
@@ -68,35 +66,68 @@ pipeline {
                     echo "📦 Applying Kubernetes manifests..."
 
                     export KUBECONFIG=$HOME/.kube/config
-
                     kubectl apply -k k8s/overlays/prod
                 '''
             }
         }
 
-        stage('Force Fresh Deployment') {
+        stage('🔥 Hard Refresh (LATEST FIX)') {
             steps {
                 sh '''
-                    echo "♻️ Forcing fresh pods (no cache)..."
+                    echo "💣 Forcing fresh deployment (latest tag fix)..."
 
                     export KUBECONFIG=$HOME/.kube/config
 
+                    # 🔥 Force new image pull
+                    kubectl set image deployment/backend-prod backend-prod=$DOCKER_CREDS_USR/tutorlix-backend-prod:latest --record
+                    kubectl set image deployment/frontend-prod frontend-prod=$DOCKER_CREDS_USR/tutorlix-frontend-prod:latest --record
+
+                    # 🔥 Force restart
                     kubectl rollout restart deployment/backend-prod
-                    kubectl delete pod -l app=backend-prod --force --grace-period=0 || true
                     kubectl rollout restart deployment/frontend-prod
+
+                    # 💀 Kill old pods (important for latest tag)
+                    kubectl delete pod -l app=backend-prod --force --grace-period=0 || true
+
+                    # 🔥 Reload Prometheus config
+                    kubectl delete pod -l app=prometheus || true
+
+                    # 🔥 Restart node-exporter (if stuck)
+                    kubectl delete pod -l app=node-exporter || true
                 '''
             }
         }
 
-        stage('Rollout Wait') {
+        stage('⏳ Wait for Stable State') {
             steps {
                 sh '''
-                    echo "⏳ Waiting for rollout..."
-
                     export KUBECONFIG=$HOME/.kube/config
 
-                    kubectl rollout status deployment/backend-prod
-                    kubectl rollout status deployment/frontend-prod
+                    echo "⏳ Waiting for backend rollout..."
+                    kubectl rollout status deployment/backend-prod --timeout=120s
+
+                    echo "⏳ Waiting for frontend rollout..."
+                    kubectl rollout status deployment/frontend-prod --timeout=120s
+                '''
+            }
+        }
+
+        stage('🧪 Health Check') {
+            steps {
+                sh '''
+                    export KUBECONFIG=$HOME/.kube/config
+
+                    echo "🔍 Pods:"
+                    kubectl get pods -o wide
+
+                    echo "🔍 Services:"
+                    kubectl get svc
+
+                    echo "🔍 Backend metrics test:"
+                    curl -s http://localhost:31235/metrics || echo "❌ Metrics not available"
+
+                    echo "🔍 Prometheus targets:"
+                    curl -s http://localhost:30090/targets | grep UP || true
                 '''
             }
         }
@@ -104,10 +135,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deploy successful 🚀"
+            echo "✅ Deploy successful 🚀 (latest tag stable)"
         }
         failure {
-            echo "❌ Deploy failed"
+            echo "❌ Deploy failed 💀"
         }
     }
 }
