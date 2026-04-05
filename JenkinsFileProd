@@ -14,6 +14,17 @@ pipeline {
             }
         }
 
+        stage('🔥 Pre-Cleanup (Fix Node Pressure)') {
+            steps {
+                sh '''
+                    echo "💣 Cleaning Docker & system (prevent eviction)..."
+
+                    docker system prune -a -f || true
+                    docker volume prune -f || true
+                '''
+            }
+        }
+
         stage('Build Images (NO CACHE)') {
             steps {
                 sh '''
@@ -60,6 +71,28 @@ pipeline {
             }
         }
 
+        stage('🔥 Cluster Cleanup (Anti-Stuck Mode)') {
+            steps {
+                sh '''
+                    export KUBECONFIG=$HOME/.kube/config
+
+                    echo "💣 Cleaning bad pods..."
+
+                    # Remove completed/failed pods
+                    kubectl delete pod --field-selector=status.phase=Succeeded || true
+                    kubectl delete pod --field-selector=status.phase=Failed || true
+
+                    # Remove evicted pods
+                    kubectl get pods | grep Evicted | awk '{print $1}' | xargs -r kubectl delete pod || true
+
+                    # Force delete broken pods
+                    kubectl delete pod -l app=frontend-prod --force --grace-period=0 || true
+                    kubectl delete pod -l app=frontend --force --grace-period=0 || true
+                    kubectl delete pod -l app=backend --force --grace-period=0 || true
+                '''
+            }
+        }
+
         stage('Apply Kubernetes') {
             steps {
                 sh '''
@@ -74,25 +107,21 @@ pipeline {
         stage('🔥 Hard Refresh (LATEST FIX)') {
             steps {
                 sh '''
-                    echo "💣 Forcing fresh deployment (latest tag fix)..."
-
                     export KUBECONFIG=$HOME/.kube/config
 
-                    # 🔥 Force new image pull
+                    echo "💣 Forcing fresh deployment..."
+
                     kubectl set image deployment/backend-prod backend-prod=$DOCKER_CREDS_USR/tutorlix-backend-prod:latest --record
                     kubectl set image deployment/frontend-prod frontend-prod=$DOCKER_CREDS_USR/tutorlix-frontend-prod:latest --record
 
-                    # 🔥 Force restart
                     kubectl rollout restart deployment/backend-prod
                     kubectl rollout restart deployment/frontend-prod
 
-                    # 💀 Kill old pods (important for latest tag)
+                    # Kill old pods
                     kubectl delete pod -l app=backend-prod --force --grace-period=0 || true
 
-                    # 🔥 Reload Prometheus config
+                    # Restart monitoring stack
                     kubectl delete pod -l app=prometheus || true
-
-                    # 🔥 Restart node-exporter (if stuck)
                     kubectl delete pod -l app=node-exporter || true
                 '''
             }
@@ -103,10 +132,10 @@ pipeline {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config
 
-                    echo "⏳ Waiting for backend rollout..."
+                    echo "⏳ Waiting for backend..."
                     kubectl rollout status deployment/backend-prod --timeout=120s
 
-                    echo "⏳ Waiting for frontend rollout..."
+                    echo "⏳ Waiting for frontend..."
                     kubectl rollout status deployment/frontend-prod --timeout=120s
                 '''
             }
@@ -124,7 +153,7 @@ pipeline {
                     kubectl get svc
 
                     echo "🔍 Backend metrics test:"
-                    curl -s http://localhost:31235/metrics || echo "❌ Metrics not available"
+                    python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:31235/metrics').read().decode()[:200])" || echo "❌ Metrics failed"
 
                     echo "🔍 Prometheus targets:"
                     curl -s http://localhost:30090/targets | grep UP || true
@@ -135,10 +164,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deploy successful 🚀 (latest tag stable)"
+            echo "✅ Deploy successful 🚀 (cluster healthy)"
         }
         failure {
-            echo "❌ Deploy failed 💀"
+            echo "❌ Deploy failed 💀 (check logs)"
         }
     }
 }
