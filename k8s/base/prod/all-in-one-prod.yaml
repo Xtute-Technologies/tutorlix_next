@@ -22,9 +22,8 @@ spec:
             - containerPort: 8000
 
           volumeMounts:
-            - name: db-storage
-              mountPath: /app/db.sqlite3
-              subPath: db.sqlite3
+        - name: db-storage
+          mountPath: /app/db.sqlite3
 
       volumes:
         - name: db-storage
