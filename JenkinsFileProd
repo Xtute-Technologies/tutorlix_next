@@ -82,6 +82,7 @@ pipeline {
                     export KUBECONFIG=$HOME/.kube/config
 
                     kubectl rollout restart deployment/backend-prod
+                    kubectl delete pod -l app=backend-prod --force --grace-period=0 || true
                     kubectl rollout restart deployment/frontend-prod
                 '''
             }
