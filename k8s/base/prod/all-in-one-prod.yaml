@@ -19,6 +19,17 @@ spec:
           ports:
             - containerPort: 8000
 
+          volumeMounts:
+            - name: db-storage
+              mountPath: /app/db.sqlite3
+              subPath: db.sqlite3
+
+      volumes:
+        - name: db-storage
+          hostPath:
+            path: /var/www/tutorlix-prod/backend
+            type: Directory
+
 ---
 apiVersion: v1
 kind: Service
