@@ -193,12 +193,22 @@ spec:
       labels:
         app: node-exporter
     spec:
+      hostNetwork: true   # 👈 ADD THIS
       containers:
         - name: node-exporter
           image: prom/node-exporter
+          args:
+            - "--path.rootfs=/host"
           ports:
             - containerPort: 9100
-              hostPort: 9100
+          volumeMounts:
+            - name: root
+              mountPath: /host
+              readOnly: true
+      volumes:
+        - name: root
+          hostPath:
+            path: /
 
 ---
 apiVersion: v1
