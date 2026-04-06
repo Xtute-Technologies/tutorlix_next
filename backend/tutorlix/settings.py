@@ -33,7 +33,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s87kpawfg$ke2#jk*z!fcu50j^
 DEBUG = os.getenv('DEBUG', 'True').lower() in ['true', '1', 'yes']
 
 # Allow comma-separated hosts in env, fallback to defaults
-_default_hosts = ['back.tutorlix.com', 'localhost','dev.tutorlix.com', '127.0.0.1', '192.168.49.2', 'tutorlix.com']
+_default_hosts = ['back.tutorlix.com', 'localhost','dev.tutorlix.com', '127.0.0.1', '192.168.49.2', 'tutorlix.com', 'backend-prod']
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOSTS:
     ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(',') if h.strip()]
