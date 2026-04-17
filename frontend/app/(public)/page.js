@@ -7,6 +7,7 @@ import { useProfile } from "@/context/ProfileContext";
 
 // Import Refactored Components
 import HomeHero from '@/components/home/HomeHero';
+import HomeLearningHub from '@/components/home/HomeLearningHub';
 import HomeCourses from '@/components/home/HomeCourses';
 import HomeBenefits from '@/components/home/HomeBenefits';
 import HomeAbout from '@/components/home/HomeAbout';
@@ -84,6 +85,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-white font-sans overflow-hidden">
       
       <HomeHero categories={categories} />
+
+      <HomeLearningHub products={products} />
       
       <HomeCourses 
         products={products}

@@ -51,6 +51,7 @@ export const getNavItems = (role) => {
         items: [
           { title: "Users", url: "/admin/users-management", icon: Users },
           { title: "Products", url: "/admin/products", icon: Package },
+          { title: "Profile Types", url: "/admin/profile-types", icon: Users },
           { title: "Categories", url: "/admin/categories", icon: Tag },
           { title: "Offers", url: "/admin/offers", icon: Percent },
           { title: "Bookings", url: "/admin/bookings", icon: ShoppingCart },
@@ -74,7 +75,7 @@ export const getNavItems = (role) => {
         icon: Settings2,
         isActive: true,
         items: [
-          { title: "Micro Video", url: "/admin/users-management", icon: Users },
+          { title: "Micro Video", url: "/admin/micro-video-maker", icon: Video },
         ],
       },
       {
@@ -85,6 +86,7 @@ export const getNavItems = (role) => {
         items: [
           { title: "Student Classes", url: "/admin/classes-student", icon: Users },
           { title: "Course Classes", url: "/admin/classes-course", icon: BookOpen },
+          { title: "Question Bank", url: "/admin/question-bank", icon: FileText },
           { title: "Masterclass", url: "/admin/masterclass", icon: GraduationCap },
           { title: "Recordings", url: "/admin/recordings", icon: Video },
           { title: "Attendance", url: "/admin/attendance", icon: CheckSquare },
@@ -166,6 +168,7 @@ export const getNavItems = (role) => {
         items: [
           { title: "Course Classes", url: "/teacher/classes-course", icon: BookOpen },
           { title: "Student Classes", url: "/teacher/classes-student", icon: Users },
+          { title: "Question Bank", url: "/teacher/question-bank", icon: FileText },
           { title: "Recordings", url: "/teacher/recordings", icon: Video },
           { title: "Attendance", url: "/teacher/attendance", icon: CheckSquare },
           { title: "Test Scores", url: "/teacher/test-scores", icon: GraduationCap },

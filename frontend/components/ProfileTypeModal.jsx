@@ -7,9 +7,18 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { profileSelectionOptions } from "@/app/data/homeContent";
+import { useProfile } from "@/context/ProfileContext";
+import { GraduationCap, Laptop, School } from "lucide-react";
+
+const PROFILE_ICON_MAP = {
+    school: School,
+    college: GraduationCap,
+    professional: Laptop,
+};
 
 export default function ProfileTypeModal({ open, onSelect }) {
+    const { profileTypes, loading } = useProfile();
+
     return (
         <Dialog open={open}>
             {/* Dark + blur overlay */}
@@ -37,13 +46,17 @@ export default function ProfileTypeModal({ open, onSelect }) {
 
                 {/* One box per row */}
                 <div className="flex flex-col gap-4">
-                    {profileSelectionOptions.map((p) => {
-                        const Icon = p.icon;
+                    {loading ? (
+                        <div className="rounded-xl border p-5 text-sm text-slate-500">
+                            Loading profiles...
+                        </div>
+                    ) : profileTypes.map((p) => {
+                        const Icon = PROFILE_ICON_MAP[p.slug] || School;
 
                         return (
                             <button
                                 key={p.id}
-                                onClick={() => onSelect(p.id)}
+                                onClick={() => onSelect(p.slug)}
                                 className="flex items-center gap-4 border rounded-xl p-5 text-left bg-white transition-all hover:border-indigo-500 hover:shadow-md"
                             >
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 shrink-0">
@@ -55,7 +68,7 @@ export default function ProfileTypeModal({ open, onSelect }) {
                                         {p.title}
                                     </h3>
                                     <p className="text-sm text-slate-500 mt-1">
-                                        {p.desc}
+                                        {p.description}
                                     </p>
                                 </div>
                             </button>

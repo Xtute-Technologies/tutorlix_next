@@ -3,11 +3,13 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from accounts.serializers import SimpleUserSerializer
 from .models import (
-    Category, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
+    Category, ProfileType, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead, Masterclass
+    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead, Masterclass,
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob
 )
+from django.utils.text import slugify
 
 User = get_user_model()
 
@@ -23,6 +25,86 @@ class UserBasicSerializer(serializers.ModelSerializer):
     
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+
+class ReelGenerationJobSerializer(serializers.ModelSerializer):
+    created_by = UserBasicSerializer(read_only=True)
+
+    class Meta:
+        model = ReelGenerationJob
+        fields = [
+            'id',
+            'created_by',
+            'title',
+            'topic',
+            'prompt',
+            'language',
+            'tone',
+            'duration_seconds',
+            'avatar_style',
+            'board_style',
+            'voice_style',
+            'call_to_action',
+            'include_instagram_post',
+            'instagram_caption',
+            'hashtags',
+            'script_text',
+            'scene_plan',
+            'board_notes',
+            'provider_payload',
+            'status',
+            'provider_status',
+            'provider_name',
+            'render_preview_url',
+            'instagram_media_id',
+            'instagram_permalink',
+            'published_at',
+            'error_message',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'created_by',
+            'script_text',
+            'scene_plan',
+            'board_notes',
+            'provider_payload',
+            'status',
+            'provider_status',
+            'provider_name',
+            'render_preview_url',
+            'instagram_media_id',
+            'instagram_permalink',
+            'published_at',
+            'error_message',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_duration_seconds(self, value):
+        if value < 15 or value > 120:
+            raise serializers.ValidationError('Duration must be between 15 and 120 seconds.')
+        return value
+
+    def validate_hashtags(self, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Hashtags must be a list of strings.')
+
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str):
+                raise serializers.ValidationError('Each hashtag must be a string.')
+            tag = item.strip()
+            if not tag:
+                continue
+            if not tag.startswith('#'):
+                tag = f'#{tag.lstrip("#")}'
+            cleaned.append(tag[:100])
+
+        return cleaned[:15]
 
 
 # ============= Category Serializers =============
@@ -44,6 +126,13 @@ class CategoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'heading', 'profileTypes']
+
+
+class ProfileTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProfileType
+        fields = ['id', 'slug', 'title', 'description', 'order', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 # ============= Product Serializers =============
@@ -367,7 +456,6 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-
         read_only_fields = [
             'id',
             'booking_id',
@@ -382,6 +470,234 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+
+class QuestionBankQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionBankQuestion
+        fields = [
+            'id',
+            'topic',
+            'question',
+            'answer',
+            'source_label',
+            'source_url',
+            'order',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class QuestionBankTopicSerializer(serializers.ModelSerializer):
+    question_count = serializers.SerializerMethodField()
+    course_title = serializers.CharField(source='course.title', read_only=True)
+
+    class Meta:
+        model = QuestionBankTopic
+        fields = [
+            'id',
+            'course',
+            'course_title',
+            'title',
+            'slug',
+            'summary',
+            'order',
+            'is_active',
+            'question_count',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'slug', 'created_at', 'updated_at', 'question_count', 'course_title']
+
+    def get_question_count(self, obj):
+        return obj.questions.filter(is_active=True).count()
+
+    def create(self, validated_data):
+        validated_data['slug'] = self._generate_unique_slug(
+            validated_data['course'],
+            validated_data['title']
+        )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        title = validated_data.get('title')
+        course = validated_data.get('course', instance.course)
+        if title and title != instance.title:
+            validated_data['slug'] = self._generate_unique_slug(course, title, instance.pk)
+        return super().update(instance, validated_data)
+
+    def _generate_unique_slug(self, course, title, instance_id=None):
+        base_slug = slugify(title) or 'topic'
+        slug = base_slug
+        suffix = 1
+        queryset = QuestionBankTopic.objects.filter(course=course)
+        if instance_id:
+            queryset = queryset.exclude(pk=instance_id)
+        while queryset.filter(slug=slug).exists():
+            suffix += 1
+            slug = f'{base_slug}-{suffix}'
+        return slug
+
+
+class QuestionBankCourseSerializer(serializers.ModelSerializer):
+    topic_count = serializers.SerializerMethodField()
+    question_count = serializers.SerializerMethodField()
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = QuestionBankCourse
+        fields = [
+            'id',
+            'title',
+            'slug',
+            'subject',
+            'profileTypes',
+            'grade_label',
+            'class_label',
+            'description',
+            'syllabus_label',
+            'syllabus_source_url',
+            'is_active',
+            'created_by',
+            'created_by_name',
+            'topic_count',
+            'question_count',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'slug',
+            'created_by',
+            'created_by_name',
+            'topic_count',
+            'question_count',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_topic_count(self, obj):
+        return obj.topics.filter(is_active=True).count()
+
+    def get_question_count(self, obj):
+        return QuestionBankQuestion.objects.filter(
+            topic__course=obj,
+            topic__is_active=True,
+            is_active=True
+        ).count()
+
+    def create(self, validated_data):
+        validated_data['slug'] = self._generate_unique_slug(validated_data['title'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        title = validated_data.get('title')
+        if title and title != instance.title:
+            validated_data['slug'] = self._generate_unique_slug(title, instance.pk)
+        return super().update(instance, validated_data)
+
+    def _generate_unique_slug(self, title, instance_id=None):
+        base_slug = slugify(title) or 'course'
+        slug = base_slug
+        suffix = 1
+        queryset = QuestionBankCourse.objects.all()
+        if instance_id:
+            queryset = queryset.exclude(pk=instance_id)
+        while queryset.filter(slug=slug).exists():
+            suffix += 1
+            slug = f'{base_slug}-{suffix}'
+        return slug
+
+
+class QuestionBankCourseManageDetailSerializer(QuestionBankCourseSerializer):
+    topics = QuestionBankTopicSerializer(many=True, read_only=True)
+
+    class Meta(QuestionBankCourseSerializer.Meta):
+        fields = QuestionBankCourseSerializer.Meta.fields + ['topics']
+
+
+class PublicQuestionBankQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionBankQuestion
+        fields = ['id', 'question', 'answer', 'source_label', 'source_url', 'order']
+
+
+class PublicQuestionBankTopicSerializer(serializers.ModelSerializer):
+    question_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuestionBankTopic
+        fields = ['id', 'title', 'slug', 'summary', 'order', 'is_active', 'question_count']
+
+    def get_question_count(self, obj):
+        return obj.questions.filter(is_active=True).count()
+
+
+class PublicQuestionBankCourseSerializer(serializers.ModelSerializer):
+    topic_count = serializers.SerializerMethodField()
+    question_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuestionBankCourse
+        fields = [
+            'id',
+            'title',
+            'slug',
+            'subject',
+            'profileTypes',
+            'grade_label',
+            'class_label',
+            'description',
+            'syllabus_label',
+            'syllabus_source_url',
+            'is_active',
+            'topic_count',
+            'question_count',
+        ]
+
+    def get_topic_count(self, obj):
+        return obj.topics.filter(is_active=True).count()
+
+    def get_question_count(self, obj):
+        return QuestionBankQuestion.objects.filter(
+            topic__course=obj,
+            topic__is_active=True,
+            is_active=True
+        ).count()
+
+
+class PublicQuestionBankCourseDetailSerializer(PublicQuestionBankCourseSerializer):
+    topics = serializers.SerializerMethodField()
+
+    class Meta(PublicQuestionBankCourseSerializer.Meta):
+        fields = PublicQuestionBankCourseSerializer.Meta.fields + ['topics']
+
+    def get_topics(self, obj):
+        topics = obj.topics.filter(is_active=True).order_by('order', 'title')
+        return PublicQuestionBankTopicSerializer(topics, many=True).data
+
+
+class PublicQuestionBankTopicDetailSerializer(serializers.ModelSerializer):
+    course = PublicQuestionBankCourseSerializer(read_only=True)
+    questions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuestionBankTopic
+        fields = [
+            'id',
+            'title',
+            'slug',
+            'summary',
+            'order',
+            'course',
+            'questions',
+        ]
+
+    def get_questions(self, obj):
+        questions = obj.questions.filter(is_active=True).order_by('order', 'id')
+        return PublicQuestionBankQuestionSerializer(questions, many=True).data
 
 # ============= Class Serializers =============
 
@@ -763,4 +1079,3 @@ class ProductLeadCreateSerializer(serializers.ModelSerializer):
     def validate_phone(self, value):
         # Basic phone validation if needed
         return value
-

@@ -16,14 +16,14 @@ export default function HomeCourses({
   loading 
 }) {
   return (
-    <section className="py-24 bg-slate-50/50">
+    <section className="py-12 bg-slate-50/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="mb-10 text-center md:text-left md:flex md:items-end md:justify-between">
+        <div className="mb-6 text-center md:text-left md:flex md:items-end md:justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Explore Courses</h2>
-            <p className="text-slate-500 mt-2 text-lg">Curated paths for every stage of your career</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Explore Courses</h2>
+            <p className="text-slate-500 mt-1 text-sm md:text-base">Curated paths for every stage of your career</p>
           </div>
           <Link href="/courses" className="hidden md:block">
             <Button variant="ghost" className="text-slate-600 hover:text-primary hover:bg-transparent p-0 flex items-center gap-2 group">
@@ -33,7 +33,7 @@ export default function HomeCourses({
         </div>
 
         {/* Categories (Scrollable Pills) */}
-        <div className="relative mb-10">
+        <div className="relative mb-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-4 no-scrollbar mask-gradient">
             <Button
               variant={activeCategory === 'all' ? 'default' : 'outline'}
@@ -76,13 +76,13 @@ export default function HomeCourses({
               ))}
             </div>
         ) : products.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {products.map((product) => (
               <Link key={product.id} href={`/courses/${product.id}`} className="group h-full block">
                 <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-gray-200/60 overflow-hidden flex flex-col">
                   
                   {/* Course Image */}
-                  <div className="relative h-48 w-full overflow-hidden bg-gray-100">
+                  <div className="relative h-36 w-full overflow-hidden bg-gray-100">
                     <img
                       src={product.primary_image || FALLBACK_IMAGE}
                       alt={product.name}
@@ -100,27 +100,27 @@ export default function HomeCourses({
                       )}
                   </div>
 
-                  <CardHeader className="pb-3 flex-none">
+                  <CardHeader className="pb-2 pt-4 flex-none">
                     <div className="flex justify-between items-start gap-2">
                         <Badge variant="outline" className="mb-2 text-xs font-normal text-gray-500 border-gray-200">
                           {product.category_name}
                         </Badge>
                     </div>
-                    <CardTitle className="line-clamp-2 text-lg group-hover:text-primary transition-colors">
+                    <CardTitle className="line-clamp-2 text-base group-hover:text-primary transition-colors">
                       {product.name}
                     </CardTitle>
                   </CardHeader>
 
                   <CardContent className="flex flex-col flex-grow">
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-4 min-h-[40px]">
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-3 min-h-[40px]">
                       {product.description}
                     </p>
 
-                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100 w-full">
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 w-full">
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-400 font-medium">Price</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xl font-bold text-gray-900">
+                          <span className="text-lg font-bold text-gray-900">
                             ₹{product.effective_price?.toLocaleString()}
                           </span>
                           {product.price > product.effective_price && (

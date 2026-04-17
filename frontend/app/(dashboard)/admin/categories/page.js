@@ -14,18 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { categoryAPI } from '@/lib/lmsService';
+import { categoryAPI, profileTypeAPI } from '@/lib/lmsService';
 import { Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { z } from 'zod';
-
-/* ✅ IMPORT SOURCE OF TRUTH (NO homeContent change) */
-import { profileSelectionOptions } from "@/app/data/homeContent";
-
-/* ✅ DERIVE profileTypes SAFELY */
-const profileTypes = profileSelectionOptions.map(p => ({
-  id: p.id,
-  label: p.title,
-}));
 
 /* ✅ SAFE EMPTY DEFAULT (fix uncontrolled → controlled) */
 const EMPTY_CATEGORY = {
@@ -44,6 +35,7 @@ const categorySchema = z.object({
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
+  const [profileTypes, setProfileTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -53,6 +45,7 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     fetchCategories();
+    fetchProfileTypes();
   }, []);
 
   const fetchCategories = async () => {
@@ -65,6 +58,19 @@ export default function CategoriesPage() {
       setCategories([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProfileTypes = async () => {
+    try {
+      const data = await profileTypeAPI.getAll({ is_active: true });
+      const types = Array.isArray(data) ? data : [];
+      setProfileTypes(types.map((item) => ({
+        id: item.slug,
+        label: item.title,
+      })));
+    } catch (error) {
+      setProfileTypes([]);
     }
   };
 

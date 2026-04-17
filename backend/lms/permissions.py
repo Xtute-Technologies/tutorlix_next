@@ -74,6 +74,22 @@ class IsAdminOrTeacherOrReadOnly(permissions.BasePermission):
         )
 
 
+class IsAdminOrTeacherOrPublicRead(permissions.BasePermission):
+    """
+    Public can read. Admin and teacher can write.
+    """
+    message = "Only admin or teacher users can perform this action."
+
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role in ['admin', 'teacher']
+        )
+
+
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
     Permission to only allow owners of an object or admin to edit it.

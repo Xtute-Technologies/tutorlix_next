@@ -55,6 +55,13 @@ export default function HomeHero({ categories = [] }) {
   const MAX_VISIBLE = 3;
   const visibleCategories = finalInterests.slice(0, MAX_VISIBLE);
   const remainingCategories = finalInterests.slice(MAX_VISIBLE);
+  const quickPrograms = [
+    "IB MYP",
+    "IBDP Maths",
+    "IGCSE Maths",
+    "AP Calculus AB/BC",
+    "SAT Maths",
+  ];
 
   useEffect(() => {
     setSelectedInterest("");
@@ -92,7 +99,7 @@ export default function HomeHero({ categories = [] }) {
   };
 
   return (
-    <section className="relative bg-black text-white pt-16 pb-24 md:pt-24 md:pb-32">
+    <section className="relative bg-black text-white pt-10 pb-12 md:pt-14 md:pb-16">
       <div className="absolute inset-0 h-full w-full">
          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
            <DotGrid
@@ -111,31 +118,55 @@ export default function HomeHero({ categories = [] }) {
          </div>
       </div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-8 items-start">
           {/* Left Content */}
-          <div className="space-y-8">
+          <div className="space-y-5">
             <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{activeProfile.tag}</p>
-            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">{activeProfile.headline}</h1>
-            <div className="space-y-6">
+            <h1 className="text-2xl md:text-4xl font-extrabold leading-tight">{activeProfile.headline}</h1>
+            <div className="flex flex-wrap gap-2">
+              {quickPrograms.map((program) => (
+                <span
+                  key={program}
+                  className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-medium text-slate-100"
+                >
+                  {program}
+                </span>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               {activeProfile.bullets.map((text, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-400 mt-1" />
-                  <p className="text-lg text-slate-200">{text}</p>
+                <div key={i} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/5 p-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-400 mt-0.5" />
+                  <p className="text-sm md:text-base text-slate-200">{text}</p>
                 </div>
               ))}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
+                <div className="text-xl font-bold text-white">1:1</div>
+                <div className="mt-1 text-xs text-slate-300">Online classes</div>
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
+                <div className="text-xl font-bold text-white">Live</div>
+                <div className="mt-1 text-xs text-slate-300">Doubt solving</div>
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
+                <div className="text-xl font-bold text-white">Exam</div>
+                <div className="mt-1 text-xs text-slate-300">Focused plans</div>
+              </div>
             </div>
           </div>
 
           {/* Right Form Card */}
           <div className="w-full max-w-md mx-auto lg:ml-auto relative z-10">
             <Card className="border-0 shadow-2xl bg-white text-slate-900 rounded-2xl overflow-hidden">
-              <CardHeader className="bg-slate-50/50">
+              <CardHeader className="bg-slate-50/50 py-4">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-blue-600" /> Start your journey
                 </CardTitle>
               </CardHeader>
 
-              <CardContent className="p-5 pt-2">
+              <CardContent className="p-4 pt-2">
                 {leadSuccess ? (
                   <div className="text-center py-10">
                     <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full mx-auto flex items-center justify-center mb-4">
@@ -148,7 +179,7 @@ export default function HomeHero({ categories = [] }) {
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-2 mb-4">
+                    <div className="space-y-2 mb-3">
                       <label className="text-xs font-semibold text-slate-500 uppercase">I am interested in</label>
                       <div className="flex flex-wrap gap-2">
                         {/* Visible categories */}

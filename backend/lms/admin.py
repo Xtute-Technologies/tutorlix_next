@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    Category, Product, ProductImage, Offer, CourseBooking,
+    Category, ProfileType, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass, Recording,
     Attendance, TestScore, Expense, ContactFormMessage,
-    SellerExpense, TeacherExpense, Masterclass
+    SellerExpense, TeacherExpense, Masterclass,
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob
 )
 
 
@@ -13,6 +14,14 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name', 'heading', 'created_at']
     search_fields = ['name', 'heading']
     ordering = ['name']
+
+
+@admin.register(ProfileType)
+class ProfileTypeAdmin(admin.ModelAdmin):
+    list_display = ['title', 'slug', 'order', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['title', 'slug', 'description']
+    ordering = ['order', 'title']
 
 
 class ProductImageInline(admin.TabularInline):
@@ -219,16 +228,39 @@ class TestScoreAdmin(admin.ModelAdmin):
     def percentage_display(self, obj):
         return f"{obj.percentage:.2f}%"
     percentage_display.short_description = 'Percentage'
-    
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.role == 'admin':
-            return qs
-        elif request.user.role == 'teacher':
-            return qs.filter(teacher=request.user)
-        elif request.user.role == 'student':
-            return qs.filter(student=request.user)
-        return qs.none()
+
+
+class QuestionBankTopicInline(admin.TabularInline):
+    model = QuestionBankTopic
+    extra = 0
+
+
+@admin.register(QuestionBankCourse)
+class QuestionBankCourseAdmin(admin.ModelAdmin):
+    list_display = ['title', 'subject', 'grade_label', 'class_label', 'is_active', 'created_by', 'created_at']
+    list_filter = ['subject', 'grade_label', 'class_label', 'is_active']
+    search_fields = ['title', 'slug', 'subject', 'grade_label', 'class_label']
+    inlines = [QuestionBankTopicInline]
+
+
+class QuestionBankQuestionInline(admin.TabularInline):
+    model = QuestionBankQuestion
+    extra = 0
+
+
+@admin.register(QuestionBankTopic)
+class QuestionBankTopicAdmin(admin.ModelAdmin):
+    list_display = ['title', 'course', 'order', 'is_active']
+    list_filter = ['is_active', 'course']
+    search_fields = ['title', 'slug', 'course__title']
+    inlines = [QuestionBankQuestionInline]
+
+
+@admin.register(QuestionBankQuestion)
+class QuestionBankQuestionAdmin(admin.ModelAdmin):
+    list_display = ['topic', 'order', 'is_active', 'source_label']
+    list_filter = ['is_active', 'topic__course']
+    search_fields = ['question', 'answer', 'topic__title', 'topic__course__title']
 
 
 @admin.register(Expense)
@@ -278,3 +310,11 @@ class TeacherExpenseAdmin(admin.ModelAdmin):
     list_filter = ['date']
     search_fields = ['teacher__username', 'teacher__email', 'description']
     ordering = ['-date']
+
+
+@admin.register(ReelGenerationJob)
+class ReelGenerationJobAdmin(admin.ModelAdmin):
+    list_display = ['title', 'topic', 'status', 'provider_status', 'include_instagram_post', 'created_by', 'created_at']
+    list_filter = ['status', 'provider_status', 'include_instagram_post', 'language']
+    search_fields = ['title', 'topic', 'prompt', 'instagram_caption', 'created_by__username']
+    readonly_fields = ['created_at', 'updated_at', 'published_at']
