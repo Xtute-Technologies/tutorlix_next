@@ -22,14 +22,14 @@ export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const { updateProfile } = useProfile();
+  const { updateProfile, profileTypes, loading: profileLoading } = useProfile();
 
   useEffect(() => {
     const profile = localStorage.getItem("tutorlix_profile");
-    if (!profile) {
+    if (!profile && !profileLoading && profileTypes.length > 0) {
       setShowProfileModal(true);
     }
-  }, []);
+  }, [profileLoading, profileTypes]);
 
   const handleProfileSelect = (type) => {
     updateProfile(type);

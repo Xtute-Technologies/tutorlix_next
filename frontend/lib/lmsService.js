@@ -54,6 +54,33 @@ export const categoryAPI = {
   },
 };
 
+export const profileTypeAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/profile-types/', { params });
+    return extractResults(response);
+  },
+
+  getBySlug: async (slug) => {
+    const response = await axiosInstance.get(`/api/lms/profile-types/${slug}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/profile-types/', data);
+    return response.data;
+  },
+
+  update: async (slug, data) => {
+    const response = await axiosInstance.patch(`/api/lms/profile-types/${slug}/`, data);
+    return response.data;
+  },
+
+  delete: async (slug) => {
+    const response = await axiosInstance.delete(`/api/lms/profile-types/${slug}/`);
+    return response.data;
+  },
+};
+
 // ============= Product APIs =============
 
 export const productAPI = {
@@ -134,6 +161,79 @@ export const productAPI = {
   getFeatured: async () => {
     const response = await axiosInstance.get('/api/lms/products/featured/');
     return extractResults(response);
+  },
+};
+
+// ============= Question Bank APIs =============
+
+export const questionBankCourseAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/question-bank-courses/', { params });
+    return extractResults(response);
+  },
+
+  getBySlug: async (slug, params = {}) => {
+    const response = await axiosInstance.get(`/api/lms/question-bank-courses/${slug}/`, { params });
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/question-bank-courses/', data);
+    return response.data;
+  },
+
+  update: async (slug, data) => {
+    const response = await axiosInstance.patch(`/api/lms/question-bank-courses/${slug}/`, data);
+    return response.data;
+  },
+
+  delete: async (slug) => {
+    const response = await axiosInstance.delete(`/api/lms/question-bank-courses/${slug}/`);
+    return response.data;
+  },
+};
+
+export const questionBankTopicAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/question-bank-topics/', { params });
+    return extractResults(response);
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/question-bank-topics/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/question-bank-topics/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/question-bank-topics/${id}/`);
+    return response.data;
+  },
+};
+
+export const questionBankQuestionAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/question-bank-questions/', { params });
+    return extractResults(response);
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/question-bank-questions/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/question-bank-questions/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/question-bank-questions/${id}/`);
+    return response.data;
   },
 };
 
@@ -783,5 +883,37 @@ export const videoAPI = {
       );
 
       return response.data; // ✅ THIS WILL BE A BLOB
+  },
+};
+
+export const reelJobAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/reel-jobs/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/reel-jobs/${id}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/reel-jobs/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/reel-jobs/${id}/`, data);
+    return response.data;
+  },
+
+  regenerate: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/reel-jobs/${id}/regenerate/`);
+    return response.data;
+  },
+
+  publishInstagram: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/reel-jobs/${id}/publish_instagram/`);
+    return response.data;
   },
 };

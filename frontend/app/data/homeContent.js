@@ -43,8 +43,7 @@ export const profileContent = {
         tag: "For School Students",
         headline: (
             <>
-                Build strong foundations <br />
-                early. <span className="text-slate-400">The right way.</span>
+                Online maths tutoring for IB MYP, IBDP Maths, IGCSE Maths, AP Calculus AB/BC, AP Precalculus, Algebra 2, Geometry, Algebra 1, and SAT Maths.
             </>
         ),
         bullets: [

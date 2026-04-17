@@ -4,3 +4,6 @@ from .product_views import *
 from .booking_views import *
 from .expense_views import *
 from .video_views import *
+from .reel_views import *
+from .question_bank_views import *
+from .profile_type_views import *

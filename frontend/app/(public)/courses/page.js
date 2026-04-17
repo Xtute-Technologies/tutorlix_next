@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { productAPI, categoryAPI } from '@/lib/lmsService';
+import { useProfile } from '@/context/ProfileContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,7 @@ function CoursesContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { profileType } = useProfile();
 
   // --- State ---
   const [products, setProducts] = useState([]);
@@ -151,6 +153,21 @@ function CoursesContent() {
 
       {/* --- Search & Category Area --- */}
       <div className="space-y-6 mb-10">
+        {profileType === 'school' && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <div className="text-lg font-semibold text-gray-900">Question Bank</div>
+                <p className="text-sm text-gray-600">
+                  Explore IB Mathematics grade 2 and grade 1 question banks for class 11.
+                </p>
+              </div>
+              <Button asChild>
+                <Link href="/question-bank">Open Question Bank</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         
         {/* 1. Search Bar */}
         <div className="relative max-w-2xl">

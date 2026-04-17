@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from django.utils.text import slugify
 from datetime import timedelta
 import uuid
 import uuid
@@ -28,6 +29,24 @@ class Category(models.Model):
         verbose_name = 'Category'
         verbose_name_plural = 'Categories'
         ordering = ['name']
+
+
+class ProfileType(models.Model):
+    slug = models.SlugField(unique=True, max_length=100)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Profile Type'
+        verbose_name_plural = 'Profile Types'
+        ordering = ['order', 'title']
 
 
 
@@ -724,4 +743,155 @@ class ProductLead(models.Model):
     class Meta:
         verbose_name = 'Product Lead'
         verbose_name_plural = 'Product Leads'
+        ordering = ['-created_at']
+
+
+class QuestionBankCourse(models.Model):
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True, max_length=255)
+    subject = models.CharField(max_length=100, default='Mathematics')
+    profileTypes = models.JSONField(default=list, blank=True)
+    grade_label = models.CharField(max_length=100)
+    class_label = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    syllabus_label = models.CharField(max_length=255, blank=True, null=True)
+    syllabus_source_url = models.URLField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='question_bank_courses_created'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Question Bank Course'
+        verbose_name_plural = 'Question Bank Courses'
+        ordering = ['title']
+
+
+class QuestionBankTopic(models.Model):
+    course = models.ForeignKey(
+        QuestionBankCourse,
+        on_delete=models.CASCADE,
+        related_name='topics'
+    )
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255)
+    summary = models.TextField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+    class Meta:
+        verbose_name = 'Question Bank Topic'
+        verbose_name_plural = 'Question Bank Topics'
+        ordering = ['order', 'title']
+        unique_together = ['course', 'slug']
+
+
+class QuestionBankQuestion(models.Model):
+    topic = models.ForeignKey(
+        QuestionBankTopic,
+        on_delete=models.CASCADE,
+        related_name='questions'
+    )
+    question = models.TextField()
+    answer = models.TextField()
+    source_label = models.CharField(max_length=255, blank=True, null=True)
+    source_url = models.URLField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.topic.title} - Question {self.pk}"
+
+    class Meta:
+        verbose_name = 'Question Bank Question'
+        verbose_name_plural = 'Question Bank Questions'
+        ordering = ['order', 'id']
+
+
+class ReelGenerationJob(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('ready_for_review', 'Ready For Review'),
+        ('queued_to_publish', 'Queued To Publish'),
+        ('published', 'Published'),
+        ('failed', 'Failed'),
+    ]
+
+    PROVIDER_STATUS_CHOICES = [
+        ('not_configured', 'Not Configured'),
+        ('ready', 'Ready'),
+        ('queued', 'Queued'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='reel_generation_jobs'
+    )
+    title = models.CharField(max_length=255)
+    topic = models.CharField(max_length=255)
+    prompt = models.TextField()
+    language = models.CharField(max_length=50, default='English')
+    tone = models.CharField(max_length=100, default='Friendly')
+    duration_seconds = models.PositiveIntegerField(default=30)
+    avatar_style = models.CharField(max_length=255, default='Young Indian female tutor avatar')
+    board_style = models.CharField(max_length=255, default='Modern digital smart board')
+    voice_style = models.CharField(max_length=255, default='Warm teacher voice')
+    call_to_action = models.CharField(max_length=255, blank=True, null=True)
+    include_instagram_post = models.BooleanField(default=False)
+    instagram_caption = models.TextField(blank=True, null=True)
+    hashtags = models.JSONField(default=list, blank=True)
+    script_text = models.TextField(blank=True, null=True)
+    scene_plan = models.JSONField(default=list, blank=True)
+    board_notes = models.JSONField(default=list, blank=True)
+    provider_payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='draft')
+    provider_status = models.CharField(
+        max_length=30,
+        choices=PROVIDER_STATUS_CHOICES,
+        default='not_configured'
+    )
+    provider_name = models.CharField(max_length=100, blank=True, null=True)
+    render_preview_url = models.URLField(blank=True, null=True)
+    instagram_media_id = models.CharField(max_length=255, blank=True, null=True)
+    instagram_permalink = models.URLField(blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Reel Generation Job'
+        verbose_name_plural = 'Reel Generation Jobs'
         ordering = ['-created_at']
