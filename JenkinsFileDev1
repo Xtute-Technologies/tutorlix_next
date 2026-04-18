@@ -18,34 +18,6 @@ pipeline {
             }
         }
 
-        stage('Build Images') {
-            parallel {
-                stage('Build Backend') {
-                    steps {
-                        sh '''
-                            echo "🚀 Building backend image with cache..."
-                            docker build \
-                            --network=host \
-                            -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
-                            ./backend
-                        '''
-                    }
-                }
-
-                stage('Build Frontend') {
-                    steps {
-                        sh '''
-                            echo "🚀 Building frontend image with cache..."
-                            docker build \
-                            --network=host \
-                            -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
-                            ./frontend
-                        '''
-                    }
-                }
-            }
-        }
-
         stage('Docker Login') {
             steps {
                 sh '''
@@ -54,20 +26,31 @@ pipeline {
             }
         }
 
-        stage('Push Images') {
+        stage('Build And Push Images') {
             parallel {
-                stage('Push Backend') {
+                stage('Backend Image') {
                     steps {
                         sh '''
+                            echo "🚀 Building backend image with cache..."
+                            docker build \
+                            --network=host \
+                            -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
+                            ./backend
                             echo "📤 Pushing backend image..."
                             docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
                         '''
                     }
                 }
 
-                stage('Push Frontend') {
+                stage('Frontend Image') {
                     steps {
                         sh '''
+                            echo "🚀 Building frontend image with cache..."
+                            docker build \
+                            --network=host \
+                            -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
+                            ./frontend
+
                             echo "📤 Pushing frontend image..."
                             docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
                         '''
@@ -87,24 +70,14 @@ pipeline {
             }
         }
 
-        stage('Apply Kubernetes') {
+        stage('Apply And Restart') {
             steps {
                 sh '''
-                    echo "📦 Applying Kubernetes manifests..."
+                    echo "📦 Applying Kubernetes manifests and restarting deployments..."
 
                     export KUBECONFIG=$HOME/.kube/config
 
                     kubectl apply -k k8s/overlays/vps
-                '''
-            }
-        }
-
-        stage('Force Fresh Deployment') {
-            steps {
-                sh '''
-                    echo "♻️ Forcing fresh pods (no cache)..."
-
-                    export KUBECONFIG=$HOME/.kube/config
 
                     kubectl rollout restart deployment/backend
                     kubectl rollout restart deployment/frontend
@@ -112,58 +85,37 @@ pipeline {
             }
         }
 
-        stage('Run Migrations') {
-            steps {
-                sh '''
-                    echo "🗃️ Running Django migrations..."
-
-                    export KUBECONFIG=$HOME/.kube/config
-
-                    BACKEND_POD=$(kubectl get pods -l app=backend --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
-
-                    if [ -z "$BACKEND_POD" ]; then
-                        echo "❌ No backend pod found for migrations"
-                        exit 1
-                    fi
-
-                    if ! kubectl wait --for=condition=Ready pod/$BACKEND_POD --timeout=90s; then
-                        echo "❌ Backend pod did not become ready"
-                        echo "📋 Deployment description:"
-                        kubectl describe deployment/backend || true
-                        echo "📋 Pod description:"
-                        kubectl describe pod/$BACKEND_POD || true
-                        echo "📋 Backend logs:"
-                        kubectl logs $BACKEND_POD --tail=200 || true
-                        exit 1
-                    fi
-
-                    kubectl exec "$BACKEND_POD" -- python manage.py migrate
-                '''
-            }
-        }
-
-        stage('Rollout Wait') {
+        stage('Verify Deployments') {
             parallel {
-                stage('Wait Backend') {
+                stage('Backend Rollout And Migrate') {
                     steps {
                         sh '''
-                            echo "⏳ Waiting for backend rollout..."
+                            echo "⏳ Waiting for backend rollout and running migrations..."
 
                             export KUBECONFIG=$HOME/.kube/config
 
-                            kubectl rollout status deployment/backend --timeout=90s
+                            kubectl rollout status deployment/backend
+
+                            BACKEND_POD=$(kubectl get pods -l app=backend --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
+
+                            if [ -z "$BACKEND_POD" ]; then
+                                echo "❌ No backend pod found for migrations"
+                                exit 1
+                            fi
+
+                            kubectl exec "$BACKEND_POD" -- python manage.py migrate
                         '''
                     }
                 }
 
-                stage('Wait Frontend') {
+                stage('Frontend Rollout') {
                     steps {
                         sh '''
                             echo "⏳ Waiting for frontend rollout..."
 
                             export KUBECONFIG=$HOME/.kube/config
 
-                            kubectl rollout status deployment/frontend --timeout=90s
+                            kubectl rollout status deployment/frontend
                         '''
                     }
                 }
