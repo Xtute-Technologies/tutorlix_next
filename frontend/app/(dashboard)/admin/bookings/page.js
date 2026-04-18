@@ -369,15 +369,26 @@ export default function BookingsPage() {
     },
   ];
 
-  // Calculate total revenue
+  const getLatestPaidPayment = (booking) => {
+    if (!Array.isArray(booking.payment_histories)) return null;
+    const paidPayments = booking.payment_histories.filter((p) => p.status === 'paid');
+    if (!paidPayments.length) return null;
+    return [...paidPayments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  };
+
+  const getVisiblePaymentHistory = (booking) => {
+    if (!Array.isArray(booking.payment_histories)) return [];
+    const latestPaidPayment = getLatestPaidPayment(booking);
+    return booking.payment_histories
+      .filter((payment) => payment.status !== 'paid' || payment.id === latestPaidPayment?.id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  };
+
+  // Count one successful payment per booking
   const totalRevenue = bookings.reduce((sum, booking) => {
-    if (!Array.isArray(booking.payment_histories)) return sum;
-
-    const paidAmount = booking.payment_histories
-      .filter(p => p.status === 'paid')
-      .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-
-    return sum + paidAmount;
+    const latestPaidPayment = getLatestPaidPayment(booking);
+    if (!latestPaidPayment) return sum;
+    return sum + parseFloat(latestPaidPayment.amount || 0);
   }, 0);
 
   return (
@@ -589,11 +600,7 @@ export default function BookingsPage() {
                 {Array.isArray(selectedBooking.payment_histories) &&
                   selectedBooking.payment_histories.length > 0 ? (
                   <div className="divide-y rounded-md border">
-                    {[...selectedBooking.payment_histories]
-                      .sort(
-                        (a, b) => new Date(b.created_at) - new Date(a.created_at)
-                      )
-                      .map((p) => (
+                    {getVisiblePaymentHistory(selectedBooking).map((p) => (
                         <div
                           key={p.id}
                           className="flex items-center justify-between p-3 text-sm"
@@ -632,6 +639,12 @@ export default function BookingsPage() {
                 ) : (
                   <div className="text-sm text-gray-500 italic">
                     No payment attempts yet.
+                  </div>
+                )}
+
+                {getLatestPaidPayment(selectedBooking) && (
+                  <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                    Counted revenue for this booking: one successful payment of ₹{parseFloat(getLatestPaidPayment(selectedBooking).amount || 0).toFixed(2)}
                   </div>
                 )}
               </Card>
