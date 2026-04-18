@@ -31,13 +31,12 @@ export default function SellerBookingsPage() {
     fetchData();
   }, []);
 
-  const paidHistories = useMemo(() => {
-    return bookings.flatMap(b =>
-      Array.isArray(b.payment_histories)
-        ? b.payment_histories.filter(h => h.status === "paid")
-        : []
-    );
-  }, [bookings]);
+  const getLatestPaidHistory = (booking) => {
+    if (!Array.isArray(booking.payment_histories)) return null;
+    const paidHistories = booking.payment_histories.filter((history) => history.status === "paid");
+    if (!paidHistories.length) return null;
+    return [...paidHistories].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  };
 
   const fetchData = async () => {
     try {
@@ -82,8 +81,12 @@ export default function SellerBookingsPage() {
 
   // --- CALCULATIONS ---
   const totalSales = useMemo(() => {
-    return paidHistories.reduce((sum, h) => sum + parseFloat(h.amount || 0), 0);
-  }, [paidHistories]);
+    return bookings.reduce((sum, booking) => {
+      const latestPaidHistory = getLatestPaidHistory(booking);
+      if (!latestPaidHistory) return sum;
+      return sum + parseFloat(latestPaidHistory.amount || 0);
+    }, 0);
+  }, [bookings]);
 
   const totalReceived = useMemo(() => {
     return expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);

@@ -82,49 +82,47 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         # bookings already role-filtered
         bookings_qs = self.get_queryset()
 
-        # payment histories scoped to visible bookings
-        payment_qs = PaymentHistory.objects.filter(
-            booking__in=bookings_qs
+        bookings = list(
+            bookings_qs.prefetch_related('payment_histories')
         )
 
         # ---------------------------
         # CORE COUNTS
         # ---------------------------
-        total_bookings = bookings_qs.count()
+        total_bookings = len(bookings)
 
         # bookings with at least one SUCCESS payment
-        paid_bookings = (
-            bookings_qs
-            .filter(payment_histories__status='paid')
-            .distinct()
-            .count()
+        paid_bookings = sum(
+            1 for booking in bookings
+            if any(history.status == 'paid' for history in booking.payment_histories.all())
         )
 
         # pending = no paid history & not expired
-        pending_bookings = (
-            bookings_qs
-            .exclude(payment_histories__status='paid')
-            .exclude(payment_status='expired')
-            .count()
+        pending_bookings = sum(
+            1 for booking in bookings
+            if booking.payment_status != 'expired'
+            and not any(history.status == 'paid' for history in booking.payment_histories.all())
         )
 
         # ---------------------------
         # REVENUE (SOURCE OF TRUTH)
         # ---------------------------
-        revenue_data = payment_qs.filter(
-            status='paid'
-        ).aggregate(
-            total_revenue=Sum('amount')
-        )
+        total_revenue = Decimal('0')
+        failed_attempts = 0
 
-        total_revenue = revenue_data['total_revenue'] or 0
+        for booking in bookings:
+            histories = list(booking.payment_histories.all())
+            failed_attempts += sum(1 for history in histories if history.status == 'failed')
+            paid_histories = [history for history in histories if history.status == 'paid']
+            if paid_histories:
+                latest_paid = max(paid_histories, key=lambda history: history.created_at)
+                total_revenue += latest_paid.amount or Decimal('0')
 
         # ---------------------------
         # OPTIONAL: EXTRA INTELLIGENCE
         # ---------------------------
-        failed_attempts = payment_qs.filter(status='failed').count()
-        successful_payments = payment_qs.filter(status='paid').count()
-        total_sales = successful_payments + pending_bookings
+        successful_payments = paid_bookings
+        total_sales = paid_bookings + pending_bookings
 
         return Response({
             "total_bookings": total_bookings,
