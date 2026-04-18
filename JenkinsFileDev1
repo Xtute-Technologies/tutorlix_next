@@ -18,15 +18,18 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Building Docker images (no cache)..."
+                    echo "🏷️ Build number: $BUILD_NUMBER"
 
                     docker build --no-cache \
                     --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
+                    -t $DOCKER_CREDS_USR/tutorlix-backend:$BUILD_NUMBER \
                     ./backend
 
                     docker build --no-cache \
                     --network=host \
                     -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
+                    -t $DOCKER_CREDS_USR/tutorlix-frontend:$BUILD_NUMBER \
                     ./frontend
                 '''
             }
