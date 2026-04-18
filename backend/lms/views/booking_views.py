@@ -386,6 +386,15 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if booking.payment_status == "paid":
+            return Response({
+                "booking": CourseBookingSerializer(booking).data,
+                "razorpay_order_id": booking.razorpay_order_id,
+                "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
+                "status": booking.payment_status,
+                "message": "This booking is already paid."
+            })
+
         service = PaymentService()
 
         # 🔥 CRITICAL RULE:
@@ -442,12 +451,36 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if booking.payment_status == "paid":
+            return Response({
+                "status": "success",
+                "booking_id": str(booking.booking_id),
+                "final_amount": str(booking.final_amount),
+                "payment_attempts": booking.payment_histories.count(),
+            })
+
         service = PaymentService()
         params = {
             "razorpay_order_id": order_id,
             "razorpay_payment_id": payment_id,
             "razorpay_signature": signature,
         }
+
+        if PaymentHistory.objects.filter(
+            razorpay_payment_id=payment_id,
+            status="paid"
+        ).exists():
+            booking.payment_status = "paid"
+            booking.razorpay_payment_id = payment_id
+            booking.razorpay_order_id = order_id
+            booking.payment_date = booking.payment_date or timezone.now()
+            booking.save(update_fields=["payment_status", "razorpay_payment_id", "razorpay_order_id", "payment_date"])
+            return Response({
+                "status": "success",
+                "booking_id": str(booking.booking_id),
+                "final_amount": str(booking.final_amount),
+                "payment_attempts": booking.payment_histories.count(),
+            })
 
         # 3️⃣ VERIFY SIGNATURE
         if not service.verify_order_signature(params):
