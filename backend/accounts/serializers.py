@@ -432,7 +432,7 @@ class CustomPasswordResetSerializer(PasswordResetSerializer):
             'email_template_name': 'password_reset_email.html',
             # Pass the frontend URL to the template
             'extra_email_context': {
-                'frontend_url': getattr(settings, 'FRONTEND_URL', 'https://dev.tutorlix.com')
+                'frontend_url': getattr(settings, 'FRONTEND_URL', 'https://tutorlix.com')
             }
         }
         # Save the form (sends the email)

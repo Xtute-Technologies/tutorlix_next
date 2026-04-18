@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import TutorlixRenderer from "@/components/notes/TutorlixRenderer";
 import NoteEnrollmentDialog from "@/components/notes/NoteEnrollmentDialog";
+import AskAINoteCard from "@/components/notes/AskAINoteCard";
 import { format } from "date-fns";
 
 export default function NoteDetailPage({ params }) {
@@ -38,6 +39,15 @@ export default function NoteDetailPage({ params }) {
       fetchNote();
     }
   }, [params.id]);
+
+  const refreshNote = async () => {
+    try {
+      const response = await axios.get(`/api/notes/${params.id}/`);
+      setNote(response.data);
+    } catch (err) {
+      console.error("Error refreshing note:", err);
+    }
+  };
 
   if (loading) {
     return (
@@ -170,6 +180,8 @@ export default function NoteDetailPage({ params }) {
             <div className="min-h-[400px] prose prose-stone dark:prose-invert max-w-none">
               <TutorlixRenderer content={content} />
             </div>
+
+            <AskAINoteCard note={note} onSubscriptionActivated={refreshNote} />
           </div>
         ) : (
           /* Locked State View */

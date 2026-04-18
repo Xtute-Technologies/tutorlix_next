@@ -20,17 +20,19 @@ function PaymentSuccessContent() {
   const paymentId = searchParams.get('razorpay_payment_id');
   const paymentLinkStatus = searchParams.get('razorpay_payment_link_status');
   const manualStatus = searchParams.get('status');
-  const type = searchParams.get('type'); // 'note' or course
+  const type = searchParams.get('type'); // 'note', 'note-ai', or course
   const noteId = searchParams.get('noteId');
 
   useEffect(() => {
     // 1. Handle Notes Logic separately
-    if (type === 'note' && manualStatus === 'success') {
+    if ((type === 'note' || type === 'note-ai') && manualStatus === 'success') {
        setStatus('success');
        // Auto-redirect logic or Toast
        if (noteId) {
           toast.success("Purchase Successful", {
-          description: "You have been enrolled in the note. Redirecting...",
+          description: type === 'note-ai'
+            ? "Your Ask AI subscription is active. Redirecting..."
+            : "You have been enrolled in the note. Redirecting...",
         });
             
             // Redirect after delay
@@ -95,7 +97,7 @@ function PaymentSuccessContent() {
           </CardTitle>
           <CardDescription className="text-gray-500">
             {status === 'success' 
-              ? (type === 'note' ? 'Your purchase has been confirmed. You will be redirected shortly.' : `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.`) 
+              ? (type === 'note' ? 'Your purchase has been confirmed. You will be redirected shortly.' : type === 'note-ai' ? 'Your Ask AI subscription is active. You will be redirected shortly.' : `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.`) 
               : 'We verified the transaction but found an issue.'}
           </CardDescription>
         </CardHeader>
@@ -119,7 +121,7 @@ function PaymentSuccessContent() {
            )}
 
            <div className="flex flex-col gap-3">
-             {type === 'note' && noteId ? (
+             {(type === 'note' || type === 'note-ai') && noteId ? (
                   <Button asChild className="w-full bg-green-600 hover:bg-green-700">
                     <Link href={`/student/notes/${noteId}`}>Go to Note</Link>
                   </Button>

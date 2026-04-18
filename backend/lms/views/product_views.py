@@ -18,6 +18,7 @@ from lms.serializers import (
     CategoryListSerializer,
     ProductSerializer,
     ProductListSerializer,
+    ProductImageSerializer,
     OfferSerializer,
 )
 from lms.permissions import IsAdmin, IsAdminOrReadOnly
@@ -188,10 +189,16 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
             uploaded_images.append(product_image)
 
-        # We need a serializer for ProductImage if you want to return the data properly
-        # Assuming you have one, or return simple success message
+        serializer = ProductImageSerializer(
+            uploaded_images,
+            many=True,
+            context={'request': request}
+        )
         return Response(
-            {"message": f"{len(uploaded_images)} images uploaded successfully"},
+            {
+                "message": f"{len(uploaded_images)} images uploaded successfully",
+                "images": serializer.data,
+            },
             status=status.HTTP_201_CREATED,
         )
 

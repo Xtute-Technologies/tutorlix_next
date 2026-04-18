@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import timedelta
 from rest_framework import viewsets, status, filters
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -10,15 +11,18 @@ from django.conf import settings
 from django.utils import timezone
 import logging
 
-from .models import Note, NoteAttachment, NotePurchase, NoteAccess
+from .models import Note, NoteAttachment, NotePurchase, NoteAccess, NoteAISubscription, NoteAIDoubt
 from .serializers import (
     NoteListSerializer,
     NoteDetailSerializer,
     NoteCreateUpdateSerializer,
     NoteAttachmentSerializer,
     NotePurchaseSerializer,
-    NoteAccessSerializer
+    NoteAccessSerializer,
+    NoteAISubscriptionSerializer,
+    NoteAIDoubtSerializer,
 )
+from .services import GroqNoteAIService
 from lms.models import Product, CourseBooking
 from lms.payment import PaymentService
 
@@ -326,6 +330,69 @@ class NoteViewSet(viewsets.ModelViewSet):
             'privacy': note.privacy,
             'requires_purchase': note.privacy == 'purchaseable' and not can_access
         })
+
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny], url_path='ai-status')
+    def ai_status(self, request, pk=None):
+        note = self.get_object()
+        user = request.user
+        subscription = note.get_active_ai_subscription(user) if user.is_authenticated else None
+
+        return Response({
+            'ask_ai_enabled': note.ask_ai_enabled,
+            'ask_ai_monthly_price': note.get_ask_ai_monthly_price(),
+            'can_access_note': note.can_user_access(user) if user.is_authenticated else False,
+            'has_ai_subscription': note.has_active_ai_subscription(user) if user.is_authenticated else False,
+            'ai_subscription_valid_until': subscription.valid_until if subscription else None,
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='ask-ai')
+    def ask_ai(self, request, pk=None):
+        note = self.get_object()
+        user = request.user
+
+        if not note.ask_ai_enabled:
+            return Response(
+                {'error': 'Ask AI is not enabled for this note.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if user.role != 'student':
+            return Response(
+                {'error': 'Only students can use Ask AI for notes.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not note.can_user_access(user):
+            return Response(
+                {'error': 'Get note access before using Ask AI.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not note.can_user_ask_ai(user):
+            return Response(
+                {'error': 'An active Ask AI subscription is required for this note.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        question = (request.data.get('question') or '').strip()
+        if not question:
+            return Response(
+                {'error': 'question is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        service = GroqNoteAIService()
+        result = service.answer_note_question(note, question)
+
+        doubt = NoteAIDoubt.objects.create(
+            note=note,
+            student=user,
+            question=question,
+            answer=result['answer'],
+            model_name=result['model_name'],
+        )
+
+        return Response(NoteAIDoubtSerializer(doubt).data, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def my_notes(self, request):
@@ -797,7 +864,219 @@ class NotePurchaseViewSet(viewsets.ModelViewSet):
         )
         
         return Response({'status': 'success'})
-       
+
+
+class NoteAISubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for Ask AI subscriptions on notes.
+    """
+    queryset = NoteAISubscription.objects.all()
+    serializer_class = NoteAISubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['payment_status', 'student', 'note']
+    ordering_fields = ['created_at', 'updated_at', 'valid_until']
+    ordering = ['-updated_at']
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset().select_related('student', 'note')
+        if user.role == 'admin':
+            return queryset
+        if user.role == 'teacher':
+            return queryset.filter(note__creator=user)
+        if user.role == 'student':
+            return queryset.filter(student=user)
+        return queryset.none()
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='initiate_subscription')
+    def initiate_subscription(self, request):
+        user = request.user
+        if user.role != 'student':
+            return Response(
+                {'error': 'Only students can subscribe to Ask AI.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        note_id = request.data.get('note_id')
+        if not note_id:
+            return Response({'error': 'note_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            note = Note.objects.get(id=note_id, is_active=True, is_draft=False)
+        except Note.DoesNotExist:
+            return Response({'error': 'Note not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not note.ask_ai_enabled:
+            return Response(
+                {'error': 'Ask AI is not enabled for this note.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not note.can_user_access(user):
+            return Response(
+                {'error': 'Get note access before subscribing to Ask AI.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        active_subscription = note.get_active_ai_subscription(user)
+        if active_subscription:
+            return Response(
+                {'error': 'You already have an active Ask AI subscription for this note.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        price = note.get_ask_ai_monthly_price()
+        if price <= 0:
+            return Response(
+                {'error': 'Invalid Ask AI price configured for this note.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        subscription, _ = NoteAISubscription.objects.get_or_create(
+            student=user,
+            note=note,
+            defaults={
+                'monthly_price': price,
+                'final_amount': price,
+                'payment_status': 'pending',
+            }
+        )
+        subscription.monthly_price = price
+        subscription.final_amount = price
+        subscription.payment_status = 'pending'
+        subscription.payment_link = None
+        subscription.payment_date = None
+
+        payment_service = PaymentService()
+        try:
+            order = payment_service.create_order(
+                amount=float(price),
+                currency="INR",
+                receipt=str(subscription.subscription_id),
+                notes={
+                    "subscription_id": str(subscription.subscription_id),
+                    "type": "note_ai_subscription",
+                    "student_id": user.id,
+                    "note_id": note.id,
+                }
+            )
+            subscription.razorpay_order_id = order.get('id')
+            subscription.payment_link = (
+                f"{settings.FRONTEND_URL}/public-payment/{subscription.subscription_id}?type=note-ai"
+            )
+            subscription.save()
+        except Exception as e:
+            logger.error(f"Failed to create Razorpay order for note AI subscription {subscription.subscription_id}: {e}")
+            return Response(
+                {'error': 'Failed to initiate payment gateway.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        serializer = self.get_serializer(subscription)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='details_public/(?P<uuid>[^/.]+)')
+    def get_payment_details(self, request, uuid=None):
+        try:
+            subscription = NoteAISubscription.objects.select_related('note', 'student').get(subscription_id=uuid)
+        except NoteAISubscription.DoesNotExist:
+            return Response({'error': 'Subscription not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if subscription.is_active():
+            return Response({
+                "subscription": NoteAISubscriptionSerializer(subscription).data,
+                "status": subscription.payment_status,
+                "message": "Your Ask AI subscription is already active."
+            })
+
+        service = PaymentService()
+        order_id = subscription.razorpay_order_id
+
+        if not order_id:
+            try:
+                order = service.create_order(
+                    amount=float(subscription.final_amount),
+                    currency='INR',
+                    receipt=str(subscription.subscription_id),
+                    notes={
+                        'subscription_id': str(subscription.subscription_id),
+                        'type': 'note_ai_subscription',
+                        'note_id': subscription.note.id,
+                    }
+                )
+                subscription.razorpay_order_id = order['id']
+                subscription.save()
+                order_id = order['id']
+            except Exception as e:
+                logger.error(f"Failed to create Razorpay order for note AI subscription: {e}")
+                return Response(
+                    {'error': 'Failed to create payment order.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        return Response({
+            "key": settings.RAZORPAY_SECRET_ID,
+            "amount": subscription.final_amount * 100,
+            "currency": "INR",
+            "name": "Tutorlix",
+            "description": f"Ask AI Subscription: {subscription.note.title}",
+            "order_id": order_id,
+            "subscription_id": str(subscription.subscription_id),
+            "note_id": subscription.note.id,
+            "prefill": {
+                "name": subscription.student.get_full_name(),
+                "email": subscription.student.email,
+                "contact": getattr(subscription.student, 'phone', '')
+            },
+            "theme": {
+                "color": "#3399cc"
+            }
+        })
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='verify_payment')
+    def verify_payment(self, request):
+        razorpay_payment_id = request.data.get('razorpay_payment_id')
+        razorpay_order_id = request.data.get('razorpay_order_id')
+        razorpay_signature = request.data.get('razorpay_signature')
+
+        if not all([razorpay_payment_id, razorpay_order_id, razorpay_signature]):
+            return Response({'error': 'Missing payment parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+        service = PaymentService()
+        if not service.verify_order_signature({
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }):
+            return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subscription = NoteAISubscription.objects.select_related('note').get(razorpay_order_id=razorpay_order_id)
+        except NoteAISubscription.DoesNotExist:
+            return Response({'error': 'Subscription not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        now = timezone.now()
+        if subscription.payment_status == 'paid' and subscription.valid_until and subscription.valid_until > now:
+            return Response({
+                'status': 'success',
+                'note_id': subscription.note.id,
+                'valid_until': subscription.valid_until,
+            })
+
+        base_time = subscription.valid_until if subscription.valid_until and subscription.valid_until > now else now
+        subscription.payment_status = 'paid'
+        subscription.payment_date = now
+        subscription.razorpay_payment_id = razorpay_payment_id
+        subscription.razorpay_signature = razorpay_signature
+        subscription.valid_until = base_time + timedelta(days=30)
+        subscription.save()
+
+        return Response({
+            'status': 'success',
+            'note_id': subscription.note.id,
+            'valid_until': subscription.valid_until,
+        })
 
 
 class NoteAccessViewSet(viewsets.ModelViewSet):

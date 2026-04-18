@@ -4,12 +4,14 @@ from .views import (
     NoteViewSet,
     NoteAttachmentViewSet,
     NotePurchaseViewSet,
-    NoteAccessViewSet
+    NoteAccessViewSet,
+    NoteAISubscriptionViewSet,
 )
 
 router = DefaultRouter()
 router.register(r'attachments', NoteAttachmentViewSet, basename='noteattachment')
 router.register(r'purchases', NotePurchaseViewSet, basename='notepurchase')
+router.register(r'ai-subscriptions', NoteAISubscriptionViewSet, basename='noteaisubscription')
 router.register(r'access', NoteAccessViewSet, basename='noteaccess')
 router.register(r'', NoteViewSet, basename='note')
 

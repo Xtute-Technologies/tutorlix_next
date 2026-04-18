@@ -80,6 +80,17 @@ class Note(models.Model):
         null=True,
         validators=[MinValueValidator(0)]
     )
+    ask_ai_enabled = models.BooleanField(
+        default=True,
+        help_text="Enable paid Ask AI doubt support for this note."
+    )
+    ask_ai_monthly_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=150,
+        validators=[MinValueValidator(0)],
+        help_text="Monthly subscription price for Ask AI on this note."
+    )
     
     # Access Duration (for paid notes)
     access_duration_days = models.IntegerField(
@@ -171,6 +182,40 @@ class Note(models.Model):
                 return any(access.is_valid() for access in valid_accesses)
         
         return False
+
+    def get_ask_ai_monthly_price(self):
+        return self.ask_ai_monthly_price or 0
+
+    def get_active_ai_subscription(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return None
+        if getattr(user, 'role', None) in ['admin', 'teacher'] or self.creator == user:
+            return None
+        return self.ai_subscriptions.filter(
+            student=user,
+            payment_status='paid',
+            valid_until__gt=timezone.now()
+        ).order_by('-valid_until').first()
+
+    def has_active_ai_subscription(self, user):
+        if not self.ask_ai_enabled:
+            return False
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'role', None) == 'admin' or self.creator == user:
+            return True
+        return self.get_active_ai_subscription(user) is not None
+
+    def can_user_ask_ai(self, user):
+        if not self.ask_ai_enabled:
+            return False
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if getattr(user, 'role', None) == 'admin' or self.creator == user:
+            return True
+        if getattr(user, 'role', None) != 'student':
+            return False
+        return self.can_user_access(user) and self.has_active_ai_subscription(user)
     
     class Meta:
         ordering = ['-created_at']
@@ -438,4 +483,103 @@ class NoteAccess(models.Model):
         indexes = [
             models.Index(fields=['student', 'is_active']),
             models.Index(fields=['note', 'is_active']),
+        ]
+
+
+class NoteAISubscription(models.Model):
+    """
+    Monthly Ask AI subscription per note.
+    """
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+        ('expired', 'Expired'),
+    ]
+
+    subscription_id = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='note_ai_subscriptions',
+        limit_choices_to={'role': 'student'}
+    )
+    note = models.ForeignKey(
+        Note,
+        on_delete=models.CASCADE,
+        related_name='ai_subscriptions'
+    )
+    monthly_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
+    final_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
+    )
+    payment_date = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    payment_link = models.URLField(blank=True, null=True)
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.student.email} -> Ask AI: {self.note.title} ({self.payment_status})"
+
+    def is_active(self):
+        return self.payment_status == 'paid' and self.valid_until and self.valid_until > timezone.now()
+
+    class Meta:
+        ordering = ['-updated_at']
+        unique_together = ['student', 'note']
+        indexes = [
+            models.Index(fields=['student', 'payment_status']),
+            models.Index(fields=['note', 'payment_status']),
+        ]
+
+
+class NoteAIDoubt(models.Model):
+    """
+    Stores Ask AI note questions and answers.
+    """
+    note = models.ForeignKey(
+        Note,
+        on_delete=models.CASCADE,
+        related_name='ai_doubts'
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='note_ai_doubts',
+        limit_choices_to={'role': 'student'}
+    )
+    question = models.TextField()
+    answer = models.TextField(blank=True)
+    model_name = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.note.title} - {self.student.email}"
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['note', 'student']),
+            models.Index(fields=['student', 'created_at']),
         ]

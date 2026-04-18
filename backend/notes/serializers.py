@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Note, NoteAttachment, NotePurchase, NoteAccess
+from .models import Note, NoteAttachment, NotePurchase, NoteAccess, NoteAISubscription, NoteAIDoubt
 from lms.models import Product
 from accounts.serializers import PublicUserSerializer
 
@@ -64,6 +64,7 @@ class NoteListSerializer(serializers.ModelSerializer):
     discount_percentage = serializers.SerializerMethodField()
     can_access = serializers.SerializerMethodField()
     has_purchased = serializers.SerializerMethodField()
+    ask_ai_monthly_price = serializers.SerializerMethodField()
     
     class Meta:
         model = Note
@@ -86,7 +87,9 @@ class NoteListSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'can_access',
-            'has_purchased'
+            'has_purchased',
+            'ask_ai_enabled',
+            'ask_ai_monthly_price',
         ]
     
     def get_effective_price(self, obj):
@@ -113,6 +116,9 @@ class NoteListSerializer(serializers.ModelSerializer):
             ).exists()
         return False
 
+    def get_ask_ai_monthly_price(self, obj):
+        return obj.get_ask_ai_monthly_price()
+
 
 class NoteDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed note view (includes content)"""
@@ -123,6 +129,9 @@ class NoteDetailSerializer(serializers.ModelSerializer):
     attachments = NoteAttachmentSerializer(many=True, read_only=True)
     can_access = serializers.SerializerMethodField()
     has_purchased = serializers.SerializerMethodField()
+    ask_ai_monthly_price = serializers.SerializerMethodField()
+    has_ai_subscription = serializers.SerializerMethodField()
+    ai_subscription_valid_until = serializers.SerializerMethodField()
     
     class Meta:
         model = Note
@@ -147,6 +156,10 @@ class NoteDetailSerializer(serializers.ModelSerializer):
             'attachments',
             'can_access',
             'has_purchased',
+            'ask_ai_enabled',
+            'ask_ai_monthly_price',
+            'has_ai_subscription',
+            'ai_subscription_valid_until',
             'created_at',
             'updated_at'
         ]
@@ -170,6 +183,23 @@ class NoteDetailSerializer(serializers.ModelSerializer):
                 payment_status='paid'
             ).exists()
         return False
+
+    def get_ask_ai_monthly_price(self, obj):
+        return obj.get_ask_ai_monthly_price()
+
+    def get_has_ai_subscription(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.has_active_ai_subscription(request.user)
+        return False
+
+    def get_ai_subscription_valid_until(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            subscription = obj.get_active_ai_subscription(request.user)
+            if subscription:
+                return subscription.valid_until
+        return None
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -214,6 +244,8 @@ class NoteCreateUpdateSerializer(serializers.ModelSerializer):
             'creator',
             'price',
             'discounted_price',
+            'ask_ai_enabled',
+            'ask_ai_monthly_price',
             'access_duration_days',
             'is_draft',
             'is_active',
@@ -254,6 +286,11 @@ class NoteCreateUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'discounted_price': 'Discounted price must be less than original price.'
                 })
+
+        if data.get('ask_ai_enabled') and data.get('ask_ai_monthly_price', 0) < 0:
+            raise serializers.ValidationError({
+                'ask_ai_monthly_price': 'Ask AI monthly price cannot be negative.'
+            })
         
         return data
     
@@ -351,3 +388,49 @@ class NoteAccessSerializer(serializers.ModelSerializer):
     
     def get_is_valid_now(self, obj):
         return obj.is_valid()
+
+
+class NoteAISubscriptionSerializer(serializers.ModelSerializer):
+    note_title = serializers.CharField(source='note.title', read_only=True)
+    is_active_subscription = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NoteAISubscription
+        fields = [
+            'id',
+            'subscription_id',
+            'student',
+            'note',
+            'note_title',
+            'monthly_price',
+            'final_amount',
+            'payment_status',
+            'payment_date',
+            'valid_until',
+            'payment_link',
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'is_active_subscription',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+
+    def get_is_active_subscription(self, obj):
+        return obj.is_active()
+
+
+class NoteAIDoubtSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NoteAIDoubt
+        fields = [
+            'id',
+            'note',
+            'student',
+            'question',
+            'answer',
+            'model_name',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['student', 'answer', 'model_name', 'created_at', 'updated_at']

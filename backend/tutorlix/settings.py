@@ -166,7 +166,7 @@ STATIC_URL = "api/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = "api/media/"
+MEDIA_URL = "/api/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
@@ -276,5 +276,7 @@ ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 RAZORPAY_SECRET_ID = os.getenv('RAZORPAY_SECRET_ID', '')
 RAZORPAY_SECRET_KEY = os.getenv('RAZORPAY_SECRET_KEY', '')
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://dev.tutorlix.com')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://tutorlix.com')
 # FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')

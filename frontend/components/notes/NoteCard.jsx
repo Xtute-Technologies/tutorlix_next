@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Lock, FileText, ShoppingCart, Eye, Package, IndianRupee, Info } from "lucide-react";
+import { Lock, FileText, ShoppingCart, Eye, Package, IndianRupee, Info, LogIn } from "lucide-react";
 import NoteEnrollmentDialog from "./NoteEnrollmentDialog";
 import { useAuthModal } from "@/context/AuthModalContext";
 import { useAuth } from "@/context/AuthContext";
@@ -82,62 +82,57 @@ export default function NoteCard({ note }) {
       </CardContent>
       
       <CardFooter className="pt-0">
-        {hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated) ? (
-            <Link href={isAuthenticated && user?.role === 'student' ? `/student/notes/${note.id}` : `/notes/${note.id}`} className="w-full">
-                <Button className="w-full gap-2" variant="default">
-                    <Eye className="h-4 w-4" /> View Note
-                </Button>
-            </Link>
-        ) : (
-            <div className="flex gap-2 w-full">
-                <Link href={`/notes/${note.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full gap-2">
-                       <Info className="h-4 w-4" /> Preview
-                    </Button>
-                </Link>
+        <div className="flex gap-2 w-full">
+          <Link
+            href={hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated)
+              ? (isAuthenticated && user?.role === 'student' ? `/student/notes/${note.id}` : `/notes/${note.id}`)
+              : `/notes/${note.id}`}
+            className="flex-1"
+          >
+            <Button className="w-full gap-2" variant={hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated) ? "default" : "outline"}>
+              {hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated) ? (
+                <>
+                  <Eye className="h-4 w-4" /> View Note
+                </>
+              ) : (
+                <>
+                  <Info className="h-4 w-4" /> Preview
+                </>
+              )}
+            </Button>
+          </Link>
 
-                {isAuthenticated ? (
-                    user?.role === 'teacher' ? (
-                        <Button className="flex-1 gap-2 cursor-not-allowed" variant="secondary" disabled>
-                             <Lock className="h-4 w-4" /> Student Only
-                        </Button>
-                    ) : (
-                    <NoteEnrollmentDialog 
-                        note={note} 
-                        trigger={
-                            <Button className="flex-1 gap-2" variant={isPurchaseable ? "default" : "secondary"}>
-                                {isPurchaseable ? (
-                                    <>
-                                        <ShoppingCart className="h-4 w-4" /> Enroll
-                                    </>
-                                ) : (
-                                    <>
-                                        <Lock className="h-4 w-4" /> Locked
-                                    </>
-                                )}
-                            </Button>
-                        } 
-                    />
-                    )
-                ) : (
-                    <Button 
-                        className="flex-1 gap-2" 
-                        variant={isPurchaseable ? "default" : "secondary"}
-                        onClick={() => openAuthModal('login')}
-                    >
-                        {isPurchaseable ? (
-                                <>
-                                    <ShoppingCart className="h-4 w-4" /> Enroll
-                                </>
-                            ) : (
-                                <>
-                                    <Lock className="h-4 w-4" /> Login to Access
-                                </>
-                            )}
-                    </Button>
-                )}
-            </div>
-        )}
+          {!isAuthenticated ? (
+            <Button
+              className="flex-1 gap-2"
+              variant="secondary"
+              onClick={() => openAuthModal('login')}
+            >
+              <LogIn className="h-4 w-4" /> Login
+            </Button>
+          ) : user?.role === 'teacher' && !(hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated)) ? (
+            <Button className="flex-1 gap-2 cursor-not-allowed" variant="secondary" disabled>
+              <Lock className="h-4 w-4" /> Student Only
+            </Button>
+          ) : !(hasAccess || note.privacy === 'public' || (note.privacy === 'logged_in' && isAuthenticated)) ? (
+            <NoteEnrollmentDialog
+              note={note}
+              trigger={
+                <Button className="flex-1 gap-2" variant={isPurchaseable ? "default" : "secondary"}>
+                  {isPurchaseable ? (
+                    <>
+                      <ShoppingCart className="h-4 w-4" /> Enroll
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4" /> Locked
+                    </>
+                  )}
+                </Button>
+              }
+            />
+          ) : null}
+        </div>
       </CardFooter>
     </Card>
   );

@@ -34,6 +34,9 @@ export default function PublicPaymentPage() {
             if (type === 'note') {
                 response = await axios.get(`/api/notes/purchases/details_public/${uuid}/`);
                 setBookingData({ isNote: true, ...response.data });
+            } else if (type === 'note-ai') {
+                response = await axios.get(`/api/notes/ai-subscriptions/details_public/${uuid}/`);
+                setBookingData({ isNoteAI: true, ...response.data });
             } else {
                 response = await axios.get(`/api/lms/bookings/details_public/${uuid}/`);
                 setBookingData(response.data);
@@ -54,7 +57,31 @@ export default function PublicPaymentPage() {
         setProcessing(true);
 
         let options = {};
-        if (bookingData.isNote) {
+        if (bookingData.isNoteAI) {
+            options = {
+                key: bookingData.key,
+                amount: bookingData.amount,
+                currency: bookingData.currency,
+                name: bookingData.name,
+                description: bookingData.description,
+                order_id: bookingData.order_id,
+                prefill: bookingData.prefill,
+                theme: bookingData.theme,
+                handler: async function (response) {
+                    try {
+                        await axios.post('/api/notes/ai-subscriptions/verify_payment/', {
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        router.push(`/payment-success?status=success&type=note-ai&noteId=${bookingData.note_id}`);
+                    } catch (verifyErr) {
+                        alert("Payment verification failed. Please contact support.");
+                        setProcessing(false);
+                    }
+                }
+            };
+        } else if (bookingData.isNote) {
             options = {
                 key: bookingData.key,
                 amount: bookingData.amount,
@@ -117,14 +144,14 @@ export default function PublicPaymentPage() {
     if (loading) return <div className="h-screen flex justify-center items-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (error) return <div className="h-screen flex justify-center items-center flex-col gap-4 text-destructive bg-background"><AlertCircle className="h-12 w-12" /><p className="text-xl font-semibold">{error}</p></div>;
 
-    if (type === 'note' && bookingData?.status === 'paid') {
+    if ((type === 'note' || type === 'note-ai') && bookingData?.status === 'paid') {
         return (
             <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
                 <Card className="w-full max-w-md shadow-lg border-emerald-500/20 bg-card">
                     <CardHeader className="text-center">
                         <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
                         <CardTitle className="text-2xl font-bold">Payment Completed</CardTitle>
-                        <CardDescription>{bookingData.message || "You have already purchased this note."}</CardDescription>
+                        <CardDescription>{bookingData.message || "This payment is already completed."}</CardDescription>
                     </CardHeader>
                     <CardFooter className="flex justify-center">
                         <Button onClick={() => router.push('/')}>Go to Home</Button>
@@ -171,7 +198,7 @@ export default function PublicPaymentPage() {
                     </CardHeader>
                     
                     <CardContent className="p-6 space-y-6">
-                        {bookingData.isNote ? (
+                        {bookingData.isNote || bookingData.isNoteAI ? (
                             /* NOTE VIEW */
                             <div className="space-y-4">
                                 <div>
