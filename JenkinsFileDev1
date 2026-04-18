@@ -159,6 +159,7 @@ pipeline {
                           --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl set env deployment/backend --from=secret/"$BACKEND_SECRET_NAME"
+                        kubectl describe secret "$BACKEND_SECRET_NAME" | sed -n '1,20p'
                     '''
                 }
             }
