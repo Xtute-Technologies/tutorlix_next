@@ -28,6 +28,15 @@ spec:
           envFrom:
             - secretRef:
                 name: backend-env
+          volumeMounts:
+            - name: media-storage
+              mountPath: /app/media
+
+      volumes:
+        - name: media-storage
+          hostPath:
+            path: /var/www/tutorlix-dev/backend/media
+            type: DirectoryOrCreate
 
 ---
 apiVersion: v1

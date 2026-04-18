@@ -27,12 +27,18 @@ spec:
           volumeMounts:
             - name: db-storage
               mountPath: /app/db.sqlite3
+            - name: media-storage
+              mountPath: /app/media
 
       volumes:
         - name: db-storage
           hostPath:
             path: /var/www/tutorlix-prod/backend/db.sqlite3
             type: FileOrCreate   # 👈 FIX
+        - name: media-storage
+          hostPath:
+            path: /var/www/tutorlix-prod/backend/media
+            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
