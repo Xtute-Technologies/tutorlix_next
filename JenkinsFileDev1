@@ -87,6 +87,27 @@ pipeline {
             }
         }
 
+        stage('Run Migrations') {
+            steps {
+                sh '''
+                    echo "🗃️ Running Django migrations..."
+
+                    export KUBECONFIG=$HOME/.kube/config
+
+                    kubectl rollout status deployment/backend
+
+                    BACKEND_POD=$(kubectl get pods -l app=backend -o jsonpath='{.items[0].metadata.name}')
+
+                    if [ -z "$BACKEND_POD" ]; then
+                        echo "❌ No backend pod found for migrations"
+                        exit 1
+                    fi
+
+                    kubectl exec "$BACKEND_POD" -- python manage.py migrate
+                '''
+            }
+        }
+
         stage('Rollout Wait') {
             steps {
                 sh '''
