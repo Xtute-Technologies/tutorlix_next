@@ -46,7 +46,6 @@ pipeline {
                     steps {
                         sh '''
                             echo "📤 Pushing backend image..."
-                            docker push $DOCKER_CREDS_USR/tutorlix-backend:$BUILD_NUMBER
                             docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
                         '''
                     }
@@ -56,7 +55,6 @@ pipeline {
                     steps {
                         sh '''
                             echo "📤 Pushing frontend image..."
-                            docker push $DOCKER_CREDS_USR/tutorlix-frontend:$BUILD_NUMBER
                             docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
                         '''
                     }
