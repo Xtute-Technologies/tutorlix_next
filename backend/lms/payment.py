@@ -4,6 +4,8 @@ from rest_framework.exceptions import ValidationError
 
 class PaymentService:
     def __init__(self):
+        if not settings.RAZORPAY_SECRET_ID or not settings.RAZORPAY_SECRET_KEY:
+            raise ValidationError("Razorpay is not configured. Missing RAZORPAY_SECRET_ID or RAZORPAY_SECRET_KEY.")
         self.client = razorpay.Client(
             auth=(settings.RAZORPAY_SECRET_ID, settings.RAZORPAY_SECRET_KEY)
         )
