@@ -11,6 +11,7 @@ pipeline {
         KUBE_CONFIG = credentials('kubeconfig')
         BACKEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-backend-prod:latest"
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
+        BACKEND_SECRET_NAME = 'backend-prod-env'
     }
 
     stages {
@@ -81,6 +82,32 @@ pipeline {
                     echo "📦 Applying prod manifests..."
                     kubectl apply -k k8s/overlays/prod
                 '''
+            }
+        }
+
+        stage('Sync Backend Secrets') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'razorpay-secret-id-prod', variable: 'RAZORPAY_SECRET_ID'),
+                    string(credentialsId: 'razorpay-secret-key-prod', variable: 'RAZORPAY_SECRET_KEY'),
+                    string(credentialsId: 'razorpay-webhook-secret-prod', variable: 'RAZORPAY_WEBHOOK_SECRET'),
+                    string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY')
+                ]) {
+                    sh '''
+                        export KUBECONFIG=$HOME/.kube/config
+
+                        echo "🔐 Syncing backend prod secrets..."
+                        kubectl create secret generic "$BACKEND_SECRET_NAME" \
+                          --from-literal=RAZORPAY_SECRET_ID="$RAZORPAY_SECRET_ID" \
+                          --from-literal=RAZORPAY_SECRET_KEY="$RAZORPAY_SECRET_KEY" \
+                          --from-literal=RAZORPAY_WEBHOOK_SECRET="$RAZORPAY_WEBHOOK_SECRET" \
+                          --from-literal=GROQ_API_KEY="$GROQ_API_KEY" \
+                          --from-literal=FRONTEND_URL="https://tutorlix.com" \
+                          --dry-run=client -o yaml | kubectl apply -f -
+
+                        kubectl set env deployment/backend-prod --from=secret/"$BACKEND_SECRET_NAME"
+                    '''
+                }
             }
         }
 
