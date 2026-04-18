@@ -41,13 +41,26 @@ pipeline {
         }
 
         stage('Push Images') {
-            steps {
-                sh '''
-                    echo "📤 Pushing images..."
+            parallel {
+                stage('Push Backend') {
+                    steps {
+                        sh '''
+                            echo "📤 Pushing backend image..."
+                            docker push $DOCKER_CREDS_USR/tutorlix-backend:$BUILD_NUMBER
+                            docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
+                        '''
+                    }
+                }
 
-                    docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
-                    docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
-                '''
+                stage('Push Frontend') {
+                    steps {
+                        sh '''
+                            echo "📤 Pushing frontend image..."
+                            docker push $DOCKER_CREDS_USR/tutorlix-frontend:$BUILD_NUMBER
+                            docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
+                        '''
+                    }
+                }
             }
         }
 
