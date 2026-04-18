@@ -3,6 +3,7 @@ pipeline {
 
     options {
         timestamps()
+        timeout(time: 45, unit: 'MINUTES')
     }
 
     environment {
@@ -21,7 +22,7 @@ pipeline {
         stage('Docker Login') {
             steps {
                 sh '''
-                    echo $DOCKER_CREDS_PSW | docker login -u $DOCKER_CREDS_USR --password-stdin
+                    echo "$DOCKER_CREDS_PSW" | docker login -u "$DOCKER_CREDS_USR" --password-stdin
                 '''
             }
         }
@@ -31,13 +32,15 @@ pipeline {
                 stage('Backend Image') {
                     steps {
                         sh '''
-                            echo "🚀 Building backend image with cache..."
+                            set -e
+                            echo "🚀 Building backend image..."
                             docker build \
-                            --network=host \
-                            -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
-                            ./backend
+                              --network=host \
+                              -t "$DOCKER_CREDS_USR/tutorlix-backend:latest" \
+                              ./backend
+
                             echo "📤 Pushing backend image..."
-                            docker push $DOCKER_CREDS_USR/tutorlix-backend:latest
+                            docker push "$DOCKER_CREDS_USR/tutorlix-backend:latest"
                         '''
                     }
                 }
@@ -45,14 +48,15 @@ pipeline {
                 stage('Frontend Image') {
                     steps {
                         sh '''
-                            echo "🚀 Building frontend image with cache..."
+                            set -e
+                            echo "🚀 Building frontend image..."
                             docker build \
-                            --network=host \
-                            -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
-                            ./frontend
+                              --network=host \
+                              -t "$DOCKER_CREDS_USR/tutorlix-frontend:latest" \
+                              ./frontend
 
                             echo "📤 Pushing frontend image..."
-                            docker push $DOCKER_CREDS_USR/tutorlix-frontend:latest
+                            docker push "$DOCKER_CREDS_USR/tutorlix-frontend:latest"
                         '''
                     }
                 }
@@ -63,8 +67,10 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                     sh '''
-                        mkdir -p $HOME/.kube
-                        cp $KUBECONFIG_FILE $HOME/.kube/config
+                        set -e
+                        mkdir -p "$HOME/.kube"
+                        cp "$KUBECONFIG_FILE" "$HOME/.kube/config"
+                        chmod 600 "$HOME/.kube/config"
                     '''
                 }
             }
@@ -73,9 +79,9 @@ pipeline {
         stage('Apply And Restart') {
             steps {
                 sh '''
+                    set -e
                     echo "📦 Applying Kubernetes manifests and restarting deployments..."
-
-                    export KUBECONFIG=$HOME/.kube/config
+                    export KUBECONFIG="$HOME/.kube/config"
 
                     kubectl apply -k k8s/overlays/vps
 
@@ -90,19 +96,35 @@ pipeline {
                 stage('Backend Rollout And Migrate') {
                     steps {
                         sh '''
-                            echo "⏳ Waiting for backend rollout and running migrations..."
+                            set -e
+                            export KUBECONFIG="$HOME/.kube/config"
 
-                            export KUBECONFIG=$HOME/.kube/config
-
-                            kubectl rollout status deployment/backend
-
-                            BACKEND_POD=$(kubectl get pods -l app=backend --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
-
-                            if [ -z "$BACKEND_POD" ]; then
-                                echo "❌ No backend pod found for migrations"
+                            echo "⏳ Waiting for backend rollout..."
+                            if ! kubectl rollout status deployment/backend --timeout=300s; then
+                                echo "❌ Backend rollout timed out. Debug info:"
+                                kubectl get deployment backend -o wide || true
+                                kubectl describe deployment backend || true
+                                kubectl get rs -l app=backend -o wide || true
+                                kubectl get pods -l app=backend -o wide || true
+                                kubectl describe pods -l app=backend || true
                                 exit 1
                             fi
 
+                            echo "✅ Backend rollout completed"
+
+                            echo "🔍 Finding newest running backend pod..."
+                            BACKEND_POD=$(kubectl get pods -l app=backend \
+                              --field-selector=status.phase=Running \
+                              --sort-by=.metadata.creationTimestamp \
+                              -o jsonpath='{.items[-1:].metadata.name}')
+
+                            if [ -z "$BACKEND_POD" ]; then
+                                echo "❌ No running backend pod found for migrations"
+                                kubectl get pods -l app=backend -o wide || true
+                                exit 1
+                            fi
+
+                            echo "🗄️ Running migrations in pod: $BACKEND_POD"
                             kubectl exec "$BACKEND_POD" -- python manage.py migrate
                         '''
                     }
@@ -111,11 +133,21 @@ pipeline {
                 stage('Frontend Rollout') {
                     steps {
                         sh '''
+                            set -e
+                            export KUBECONFIG="$HOME/.kube/config"
+
                             echo "⏳ Waiting for frontend rollout..."
+                            if ! kubectl rollout status deployment/frontend --timeout=300s; then
+                                echo "❌ Frontend rollout timed out. Debug info:"
+                                kubectl get deployment frontend -o wide || true
+                                kubectl describe deployment frontend || true
+                                kubectl get rs -l app=frontend -o wide || true
+                                kubectl get pods -l app=frontend -o wide || true
+                                kubectl describe pods -l app=frontend || true
+                                exit 1
+                            fi
 
-                            export KUBECONFIG=$HOME/.kube/config
-
-                            kubectl rollout status deployment/frontend
+                            echo "✅ Frontend rollout completed"
                         '''
                     }
                 }
