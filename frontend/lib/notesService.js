@@ -209,6 +209,32 @@ export const notePurchaseAPI = {
   },
 };
 
+// ============= Note Ask AI APIs =============
+
+export const noteAIAPI = {
+  ask: async (noteId, data) => {
+    const response = await axiosInstance.post(`/api/notes/${noteId}/ask-ai/`, data);
+    return response.data;
+  },
+
+  getStatus: async (noteId) => {
+    const response = await axiosInstance.get(`/api/notes/${noteId}/ai-status/`);
+    return response.data;
+  },
+};
+
+export const noteAISubscriptionAPI = {
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/notes/ai-subscriptions/initiate_subscription/', data);
+    return response.data;
+  },
+
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/notes/ai-subscriptions/', { params });
+    return extractResults(response.data);
+  },
+};
+
 // ============= Note Access APIs =============
 
 export const noteAccessAPI = {
