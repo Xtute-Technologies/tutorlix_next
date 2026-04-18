@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+    }
+
     environment {
         DOCKER_CREDS = credentials('dockerhub')
         KUBE_CONFIG = credentials('kubeconfig')
@@ -14,21 +18,31 @@ pipeline {
             }
         }
 
-        stage('Build Images (NO CACHE)') {
-            steps {
-                sh '''
-                    echo "🚀 Building Docker images (no cache)..."
+        stage('Build Images') {
+            parallel {
+                stage('Build Backend') {
+                    steps {
+                        sh '''
+                            echo "🚀 Building backend image with cache..."
+                            docker build \
+                            --network=host \
+                            -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
+                            ./backend
+                        '''
+                    }
+                }
 
-                    docker build --no-cache \
-                    --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-backend:latest \
-                    ./backend
-
-                    docker build --no-cache \
-                    --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
-                    ./frontend
-                '''
+                stage('Build Frontend') {
+                    steps {
+                        sh '''
+                            echo "🚀 Building frontend image with cache..."
+                            docker build \
+                            --network=host \
+                            -t $DOCKER_CREDS_USR/tutorlix-frontend:latest \
+                            ./frontend
+                        '''
+                    }
+                }
             }
         }
 
@@ -105,12 +119,21 @@ pipeline {
 
                     export KUBECONFIG=$HOME/.kube/config
 
-                    kubectl rollout status deployment/backend
-
-                    BACKEND_POD=$(kubectl get pods -l app=backend -o jsonpath='{.items[0].metadata.name}')
+                    BACKEND_POD=$(kubectl get pods -l app=backend --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
 
                     if [ -z "$BACKEND_POD" ]; then
                         echo "❌ No backend pod found for migrations"
+                        exit 1
+                    fi
+
+                    if ! kubectl wait --for=condition=Ready pod/$BACKEND_POD --timeout=90s; then
+                        echo "❌ Backend pod did not become ready"
+                        echo "📋 Deployment description:"
+                        kubectl describe deployment/backend || true
+                        echo "📋 Pod description:"
+                        kubectl describe pod/$BACKEND_POD || true
+                        echo "📋 Backend logs:"
+                        kubectl logs $BACKEND_POD --tail=200 || true
                         exit 1
                     fi
 
@@ -120,15 +143,30 @@ pipeline {
         }
 
         stage('Rollout Wait') {
-            steps {
-                sh '''
-                    echo "⏳ Waiting for rollout..."
+            parallel {
+                stage('Wait Backend') {
+                    steps {
+                        sh '''
+                            echo "⏳ Waiting for backend rollout..."
 
-                    export KUBECONFIG=$HOME/.kube/config
+                            export KUBECONFIG=$HOME/.kube/config
 
-                    kubectl rollout status deployment/backend
-                    kubectl rollout status deployment/frontend
-                '''
+                            kubectl rollout status deployment/backend --timeout=90s
+                        '''
+                    }
+                }
+
+                stage('Wait Frontend') {
+                    steps {
+                        sh '''
+                            echo "⏳ Waiting for frontend rollout..."
+
+                            export KUBECONFIG=$HOME/.kube/config
+
+                            kubectl rollout status deployment/frontend --timeout=90s
+                        '''
+                    }
+                }
             }
         }
     }
