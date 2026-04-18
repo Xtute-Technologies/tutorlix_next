@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { profileTypeAPI } from '@/lib/lmsService';
+import { buildProfileHomeContent } from '@/app/data/homeContent';
 
 const ProfileContext = createContext(null);
 
 export function ProfileProvider({ children }) {
     const [profileType, setProfileType] = useState("");
     const [profileTypes, setProfileTypes] = useState([]);
+    const [activeProfile, setActiveProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -25,12 +27,14 @@ export function ProfileProvider({ children }) {
                     : (availableTypes[0]?.slug || "college");
 
                 setProfileType(nextProfile);
+                setActiveProfile(availableTypes.find((item) => item.slug === nextProfile) || null);
                 localStorage.setItem("tutorlix_profile", nextProfile);
             } catch (error) {
                 console.error("Failed to load profile types:", error);
                 setProfileTypes([]);
                 const fallback = localStorage.getItem("tutorlix_profile") || "college";
                 setProfileType(fallback);
+                setActiveProfile(null);
             } finally {
                 setLoading(false);
             }
@@ -39,13 +43,19 @@ export function ProfileProvider({ children }) {
         loadProfileTypes();
     }, []);
 
+    useEffect(() => {
+        setActiveProfile(profileTypes.find((item) => item.slug === profileType) || null);
+    }, [profileType, profileTypes]);
+
     const updateProfile = (type) => {
         setProfileType(type); // 🔥 THIS triggers re-render everywhere
         localStorage.setItem("tutorlix_profile", type);
     };
 
+    const activeHomeContent = buildProfileHomeContent(profileType, activeProfile?.home_content);
+
     return (
-        <ProfileContext.Provider value={{ profileType, profileTypes, loading, updateProfile }}>
+        <ProfileContext.Provider value={{ profileType, profileTypes, activeProfile, activeHomeContent, loading, updateProfile }}>
             {children}
         </ProfileContext.Provider>
     );

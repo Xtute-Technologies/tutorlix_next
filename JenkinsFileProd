@@ -1,43 +1,22 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
     environment {
         DOCKER_CREDS = credentials('dockerhub')
         KUBE_CONFIG = credentials('kubeconfig')
+        BACKEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-backend-prod:latest"
+        FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('🔥 Pre-Cleanup (Fix Node Pressure)') {
-            steps {
-                sh '''
-                    echo "💣 Cleaning Docker & system (prevent eviction)..."
-
-                    docker system prune -a -f || true
-                    docker volume prune -f || true
-                '''
-            }
-        }
-
-        stage('Build Images (NO CACHE)') {
-            steps {
-                sh '''
-                    echo "🚀 Building Docker images (no cache)..."
-
-                    docker build --no-cache --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-backend-prod:latest \
-                    ./backend
-
-                    docker build --no-cache --network=host \
-                    -t $DOCKER_CREDS_USR/tutorlix-frontend-prod:latest \
-                    ./frontend
-                '''
             }
         }
 
@@ -49,14 +28,37 @@ pipeline {
             }
         }
 
-        stage('Push Images') {
-            steps {
-                sh '''
-                    echo "📤 Pushing images..."
+        stage('Build And Push Images') {
+            parallel {
+                stage('Backend Image') {
+                    steps {
+                        sh '''
+                            echo "🚀 Building backend prod image..."
+                            docker build \
+                            --network=host \
+                            -t $BACKEND_IMAGE \
+                            ./backend
 
-                    docker push $DOCKER_CREDS_USR/tutorlix-backend-prod:latest
-                    docker push $DOCKER_CREDS_USR/tutorlix-frontend-prod:latest
-                '''
+                            echo "📤 Pushing backend prod image..."
+                            docker push $BACKEND_IMAGE
+                        '''
+                    }
+                }
+
+                stage('Frontend Image') {
+                    steps {
+                        sh '''
+                            echo "🚀 Building frontend prod image..."
+                            docker build \
+                            --network=host \
+                            -t $FRONTEND_IMAGE \
+                            ./frontend
+
+                            echo "📤 Pushing frontend prod image..."
+                            docker push $FRONTEND_IMAGE
+                        '''
+                    }
+                }
             }
         }
 
@@ -71,77 +73,70 @@ pipeline {
             }
         }
 
-        stage('🔥 Cluster Cleanup (Anti-Stuck Mode)') {
-            steps {
-                sh '''
-                    export KUBECONFIG=$HOME/.kube/config
-
-                    echo "💣 Cleaning bad pods..."
-
-                    # Remove completed/failed pods
-                    kubectl delete pod --field-selector=status.phase=Succeeded || true
-                    kubectl delete pod --field-selector=status.phase=Failed || true
-
-                    # Remove evicted pods
-                    kubectl get pods | grep Evicted | awk '{print $1}' | xargs -r kubectl delete pod || true
-
-                    # Force delete broken pods
-                    kubectl delete pod -l app=frontend-prod --force --grace-period=0 || true
-                    kubectl delete pod -l app=frontend --force --grace-period=0 || true
-                    kubectl delete pod -l app=backend --force --grace-period=0 || true
-                '''
-            }
-        }
-
         stage('Apply Kubernetes') {
             steps {
                 sh '''
-                    echo "📦 Applying Kubernetes manifests..."
-
                     export KUBECONFIG=$HOME/.kube/config
+
+                    echo "📦 Applying prod manifests..."
                     kubectl apply -k k8s/overlays/prod
                 '''
             }
         }
 
-        stage('🔥 Hard Refresh (LATEST FIX)') {
+        stage('Rollout Prod Deployments') {
             steps {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config
 
-                    echo "💣 Forcing fresh deployment..."
+                    echo "🔄 Updating deployment images..."
+                    kubectl set image deployment/backend-prod backend-prod=$BACKEND_IMAGE
+                    kubectl set image deployment/frontend-prod frontend-prod=$FRONTEND_IMAGE
 
-                    kubectl set image deployment/backend-prod backend-prod=$DOCKER_CREDS_USR/tutorlix-backend-prod:latest --record
-                    kubectl set image deployment/frontend-prod frontend-prod=$DOCKER_CREDS_USR/tutorlix-frontend-prod:latest --record
-
+                    echo "🔄 Restarting prod deployments..."
                     kubectl rollout restart deployment/backend-prod
                     kubectl rollout restart deployment/frontend-prod
-
-                    # Kill old pods
-                    kubectl delete pod -l app=backend-prod --force --grace-period=0 || true
-
-                    # Restart monitoring stack
-                    kubectl delete pod -l app=prometheus || true
-                    kubectl delete pod -l app=node-exporter || true
                 '''
             }
         }
 
-        stage('⏳ Wait for Stable State') {
-            steps {
-                sh '''
-                    export KUBECONFIG=$HOME/.kube/config
+        stage('Verify Deployments And Migrate') {
+            parallel {
+                stage('Backend Rollout And Migrate') {
+                    steps {
+                        sh '''
+                            export KUBECONFIG=$HOME/.kube/config
 
-                    echo "⏳ Waiting for backend..."
-                    kubectl rollout status deployment/backend-prod --timeout=120s
+                            echo "⏳ Waiting for backend-prod rollout..."
+                            kubectl rollout status deployment/backend-prod --timeout=180s
 
-                    echo "⏳ Waiting for frontend..."
-                    kubectl rollout status deployment/frontend-prod --timeout=120s
-                '''
+                            BACKEND_POD=$(kubectl get pods -l app=backend-prod --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
+
+                            if [ -z "$BACKEND_POD" ]; then
+                                echo "❌ No backend-prod pod found for migrations"
+                                exit 1
+                            fi
+
+                            echo "🗄️ Running migrations on $BACKEND_POD ..."
+                            kubectl exec "$BACKEND_POD" -- python manage.py migrate
+                        '''
+                    }
+                }
+
+                stage('Frontend Rollout') {
+                    steps {
+                        sh '''
+                            export KUBECONFIG=$HOME/.kube/config
+
+                            echo "⏳ Waiting for frontend-prod rollout..."
+                            kubectl rollout status deployment/frontend-prod --timeout=180s
+                        '''
+                    }
+                }
             }
         }
 
-        stage('🧪 Health Check') {
+        stage('Health Check') {
             steps {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config
@@ -151,12 +146,6 @@ pipeline {
 
                     echo "🔍 Services:"
                     kubectl get svc
-
-                    echo "🔍 Backend metrics test:"
-                    python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:31235/metrics').read().decode()[:200])" || echo "❌ Metrics failed"
-
-                    echo "🔍 Prometheus targets:"
-                    curl -s http://localhost:30090/targets | grep UP || true
                 '''
             }
         }
@@ -164,10 +153,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deploy successful 🚀 (cluster healthy)"
+            echo "✅ Prod deploy successful"
         }
         failure {
-            echo "❌ Deploy failed 💀 (check logs)"
+            echo "❌ Prod deploy failed"
         }
     }
 }

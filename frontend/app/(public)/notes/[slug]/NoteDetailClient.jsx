@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAuthModal } from "@/context/AuthModalContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import TutorlixRenderer from "@/components/notes/TutorlixRenderer";
+import AskAINoteCard from "@/components/notes/AskAINoteCard";
 import {
   ArrowLeft,
   User,
@@ -27,6 +28,7 @@ import {
   File,
   Image as ImageIcon,
   IndianRupee,
+  LogIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -41,6 +43,16 @@ export default function NoteDetailClient({ initialNote, slug }) {
   const isAuthenticated = !!user;
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const refreshNote = async () => {
+    if (!id) return;
+    try {
+      const data = await noteAPI.getPublicDetail(id);
+      setNote(data);
+    } catch (error) {
+      console.error("Failed to refresh note:", error);
+    }
+  };
 
   // --- 0. Data Fetching Logic (for Client-Side Only mode) ---
   useEffect(() => {
@@ -103,7 +115,7 @@ export default function NoteDetailClient({ initialNote, slug }) {
 
     setIsPurchasing(true);
     try {
-      const response = await notePurchaseAPI.create({ note: note.id });
+      const response = await notePurchaseAPI.create({ note_id: note.id });
 
       if (response.payment_link) {
         window.location.href = response.payment_link;
@@ -284,6 +296,11 @@ export default function NoteDetailClient({ initialNote, slug }) {
                   <Button className="w-full" variant="outline" onClick={handleShare}>
                     <Share2 className="mr-2 h-4 w-4" /> Share Note
                   </Button>
+                  {!isAuthenticated && (
+                    <Button className="w-full" variant="secondary" onClick={() => openAuthModal('login')}>
+                      <LogIn className="mr-2 h-4 w-4" /> Login
+                    </Button>
+                  )}
                   <p className="text-xs text-muted-foreground text-center">You have full access to this content.</p>
                 </div>
               ) : (
@@ -323,6 +340,17 @@ export default function NoteDetailClient({ initialNote, slug }) {
                       <>{isFree ? "Login to Enroll" : "Login to Purchase"}</>
                     )}
                   </Button>
+
+                  {!isAuthenticated && (
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="w-full font-semibold"
+                      onClick={() => openAuthModal('login')}
+                    >
+                      <LogIn className="mr-2 h-4 w-4" /> Login
+                    </Button>
+                  )}
 
                   {note.product_name && (
                     <div className="rounded-md bg-muted p-3 text-xs flex gap-2 items-start">
@@ -379,6 +407,7 @@ export default function NoteDetailClient({ initialNote, slug }) {
                 )}
 
                 <TutorlixRenderer content={note.content} />
+                <AskAINoteCard note={note} onSubscriptionActivated={refreshNote} />
               </>
             ) : (
               <div className="relative rounded-xl border bg-card p-12 text-center overflow-hidden">

@@ -35,6 +35,7 @@ class ProfileType(models.Model):
     slug = models.SlugField(unique=True, max_length=100)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
+    home_content = models.JSONField(default=dict, blank=True)
     order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

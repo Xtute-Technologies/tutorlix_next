@@ -64,6 +64,8 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
     creator: "", // Admin only
     price: "",
     discounted_price: "",
+    ask_ai_enabled: true,
+    ask_ai_monthly_price: "150",
     // access_duration_days: "",
     profileTypes: [],
     is_draft: true,
@@ -139,6 +141,11 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
         // payload.access_duration_days = formData.access_duration_days;
       }
     }
+
+    if (isAdmin) {
+      payload.ask_ai_enabled = !!formData.ask_ai_enabled;
+      payload.ask_ai_monthly_price = formData.ask_ai_monthly_price || "150";
+    }
     return payload;
   };
 
@@ -177,6 +184,8 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
           creator: (noteData.creator?.id || noteData.creator || "").toString(),
           price: noteData.price || "",
           discounted_price: noteData.discounted_price || "",
+          ask_ai_enabled: noteData.ask_ai_enabled ?? false,
+          ask_ai_monthly_price: noteData.ask_ai_monthly_price || "150",
           // access_duration_days: noteData.access_duration_days || "",
           is_draft: noteData.is_draft ?? true,
           profileTypes: noteData.profileTypes || [],
@@ -445,6 +454,16 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                 </div>
               </>
             )}
+
+            {isAdmin && formData.ask_ai_enabled && (
+              <>
+                <div className="h-8 w-px bg-border hidden sm:block" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Ask AI</span>
+                  <span className="font-medium text-foreground">₹{formData.ask_ai_monthly_price || 150}/month</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Attachments List */}
@@ -701,6 +720,36 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                     onChange={(e) => setFormData({ ...formData, access_duration_days: e.target.value })}
                   />
                 </div> */}
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-semibold">Ask AI Doubt Support</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enable a paid monthly AI doubt section on this note. Students must already have note access before subscribing.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!!formData.ask_ai_enabled}
+                    onCheckedChange={(checked) => setFormData({ ...formData, ask_ai_enabled: checked })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Monthly Price (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.ask_ai_monthly_price}
+                    onChange={(e) => setFormData({ ...formData, ask_ai_monthly_price: e.target.value })}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Default is ₹150/month. This price is stored per note and can be changed here.
+                  </p>
+                </div>
               </div>
             )}
           </div>
