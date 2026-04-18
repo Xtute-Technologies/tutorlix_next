@@ -98,8 +98,8 @@ export default function TeacherNotesPage() {
     [tabFilter, statusFilter, productFilter, refreshKey],
   );
 
-  const handleViewDetail = (id) => router.push(`/teacher/notes/${id}/preview`);
-  const handleEdit = (note) => router.push(`/teacher/notes/${note.id}`);
+  const handleViewDetail = (id) => router.push(`/teacher/notes/${note.slug}/preview`);
+  const handleEdit = (note) => router.push(`/teacher/notes/${note.slug}`);
   const handleCreate = () => router.push("/teacher/notes/new");
 
   const handleDeleteTrigger = (id) => {

@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function NotesPreview({ noteId, backPath }) {
+export default function NotesPreview({ noteId, slug, backPath }) {
   const router = useRouter();
   const [note, setNote] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -20,12 +20,16 @@ export default function NotesPreview({ noteId, backPath }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [noteData, attachmentsData] = await Promise.all([
-          noteAPI.getById(noteId),
-          noteAttachmentAPI.getAll(noteId)
-        ]);
-        setNote(noteData);
-        setAttachments(attachmentsData.results || attachmentsData);
+        // Fetch note first to get ID if slug is provided
+        const identifier = slug || noteId;
+        const data = await noteAPI.getById(identifier);
+        setNote(data);
+        
+        // Then fetch attachments using the confirmed ID
+        if (data?.id) {
+            const attachmentsData = await noteAttachmentAPI.getAll(data.id);
+            setAttachments(attachmentsData.results || attachmentsData);
+        }
       } catch (error) {
         console.error("Failed to load note preview:", error);
         toast.error("Failed to load note data");
@@ -35,10 +39,10 @@ export default function NotesPreview({ noteId, backPath }) {
       }
     };
 
-    if (noteId) {
+    if (slug) {
       fetchData();
     }
-  }, [noteId]);
+  }, [slug, noteId]);
 
   if (isLoading) {
     return (
@@ -226,7 +230,7 @@ export default function NotesPreview({ noteId, backPath }) {
         {/* Content Render */}
         <div className="min-h-[400px]">
              <TutorlixEditor
-                noteId={noteId}
+                noteId={note?.id}
                 initialContent={note.content} 
                 readOnly={true}
                 showPDFExport={true}

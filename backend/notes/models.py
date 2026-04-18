@@ -112,9 +112,51 @@ class Note(models.Model):
     )
     is_active = models.BooleanField(default=True)
     
+    # Profile Types
+    profileTypes = models.JSONField(default=list, blank=True)
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        from django.utils.text import slugify
+        from django.core.exceptions import ValidationError
+        
+        # Determine base slug (either from provided slug or title)
+        if self.slug:
+            base_slug = slugify(self.slug)[:200]
+        else:
+            base_slug = slugify(self.title)[:200]
+        
+        # Validation for slug: Minimum 4 characters, cannot be purely numeric
+        if len(base_slug) < 4:
+            # If generated from title, we might need to append random chars to meet length
+            # But if manually entered, let's just append random if strictly needed or error
+            # For simplicity, if title is short, we append 'note'
+             if len(base_slug) < 4:
+                 base_slug = f"{base_slug}-note"
+        
+        if base_slug.isdigit():
+             base_slug = f"n-{base_slug}"
+
+        slug = base_slug
+        counter = 1
+        
+        # Check if slug exists (exclude current object if updating)
+        qs = Note.objects.filter(slug=slug)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+            
+        while qs.exists():
+            slug = f"{base_slug}-{counter}"
+            qs = Note.objects.filter(slug=slug)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            counter += 1
+            
+        self.slug = slug
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.title} ({self.get_note_type_display()})"

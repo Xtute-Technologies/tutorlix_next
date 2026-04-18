@@ -24,8 +24,8 @@ export default function NoteDetailPage({ params }) {
     const fetchNote = async () => {
       try {
         setLoading(true);
-        const id = params.id;
-        const response = await axios.get(`/api/notes/${id}/`);
+        const slug = params.slug;
+        const response = await axios.get(`/api/notes/${slug}/`);
         setNote(response.data);
       } catch (err) {
         console.error("Error fetching note:", err);
@@ -35,10 +35,10 @@ export default function NoteDetailPage({ params }) {
       }
     };
 
-    if (params.id) {
+    if (params.slug) {
       fetchNote();
     }
-  }, [params.id]);
+  }, [params.slug]);
 
   const refreshNote = async () => {
     try {

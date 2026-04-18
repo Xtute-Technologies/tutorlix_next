@@ -1,35 +1,27 @@
 from rest_framework import viewsets, status, filters
-from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Sum
-from django.utils import timezone
-from datetime import timedelta
+from django.db.models import Q
 from django.contrib.auth import get_user_model
-import json
 import logging
-from ..payment import PaymentService
-from django.conf import settings
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 from ..models import (
-    Category, Product, ProductImage, Offer, CourseBooking,
+    CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage, Masterclass
+    Masterclass
 )
 from ..serializers import (
-    CategorySerializer, CategoryListSerializer,
-    ProductSerializer, ProductListSerializer, ProductImageSerializer,
-    OfferSerializer, CourseBookingSerializer, StudentSpecificClassSerializer, CourseSpecificClassSerializer,
-    RecordingSerializer, AttendanceSerializer, TestScoreSerializer, ExpenseSerializer, ContactFormMessageSerializer, MasterClassSerializer
+    StudentSpecificClassSerializer, CourseSpecificClassSerializer,
+    RecordingSerializer, AttendanceSerializer, TestScoreSerializer, MasterClassSerializer
 )
 from ..permissions import (
-    IsAdmin, IsAdminOrReadOnly, IsAdminOrTeacher, IsAdminOrTeacherOrReadOnly
+    IsAdminOrTeacher, IsAdminOrTeacherOrReadOnly
 )
 from rest_framework import serializers # Import serializers for ValidationError
 

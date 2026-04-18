@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 
-export default function NoteDetailClient({ initialNote, id }) {
+export default function NoteDetailClient({ initialNote, slug }) {
   const router = useRouter();
   const { openAuthModal } = useAuthModal();
   const { user, loading: authLoading } = useAuth();
@@ -56,12 +56,12 @@ export default function NoteDetailClient({ initialNote, id }) {
 
   // --- 0. Data Fetching Logic (for Client-Side Only mode) ---
   useEffect(() => {
-    if (!note && id) {
+    if (!note && slug) {
       const fetchNote = async () => {
         try {
           // Use public_detail endpoint to ensure we get data even if not logged in
           // or if the note is protected (so we can show the "Locked" UI)
-          const data = await noteAPI.getPublicDetail(id);
+          const data = await noteAPI.getPublicDetail(slug);
           setNote(data);
         } catch (error) {
           console.error("Failed to fetch note:", error);
@@ -72,7 +72,7 @@ export default function NoteDetailClient({ initialNote, id }) {
       
       fetchNote();
     }
-  }, [id, note]);
+  }, [note, slug]);
 
   // --- 1. Auth & Redirection Logic ---
   useEffect(() => {
@@ -80,22 +80,22 @@ export default function NoteDetailClient({ initialNote, id }) {
        // Role-based redirection preference
        if (user.role === 'student') {
           setIsRedirecting(true);
-          router.replace(`/student/notes/${id}`);
+          router.replace(`/student/notes/${slug}`);
           return;
        }
        // Teacher Viewing Public Page: Do NOT redirect (as per requirement)
        /* if (user.role === 'teacher') {
           setIsRedirecting(true);
-          router.replace(`/teacher/notes/${id}`);
+          router.replace(`/teacher/notes/${slug}`);
           return; 
        } */
        if (user.role === 'admin') {
           setIsRedirecting(true);
-          router.replace(`/admin/notes/${id}`);
+          router.replace(`/admin/notes/${slug}`);
           return; 
        }
     }
-  }, [id, user, authLoading, router]);
+  }, [slug, user, authLoading, router]);
 
   if (isRedirecting) {
     return (
@@ -122,7 +122,7 @@ export default function NoteDetailClient({ initialNote, id }) {
       } else {
         toast.success("Access granted!");
         // Refresh note data to get access update
-        const updated = await noteAPI.getById(id);
+        const updated = await noteAPI.getById(slug);
         setNote(updated);
       }
     } catch (error) {
@@ -143,7 +143,7 @@ export default function NoteDetailClient({ initialNote, id }) {
     try {
       await noteAPI.enroll(note.id);
       toast.success("Enrolled successfully!");
-      const updated = await noteAPI.getById(id);
+      const updated = await noteAPI.getById(slug);
       setNote(updated);
     } catch (error) {
       console.error("Enrollment error:", error);

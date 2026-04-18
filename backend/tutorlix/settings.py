@@ -267,6 +267,7 @@ REST_AUTH = {
     'LOGIN_SERIALIZER': 'accounts.serializers.CustomLoginSerializer',
     'SESSION_LOGIN': False,  # Disable session-based auth (use JWT only)
     'PASSWORD_RESET_SERIALIZER': 'accounts.serializers.CustomPasswordResetSerializer',
+    'PASSWORD_RESET_CONFIRM_SERIALIZER': 'accounts.serializers.PasswordResetConfirmSerializer',
 }
 
 

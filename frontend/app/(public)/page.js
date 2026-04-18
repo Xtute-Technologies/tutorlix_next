@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { categoryAPI, productAPI } from '@/lib/lmsService';
+import { publicNoteAPI } from '@/lib/notesService';
 import { Loader2 } from 'lucide-react';
 import { useProfile } from "@/context/ProfileContext";
 
@@ -9,6 +10,7 @@ import { useProfile } from "@/context/ProfileContext";
 import HomeHero from '@/components/home/HomeHero';
 import HomeLearningHub from '@/components/home/HomeLearningHub';
 import HomeCourses from '@/components/home/HomeCourses';
+import HomeNotes from '@/components/home/HomeNotes';
 import HomeBenefits from '@/components/home/HomeBenefits';
 import HomeAbout from '@/components/home/HomeAbout';
 import HomeTestimonials from '@/components/home/HomeTestimonials';
@@ -20,10 +22,12 @@ export default function HomePage() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [notes, setNotes] = useState([]);
   
   // Loaders
   const [initialLoading, setInitialLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(false);
 
   // 1. Fetch Categories
   useEffect(() => {
@@ -73,6 +77,27 @@ export default function HomePage() {
     fetchProducts();
   }, [activeCategory, profileType]);
 
+  // 3. Fetch Notes (Filtered by Profile Type)
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        setNotesLoading(true);
+        const params = {
+          page_size: 4, // Just a few for the home page
+          profile_type: profileType,
+          ordering: '-created_at' // Show latest
+        };
+        const response = await publicNoteAPI.browse(params);
+        setNotes(response.results || []);
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+    fetchNotes();
+  }, [profileType]);
+
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -94,6 +119,11 @@ export default function HomePage() {
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
         loading={productsLoading}
+      />
+
+      <HomeNotes 
+        notes={notes}
+        loading={notesLoading}
       />
 
       <HomeBenefits />

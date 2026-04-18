@@ -71,8 +71,8 @@ export default function NoteEnrollmentsList({
             };
             // Dynamic link based on current view/role - Pointing to PREVIEW
             const link = userRole === 'admin' 
-                ? `/admin/notes/${noteData.id}/preview` 
-                : `/teacher/notes/${noteData.id}/preview`;
+                ? `/admin/notes/${noteData.slug}/preview` 
+                : `/teacher/notes/${noteData.slug}/preview`;
             
             return (
               <NoteHoverCard note={noteData} linkHref={link}>
