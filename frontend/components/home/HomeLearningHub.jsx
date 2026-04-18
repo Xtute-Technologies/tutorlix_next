@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 export default function HomeLearningHub({ products = [] }) {
-  const { profileType } = useProfile();
+  const { profileType, activeHomeContent } = useProfile();
   const isSchoolProfile = profileType === 'school';
+  const questionBanksUrl = activeHomeContent?.navigation?.question_banks_url || '/question-banks';
+  const questionBanksLabel = activeHomeContent?.navigation?.question_banks_label || 'Question Banks';
   const featuredCourses = products.slice(0, 3);
   const [questionBankCourses, setQuestionBankCourses] = useState([]);
 
@@ -37,7 +39,7 @@ export default function HomeLearningHub({ products = [] }) {
           <Card className="overflow-hidden border-slate-200 shadow-xl">
             <div className="bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.18),_transparent_40%),linear-gradient(135deg,#f8fbff_0%,#eef4ff_50%,#ffffff_100%)] p-5 md:p-6">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-slate-900 text-white hover:bg-slate-900">Question Bank</Badge>
+                <Badge className="bg-slate-900 text-white hover:bg-slate-900">{questionBanksLabel}</Badge>
                 <Badge variant="outline">Class 11</Badge>
                 <Badge variant="secondary">IB Mathematics</Badge>
               </div>
@@ -53,9 +55,9 @@ export default function HomeLearningHub({ products = [] }) {
 
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button asChild className="gap-2">
-                  <Link href="/question-bank">
+                  <Link href={questionBanksUrl}>
                     <Search className="h-4 w-4" />
-                    Explore Question Bank
+                    Explore {questionBanksLabel}
                   </Link>
                 </Button>
                 <Button asChild variant="outline">

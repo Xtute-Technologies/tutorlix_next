@@ -131,7 +131,7 @@ class CategoryListSerializer(serializers.ModelSerializer):
 class ProfileTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfileType
-        fields = ['id', 'slug', 'title', 'description', 'order', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'slug', 'title', 'description', 'home_content', 'order', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 

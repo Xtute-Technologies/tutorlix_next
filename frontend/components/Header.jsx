@@ -13,8 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Sparkles, Repeat, LogIn, ShoppingBag, House } from "lucide-react";
-import { useEffect, useState } from "react";
+import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Repeat, LogIn, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ProfileTypeModal from "@/components/ProfileTypeModal";
 import { useProfile } from "@/context/ProfileContext";
 
@@ -22,7 +22,7 @@ export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const { updateProfile, profileTypes, loading: profileLoading } = useProfile();
+  const { updateProfile, profileType, profileTypes, activeHomeContent, loading: profileLoading } = useProfile();
 
   useEffect(() => {
     const profile = localStorage.getItem("tutorlix_profile");
@@ -39,15 +39,56 @@ export default function Header() {
   const userInitials = user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || user.username?.[0] || "U"}`.toUpperCase() : "G";
 
   const isActive = (path) => pathname === path;
-
-  const navLinks = [
-    { href: "/", label: "Home", public: true },
-    { href: "/courses", label: "Live Classes", public: true },
-    { href: "/notes", label: "Notes", public: true },
-    { href: "/masterclass", label: "Masterclass", public: true },
-    { href: "/dashboard", label: "Dashboard", auth: true },
-    { href: "/contact", label: "Contact", public: true },
+  const navigationContent = activeHomeContent?.navigation || {};
+  const tutorialTopics = Array.isArray(activeHomeContent?.tutorials) ? activeHomeContent.tutorials : [];
+  const subnavRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const questionBanksLink = {
+    href: navigationContent.question_banks_url || "/question-banks",
+    label: navigationContent.question_banks_label || "Question Banks",
+  };
+  const fallbackPrimaryLinks = [
+    { label: "Home", url: "/", visibility: "public" },
+    { label: "Live Classes", url: "/courses", visibility: "public" },
+    { label: questionBanksLink.label, url: questionBanksLink.href, visibility: "public" },
+    { label: "Notes", url: "/notes", visibility: "public" },
+    { label: "Masterclass", url: "/masterclass", visibility: "public" },
+    { label: "Contact", url: "/contact", visibility: "public" },
   ];
+
+  const navLinks = useMemo(() => {
+    const links = Array.isArray(navigationContent.primary_links) && navigationContent.primary_links.length > 0
+      ? navigationContent.primary_links
+      : fallbackPrimaryLinks;
+
+    return links.filter((link) => {
+      const visibility = link.visibility || "public";
+      if (visibility === "auth") return !!user;
+      if (visibility === "both") return true;
+      return true;
+    });
+  }, [navigationContent.primary_links, fallbackPrimaryLinks, user]);
+
+  const updateScrollState = () => {
+    const el = subnavRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const handleResize = () => updateScrollState();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [tutorialTopics, profileType, pathname]);
+
+  const scrollSubnav = (direction) => {
+    const el = subnavRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * 260, behavior: "smooth" });
+  };
 
   // Role-based navigation
   const roleBasedLinks = {
@@ -71,12 +112,12 @@ export default function Header() {
         {/* --- DESKTOP NAVIGATION --- */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => {
-            if (link.public || (link.auth && user)) {
+            if (link.url) {
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`text-sm font-medium transition-colors hover:text-slate-900 ${isActive(link.href) ? "text-slate-900 font-semibold" : "text-slate-600"
+                  key={`${link.url}-${link.label}`}
+                  href={link.url}
+                  className={`text-sm font-medium transition-colors hover:text-slate-900 ${isActive(link.url) ? "text-slate-900 font-semibold" : "text-slate-600"
                     }`}>
                   {link.label}
                 </Link>
@@ -188,10 +229,10 @@ export default function Header() {
               
               {/* Standard Nav Links */}
               {navLinks.map((link) => {
-                if (link.public || (link.auth && user)) {
+                if (link.url) {
                   return (
-                    <DropdownMenuItem key={link.href} asChild>
-                      <Link href={link.href} className="cursor-pointer font-medium">
+                    <DropdownMenuItem key={`${link.url}-${link.label}`} asChild>
+                      <Link href={link.url} className="cursor-pointer font-medium">
                         {link.label}
                       </Link>
                     </DropdownMenuItem>
@@ -248,6 +289,55 @@ export default function Header() {
           </DropdownMenu>
         </div>
       </div>
+
+      {navigationContent.tutorials_enabled && tutorialTopics.length > 0 && (
+        <div className="border-t border-slate-200/80 bg-[#1d2a35] text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => scrollSubnav(-1)}
+                className={`absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-r-md bg-[#0f1720]/90 px-2 py-2 text-slate-200 shadow-lg md:block ${canScrollLeft ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                aria-label="Scroll tutorials left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div
+                ref={subnavRef}
+                onScroll={updateScrollState}
+                className="flex gap-1 overflow-x-auto scroll-smooth whitespace-nowrap scrollbar-none md:px-10"
+              >
+                {tutorialTopics.map((topic) => {
+                  const href = `/tutorial/${topic.slug}`;
+                  const active = pathname === href;
+
+                  return (
+                    <Link
+                      key={topic.slug}
+                      href={href}
+                      className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
+                        active
+                          ? "border-emerald-400 bg-[#263543] text-white"
+                          : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
+                      }`}
+                    >
+                      {topic.title}
+                    </Link>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => scrollSubnav(1)}
+                className={`absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-l-md bg-[#0f1720]/90 px-2 py-2 text-slate-200 shadow-lg md:block ${canScrollRight ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                aria-label="Scroll tutorials right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <ProfileTypeModal
         open={showProfileModal}

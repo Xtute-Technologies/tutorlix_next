@@ -2,11 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { useProfile } from "@/context/ProfileContext";
-import { benefitsData } from "@/app/data/homeContent";
+import { HOME_ICON_MAP } from "@/app/data/homeContent";
 
 export default function HomeBenefits() {
-  const { profileType } = useProfile();
-  const activeBenefits = benefitsData[profileType] || benefitsData.college;
+  const { activeHomeContent } = useProfile();
+  const activeBenefits = activeHomeContent?.benefits || {};
+  const benefitItems = Array.isArray(activeBenefits.items) ? activeBenefits.items : [];
 
   return (
     <section className="py-12 bg-white overflow-hidden border-t border-slate-100">
@@ -30,8 +31,8 @@ export default function HomeBenefits() {
           }}
           className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6"
         >
-          {activeBenefits.items.map((benefit, index) => {
-            const Icon = benefit.icon;
+          {benefitItems.map((benefit, index) => {
+            const Icon = HOME_ICON_MAP[benefit.icon] || HOME_ICON_MAP.users;
             return (
               <motion.div
                 key={index}

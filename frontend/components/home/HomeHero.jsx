@@ -3,13 +3,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Check, Sparkles, Search, Plus } from "lucide-react";
+import { CheckCircle2, Check, Sparkles, Plus } from "lucide-react";
 import DotGrid from "@/components/DotGrid";
 import { useProfile } from "@/context/ProfileContext";
 import { z } from "zod";
 import FormBuilder from "@/components/FormBuilder";
 import { productLeadAPI } from "@/lib/lmsService";
-import { profileContent } from "@/app/data/homeContent";
 
 // Shadcn UI components for the "More" menu
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -38,13 +37,13 @@ const PROFILE_INTERESTS = {
 };
 
 export default function HomeHero({ categories = [] }) {
-  const { profileType } = useProfile();
+  const { profileType, activeHomeContent } = useProfile();
   const [open, setOpen] = useState(false);
   const [selectedInterest, setSelectedInterest] = useState("");
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
 
-  const activeProfile = profileContent[profileType] || profileContent.college;
+  const heroContent = activeHomeContent?.hero || {};
 
   const finalInterests = useMemo(() => {
     if (categories && categories.length > 0) return categories;
@@ -55,13 +54,10 @@ export default function HomeHero({ categories = [] }) {
   const MAX_VISIBLE = 3;
   const visibleCategories = finalInterests.slice(0, MAX_VISIBLE);
   const remainingCategories = finalInterests.slice(MAX_VISIBLE);
-  const quickPrograms = [
-    "IB MYP",
-    "IBDP Maths",
-    "IGCSE Maths",
-    "AP Calculus AB/BC",
-    "SAT Maths",
-  ];
+  const quickPrograms = Array.isArray(heroContent.quick_programs) ? heroContent.quick_programs : [];
+  const heroBullets = Array.isArray(heroContent.bullets) ? heroContent.bullets : [];
+  const heroStats = Array.isArray(heroContent.stats) ? heroContent.stats : [];
+  const heroCta = heroContent.cta || "Submit";
 
   useEffect(() => {
     setSelectedInterest("");
@@ -121,20 +117,22 @@ export default function HomeHero({ categories = [] }) {
         <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-8 items-start">
           {/* Left Content */}
           <div className="space-y-5">
-            <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{activeProfile.tag}</p>
-            <h1 className="text-2xl md:text-4xl font-extrabold leading-tight">{activeProfile.headline}</h1>
-            <div className="flex flex-wrap gap-2">
-              {quickPrograms.map((program) => (
-                <span
-                  key={program}
-                  className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-medium text-slate-100"
-                >
-                  {program}
-                </span>
-              ))}
-            </div>
+            <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{heroContent.tag}</p>
+            <h1 className="text-2xl md:text-4xl font-extrabold leading-tight whitespace-pre-line">{heroContent.headline}</h1>
+            {quickPrograms.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {quickPrograms.map((program) => (
+                  <span
+                    key={program}
+                    className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-medium text-slate-100"
+                  >
+                    {program}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
-              {activeProfile.bullets.map((text, i) => (
+              {heroBullets.map((text, i) => (
                 <div key={i} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/5 p-3">
                   <CheckCircle2 className="h-5 w-5 text-green-400 mt-0.5" />
                   <p className="text-sm md:text-base text-slate-200">{text}</p>
@@ -142,18 +140,12 @@ export default function HomeHero({ categories = [] }) {
               ))}
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
-                <div className="text-xl font-bold text-white">1:1</div>
-                <div className="mt-1 text-xs text-slate-300">Online classes</div>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
-                <div className="text-xl font-bold text-white">Live</div>
-                <div className="mt-1 text-xs text-slate-300">Doubt solving</div>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
-                <div className="text-xl font-bold text-white">Exam</div>
-                <div className="mt-1 text-xs text-slate-300">Focused plans</div>
-              </div>
+              {heroStats.slice(0, 3).map((stat, index) => (
+                <div key={`${stat.value}-${index}`} className="rounded-2xl border border-white/8 bg-white/5 p-3 text-center">
+                  <div className="text-xl font-bold text-white">{stat.value}</div>
+                  <div className="mt-1 text-xs text-slate-300">{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -162,7 +154,7 @@ export default function HomeHero({ categories = [] }) {
             <Card className="border-0 shadow-2xl bg-white text-slate-900 rounded-2xl overflow-hidden">
               <CardHeader className="bg-slate-50/50 py-4">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-600" /> Start your journey
+                  <Sparkles className="h-4 w-4 text-blue-600" /> {heroContent.lead_title}
                 </CardTitle>
               </CardHeader>
 
@@ -172,9 +164,9 @@ export default function HomeHero({ categories = [] }) {
                     <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full mx-auto flex items-center justify-center mb-4">
                       <Check />
                     </div>
-                    <h3 className="font-bold">Sent!</h3>
+                    <h3 className="font-bold">{heroContent.lead_success_title}</h3>
                     <Button variant="link" onClick={() => setLeadSuccess(false)}>
-                      Send another
+                      {heroContent.lead_success_cta}
                     </Button>
                   </div>
                 ) : (
@@ -242,9 +234,9 @@ export default function HomeHero({ categories = [] }) {
                       fields={leadFields}
                       validationSchema={leadSchema}
                       onSubmit={handleLeadSubmit}
-                      submitLabel={activeProfile.cta}
+                      submitLabel={heroCta}
                       isSubmitting={submittingLead}
-                      submitButton={{ text: activeProfile.cta, loadingText: "Submitting..." }}
+                      submitButton={{ text: heroCta, loadingText: "Submitting..." }}
                     />
                   </>
                 )}

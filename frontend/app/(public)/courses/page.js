@@ -17,7 +17,9 @@ function CoursesContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { profileType } = useProfile();
+  const { profileType, activeHomeContent } = useProfile();
+  const questionBanksUrl = activeHomeContent?.navigation?.question_banks_url || '/question-banks';
+  const questionBanksLabel = activeHomeContent?.navigation?.question_banks_label || 'Question Bank';
 
   // --- State ---
   const [products, setProducts] = useState([]);
@@ -163,7 +165,7 @@ function CoursesContent() {
                 </p>
               </div>
               <Button asChild>
-                <Link href="/question-bank">Open Question Bank</Link>
+                <Link href={questionBanksUrl}>Open {questionBanksLabel}</Link>
               </Button>
             </CardContent>
           </Card>
