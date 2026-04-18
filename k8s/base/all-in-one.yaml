@@ -12,6 +12,13 @@ spec:
       labels:
         app: backend
     spec:
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: backend
           image: ankitvashishta7/tutorlix-backend:latest
@@ -48,6 +55,13 @@ spec:
       labels:
         app: frontend
     spec:
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: frontend
           image: ankitvashishta7/tutorlix-frontend:latest
