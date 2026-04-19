@@ -300,29 +300,29 @@ class RecordingViewSet(viewsets.ModelViewSet):
         """Add multiple students to a recording"""
         recording = self.get_object()
         student_ids = request.data.get('student_ids', [])
-        
-    def perform_create(self, serializer):
-        user = self.request.user
-        if user.role == 'teacher':
-             serializer.save(teacher=user)
-        else:
-            serializer.save()
-        
+
         if not student_ids:
             return Response(
                 {'error': 'student_ids is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         from django.contrib.auth import get_user_model
         User = get_user_model()
         students = User.objects.filter(id__in=student_ids, role='student')
-        
+
         recording.students.add(*students)
-        
+
         serializer = self.get_serializer(recording)
         return Response(serializer.data)
-    
+        
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'teacher':
+            serializer.save(teacher=user)
+        else:
+            serializer.save()
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsAdminOrTeacher])
     def remove_students(self, request, pk=None):
         """Remove multiple students from a recording"""
@@ -459,4 +459,3 @@ class TestScoreViewSet(viewsets.ModelViewSet):
                  serializer.save()
         else:
             serializer.save()
-
