@@ -241,6 +241,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         if note_type == 'course_specific':
             extra_data['price'] = 0
             extra_data['discounted_price'] = None
+            extra_data['is_draft'] = False
         elif note_type == 'individual':
             extra_data['product'] = None
 
@@ -302,6 +303,9 @@ class NoteViewSet(viewsets.ModelViewSet):
         if final_note_type == 'course_specific' or final_privacy != 'purchaseable':
             extra_data['price'] = 0
             extra_data['discounted_price'] = None
+
+        if final_note_type == 'course_specific':
+            extra_data['is_draft'] = False
             
         # 5. Clean product link if individual
         if final_note_type == 'individual':
