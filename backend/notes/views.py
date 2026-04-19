@@ -157,7 +157,11 @@ class NoteViewSet(viewsets.ModelViewSet):
             active_products = CourseBooking.objects.filter(
                 student=user,
                 payment_status='paid',
-                # student_status='active'
+            ).exclude(
+                student_status__in=['inactive', 'cancelled']
+            ).filter(
+                Q(course_expiry_date__isnull=True) |
+                Q(course_expiry_date__gte=timezone.localdate())
             ).values_list('product_id', flat=True)
             
             course_notes = Q(
