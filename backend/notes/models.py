@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.utils import timezone
@@ -195,7 +196,11 @@ class Note(models.Model):
                 student=user,
                 product=self.product,
                 payment_status='paid',
-                student_status='active'
+            ).exclude(
+                student_status__in=['inactive', 'cancelled']
+            ).filter(
+                Q(course_expiry_date__isnull=True) |
+                Q(course_expiry_date__gte=timezone.localdate())
             ).exists()
             return has_active_booking
         
@@ -257,7 +262,7 @@ class Note(models.Model):
             return True
         if getattr(user, 'role', None) != 'student':
             return False
-        return self.can_user_access(user) and self.has_active_ai_subscription(user)
+        return self.has_active_ai_subscription(user)
     
     class Meta:
         ordering = ['-created_at']

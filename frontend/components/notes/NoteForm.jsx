@@ -121,9 +121,8 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
       description: formData.description,
       content: formData.content,
       note_type: formData.note_type,
-      is_draft: formData.is_draft,
+      is_draft: formData.note_type === "course_specific" ? false : formData.is_draft,
       profileTypes: formData.profileTypes,
-      is_draft: formData.is_draft,
     };
 
     if (isAdmin && formData.creator) {
@@ -147,6 +146,14 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
       payload.ask_ai_monthly_price = formData.ask_ai_monthly_price || "150";
     }
     return payload;
+  };
+
+  const handleNoteTypeChange = (value) => {
+    setFormData((prev) => ({
+      ...prev,
+      note_type: value,
+      is_draft: value === "course_specific" ? false : prev.is_draft,
+    }));
   };
 
   const loadInitialData = async () => {
@@ -301,19 +308,24 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2 bg-muted/30 rounded-full px-3 py-1">
               <Switch
-                checked={!formData.is_draft}
-                onCheckedChange={(c) => setFormData({ ...formData, is_draft: !c })}
+                checked={formData.note_type === "course_specific" ? true : !formData.is_draft}
+                onCheckedChange={(c) => {
+                  if (formData.note_type === "course_specific") return;
+                  setFormData({ ...formData, is_draft: !c });
+                }}
                 className="scale-75 data-[state=checked]:bg-green-500"
               />
               <span
                 className={cn(
                   "text-[10px] font-bold uppercase tracking-widest transition-colors",
-                  formData.is_draft ? "text-muted-foreground" : "text-green-600",
+                  (formData.note_type === "course_specific" ? false : formData.is_draft)
+                    ? "text-muted-foreground"
+                    : "text-green-600",
                 )}>
-                {formData.is_draft ? "Draft" : "Published"}
+                {formData.note_type === "course_specific" || !formData.is_draft ? "Published" : "Draft"}
               </span>
             </div>
 
@@ -630,7 +642,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Classification</Label>
-                <Select value={formData.note_type} onValueChange={(v) => setFormData({ ...formData, note_type: v })}>
+                <Select value={formData.note_type} onValueChange={handleNoteTypeChange}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -729,7 +741,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                   <div className="space-y-1">
                     <Label className="text-sm font-semibold">Ask AI Doubt Support</Label>
                     <p className="text-[11px] text-muted-foreground">
-                      Enable a paid monthly AI doubt section on this note. Students must already have note access before subscribing.
+                      Enable a paid monthly AI doubt section on this note. The Ask AI button appears on every note page, and admins can override the default ₹150/month price per note.
                     </p>
                   </div>
                   <Switch
