@@ -262,7 +262,7 @@ class Note(models.Model):
             return True
         if getattr(user, 'role', None) != 'student':
             return False
-        return self.can_user_access(user) and self.has_active_ai_subscription(user)
+        return self.has_active_ai_subscription(user)
     
     class Meta:
         ordering = ['-created_at']

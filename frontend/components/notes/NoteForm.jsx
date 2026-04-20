@@ -741,7 +741,7 @@ export default function NoteForm({ basePath = "/teacher/notes", isAdmin = false 
                   <div className="space-y-1">
                     <Label className="text-sm font-semibold">Ask AI Doubt Support</Label>
                     <p className="text-[11px] text-muted-foreground">
-                      Enable a paid monthly AI doubt section on this note. Students must already have note access before subscribing.
+                      Enable a paid monthly AI doubt section on this note. The Ask AI button appears on every note page, and admins can override the default ₹150/month price per note.
                     </p>
                   </div>
                   <Switch

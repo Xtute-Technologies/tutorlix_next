@@ -45,9 +45,9 @@ export default function NoteDetailClient({ initialNote, slug }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const refreshNote = async () => {
-    if (!id) return;
+    if (!slug) return;
     try {
-      const data = await noteAPI.getPublicDetail(id);
+      const data = await noteAPI.getPublicDetail(slug);
       setNote(data);
     } catch (error) {
       console.error("Failed to refresh note:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { use, useEffect, useState } from "react";
 import axios from "@/lib/axios";
 import { Loader2, ArrowLeft, Download, FileText, Lock, Clock, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import AskAINoteCard from "@/components/notes/AskAINoteCard";
 import { format } from "date-fns";
 
 export default function NoteDetailPage({ params }) {
+  const { slug } = use(params);
   const router = useRouter();
   const [note, setNote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +25,6 @@ export default function NoteDetailPage({ params }) {
     const fetchNote = async () => {
       try {
         setLoading(true);
-        const slug = params.slug;
         const response = await axios.get(`/api/notes/${slug}/`);
         setNote(response.data);
       } catch (err) {
@@ -35,14 +35,14 @@ export default function NoteDetailPage({ params }) {
       }
     };
 
-    if (params.slug) {
+    if (slug) {
       fetchNote();
     }
-  }, [params.slug]);
+  }, [slug]);
 
   const refreshNote = async () => {
     try {
-      const response = await axios.get(`/api/notes/${params.id}/`);
+      const response = await axios.get(`/api/notes/${slug}/`);
       setNote(response.data);
     } catch (err) {
       console.error("Error refreshing note:", err);

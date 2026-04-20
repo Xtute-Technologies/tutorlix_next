@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import timedelta
+import uuid
 from rest_framework import viewsets, status, filters
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -349,7 +350,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=True, methods=['get'])
-    def check_access(self, request, pk=None):
+    def check_access(self, request, pk=None, slug=None):
         """
         Check if current user can access this note
         Endpoint: /api/notes/{id}/check_access/
@@ -376,7 +377,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=True, methods=['get'], permission_classes=[AllowAny], url_path='ai-status')
-    def ai_status(self, request, pk=None):
+    def ai_status(self, request, pk=None, slug=None):
         note = self.get_object()
         user = request.user
         subscription = note.get_active_ai_subscription(user) if user.is_authenticated else None
@@ -390,7 +391,7 @@ class NoteViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated], url_path='ask-ai')
-    def ask_ai(self, request, pk=None):
+    def ask_ai(self, request, pk=None, slug=None):
         note = self.get_object()
         user = request.user
 
@@ -403,12 +404,6 @@ class NoteViewSet(viewsets.ModelViewSet):
         if user.role != 'student':
             return Response(
                 {'error': 'Only students can use Ask AI for notes.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        if not note.can_user_access(user):
-            return Response(
-                {'error': 'Get note access before using Ask AI.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -957,12 +952,6 @@ class NoteAISubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if not note.can_user_access(user):
-            return Response(
-                {'error': 'Get note access before subscribing to Ask AI.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         active_subscription = note.get_active_ai_subscription(user)
         if active_subscription:
             return Response(
@@ -1022,9 +1011,35 @@ class NoteAISubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='details_public/(?P<uuid>[^/.]+)')
     def get_payment_details(self, request, uuid=None):
+        raw_uuid = (uuid or '').strip()
+        subscription = None
+
         try:
-            subscription = NoteAISubscription.objects.select_related('note', 'student').get(subscription_id=uuid)
-        except NoteAISubscription.DoesNotExist:
+            subscription = NoteAISubscription.objects.select_related('note', 'student').get(subscription_id=raw_uuid)
+        except (NoteAISubscription.DoesNotExist, ValueError):
+            subscription = None
+
+        if subscription is None and raw_uuid:
+            try:
+                normalized_uuid = str(uuid.UUID(raw_uuid))
+                subscription = NoteAISubscription.objects.select_related('note', 'student').filter(
+                    subscription_id=normalized_uuid
+                ).first()
+            except (ValueError, AttributeError):
+                subscription = None
+
+        if subscription is None and raw_uuid and raw_uuid.isdigit():
+            try:
+                subscription = NoteAISubscription.objects.select_related('note', 'student').get(pk=raw_uuid)
+            except NoteAISubscription.DoesNotExist:
+                subscription = None
+
+        if subscription is None and raw_uuid:
+            subscription = NoteAISubscription.objects.select_related('note', 'student').filter(
+                payment_link__icontains=raw_uuid
+            ).first()
+
+        if subscription is None:
             return Response({'error': 'Subscription not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         if subscription.is_active():
