@@ -7,3 +7,4 @@ from .video_views import *
 from .reel_views import *
 from .question_bank_views import *
 from .profile_type_views import *
+from .forum_views import *

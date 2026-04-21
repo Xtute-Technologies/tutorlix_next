@@ -126,11 +126,11 @@ export default function HomePage() {
         loading={notesLoading}
       />
 
+      <HomeTestimonials />
+
       <HomeBenefits />
 
       <HomeAbout />
-
-      <HomeTestimonials />
 
     </div>
   );

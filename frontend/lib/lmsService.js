@@ -237,6 +237,53 @@ export const questionBankQuestionAPI = {
   },
 };
 
+export const forumAPI = {
+  list: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/forum-posts/', { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/forum-posts/${id}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/forum-posts/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/forum-posts/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/forum-posts/${id}/`);
+    return response.data;
+  },
+
+  mine: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/forum-posts/mine/', { params });
+    return response.data;
+  },
+
+  toggleLike: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/forum-posts/${id}/toggle-like/`);
+    return response.data;
+  },
+
+  getComments: async (id, params = {}) => {
+    const response = await axiosInstance.get(`/api/lms/forum-posts/${id}/comments/`, { params });
+    return response.data;
+  },
+
+  createComment: async (id, data) => {
+    const response = await axiosInstance.post(`/api/lms/forum-posts/${id}/comments/`, data);
+    return response.data;
+  },
+};
+
 // ============= Offer APIs =============
 
 export const offerAPI = {

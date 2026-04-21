@@ -1,13 +1,14 @@
 from decimal import Decimal
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from accounts.serializers import SimpleUserSerializer
+from accounts.serializers import PublicUserSerializer, SimpleUserSerializer
 from .models import (
     Category, ProfileType, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore,
-    Expense, ContactFormMessage,SellerExpense, TeacherExpense, ProductLead, Masterclass,
-    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob
+    Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob,
+    ForumPost, ForumPostLike, ForumComment,
 )
 from django.utils.text import slugify
 
@@ -105,6 +106,155 @@ class ReelGenerationJobSerializer(serializers.ModelSerializer):
             cleaned.append(tag[:100])
 
         return cleaned[:15]
+
+
+class ForumCommentSerializer(serializers.ModelSerializer):
+    author = PublicUserSerializer(read_only=True)
+
+    class Meta:
+        model = ForumComment
+        fields = [
+            'id',
+            'post',
+            'author',
+            'content',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'post', 'author', 'created_at', 'updated_at']
+
+    def validate_content(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError('Comment cannot be empty.')
+        if len(value) > 1000:
+            raise serializers.ValidationError('Comment is too long.')
+        return value
+
+
+class ForumPostSerializer(serializers.ModelSerializer):
+    author = PublicUserSerializer(read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
+    recent_comments = serializers.SerializerMethodField()
+    preview_text = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ForumPost
+        fields = [
+            'id',
+            'author',
+            'title',
+            'content',
+            'rich_content',
+            'preview_text',
+            'likes_count',
+            'comments_count',
+            'liked_by_me',
+            'recent_comments',
+            'can_edit',
+            'can_delete',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'author', 'preview_text', 'likes_count', 'comments_count', 'liked_by_me', 'recent_comments', 'can_edit', 'can_delete', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'content': {'required': False, 'allow_blank': True},
+            'rich_content': {'required': False},
+            'title': {'required': False, 'allow_blank': True},
+        }
+
+    def validate_title(self, value):
+        return (value or '').strip()
+
+    def validate_content(self, value):
+        value = (value or '').strip()
+        if len(value) > 5000:
+            raise serializers.ValidationError('Post content is too long.')
+        return value
+
+    def validate_rich_content(self, value):
+        if value in (None, ''):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Rich content must be a list of editor blocks.')
+        return value
+
+    def validate(self, attrs):
+        rich_content = attrs.get('rich_content', serializers.empty)
+        content = attrs.get('content', serializers.empty)
+
+        if rich_content is not serializers.empty:
+            plain_text = self._extract_plain_text(rich_content)
+            if plain_text:
+                attrs['content'] = plain_text[:5000]
+            elif content is serializers.empty or not (content or '').strip():
+                raise serializers.ValidationError({'rich_content': 'Post content cannot be empty.'})
+        elif content is not serializers.empty:
+            trimmed = (content or '').strip()
+            if not trimmed:
+                raise serializers.ValidationError({'content': 'Post content cannot be empty.'})
+            attrs['content'] = trimmed
+        elif self.instance is None:
+            raise serializers.ValidationError({'content': 'Post content cannot be empty.'})
+
+        return attrs
+
+    def _extract_plain_text(self, blocks):
+        parts = []
+
+        def walk(value):
+            if isinstance(value, str):
+                text = value.strip()
+                if text:
+                    parts.append(text)
+                return
+            if isinstance(value, list):
+                for item in value:
+                    walk(item)
+                return
+            if isinstance(value, dict):
+                if 'text' in value:
+                    walk(value.get('text'))
+                if 'content' in value:
+                    walk(value.get('content'))
+                if 'children' in value:
+                    walk(value.get('children'))
+
+        walk(blocks)
+        return ' '.join(parts).strip()
+
+    def get_likes_count(self, obj):
+        return getattr(obj, 'likes_count', obj.likes.count())
+
+    def get_comments_count(self, obj):
+        return getattr(obj, 'comments_count', obj.comments.filter(is_active=True).count())
+
+    def get_liked_by_me(self, obj):
+        request = self.context.get('request')
+        if not request or not getattr(request, 'user', None) or not request.user.is_authenticated:
+            return False
+        return obj.likes.filter(user=request.user).exists()
+
+    def get_recent_comments(self, obj):
+        comments = obj.comments.filter(is_active=True).select_related('author')[:3]
+        return ForumCommentSerializer(comments, many=True, context=self.context).data
+
+    def get_preview_text(self, obj):
+        return (obj.content or '').strip()
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return user.role == 'admin' or user.is_staff or obj.author_id == user.id
+
+    def get_can_delete(self, obj):
+        return self.get_can_edit(obj)
 
 
 # ============= Category Serializers =============

@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Repeat, LogIn, ChevronLeft, ChevronRight } from "lucide-react";
+import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Repeat, LogIn, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ProfileTypeModal from "@/components/ProfileTypeModal";
 import { useProfile } from "@/context/ProfileContext";
@@ -53,6 +53,7 @@ export default function Header() {
     { label: "Live Classes", url: "/courses", visibility: "public" },
     { label: questionBanksLink.label, url: questionBanksLink.href, visibility: "public" },
     { label: "Notes", url: "/notes", visibility: "public" },
+    { label: "Forum", url: "/forum", visibility: "public" },
     { label: "Masterclass", url: "/masterclass", visibility: "public" },
     { label: "Contact", url: "/contact", visibility: "public" },
   ];
@@ -62,13 +63,36 @@ export default function Header() {
       ? navigationContent.primary_links
       : fallbackPrimaryLinks;
 
-    return links.filter((link) => {
+    const visibleLinks = links.filter((link) => {
       const visibility = link.visibility || "public";
       if (visibility === "auth") return !!user;
       if (visibility === "both") return true;
       return true;
     });
+    if (!visibleLinks.some((link) => link.url === "/forum")) {
+      visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, { label: "Forum", url: "/forum", visibility: "public" });
+    }
+    return visibleLinks;
   }, [navigationContent.primary_links, fallbackPrimaryLinks, user]);
+
+  const studyMaterialsLinks = useMemo(() => {
+    const findByUrl = (url, fallbackLabel) => navLinks.find((link) => link.url === url) || { label: fallbackLabel, url };
+
+    return [
+      findByUrl("/courses", "Live Classes"),
+      findByUrl(questionBanksLink.href, questionBanksLink.label),
+      findByUrl("/notes", "Notes"),
+    ];
+  }, [navLinks, questionBanksLink.href, questionBanksLink.label]);
+
+  const topLevelNavLinks = useMemo(() => {
+    const excludedUrls = new Set(studyMaterialsLinks.map((link) => link.url));
+    const filtered = navLinks.filter((link) => !excludedUrls.has(link.url));
+    const homeIndex = filtered.findIndex((link) => link.url === "/");
+    const insertAt = homeIndex >= 0 ? homeIndex + 1 : 0;
+    filtered.splice(insertAt, 0, { label: "Study Materials", url: null, type: "study-materials" });
+    return filtered;
+  }, [navLinks, studyMaterialsLinks]);
 
   const updateScrollState = () => {
     const el = subnavRef.current;
@@ -111,7 +135,32 @@ export default function Header() {
 
         {/* --- DESKTOP NAVIGATION --- */}
         <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => {
+          {topLevelNavLinks.map((link) => {
+            if (link.type === "study-materials") {
+              const studyActive = studyMaterialsLinks.some((item) => pathname === item.url);
+              return (
+                <div key="study-materials-desktop" className="group relative">
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 text-sm font-medium transition-colors hover:text-slate-900 ${studyActive ? "text-slate-900 font-semibold" : "text-slate-600"}`}
+                  >
+                    <span>Study Materials</span>
+                    <ChevronDown className="h-4 w-4 transition-transform group-hover:rotate-180" />
+                  </button>
+                  <div className="invisible absolute left-1/2 top-full z-50 mt-3 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 opacity-0 shadow-lg transition-all duration-150 group-hover:visible group-hover:opacity-100">
+                    {studyMaterialsLinks.map((item) => (
+                      <Link
+                        key={`${item.url}-${item.label}`}
+                        href={item.url}
+                        className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-slate-50 hover:text-slate-900 ${pathname === item.url ? "bg-slate-50 text-slate-900" : "text-slate-600"}`}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
             if (link.url) {
               return (
                 <Link
@@ -228,7 +277,25 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-56 mt-2 p-2">
               
               {/* Standard Nav Links */}
-              {navLinks.map((link) => {
+              {topLevelNavLinks.map((link) => {
+                if (link.type === "study-materials") {
+                  return (
+                    <div key="study-materials-mobile">
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="px-2 py-1.5 text-xs uppercase tracking-[0.2em] text-slate-500">
+                        Study Materials
+                      </DropdownMenuLabel>
+                      {studyMaterialsLinks.map((item) => (
+                        <DropdownMenuItem key={`${item.url}-${item.label}`} asChild>
+                          <Link href={item.url} className="cursor-pointer font-medium">
+                            {item.label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </div>
+                  );
+                }
                 if (link.url) {
                   return (
                     <DropdownMenuItem key={`${link.url}-${link.label}`} asChild>

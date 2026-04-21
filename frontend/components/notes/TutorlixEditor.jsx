@@ -40,6 +40,7 @@ export default function TutorlixEditor({
 }) {
   const [isExporting, setIsExporting] = useState(false);
   const { resolvedTheme } = useTheme();
+  const normalizedInitialContent = Array.isArray(initialContent) && initialContent.length > 0 ? initialContent : undefined;
 
   // File upload handler (for images and documents)
   const uploadFile = async (file) => {
@@ -63,7 +64,7 @@ export default function TutorlixEditor({
   // Create the editor instance
   const editor = useCreateBlockNote({
     schema,
-    initialContent: initialContent ? (Array.isArray(initialContent) ? initialContent : undefined) : undefined,
+    initialContent: normalizedInitialContent,
     uploadFile,
   });
 
@@ -80,15 +81,15 @@ export default function TutorlixEditor({
 
   // Sync initial content updates (e.g. from DB fetch)
   useEffect(() => {
-    if (!editor || !initialContent) return;
+    if (!editor || !normalizedInitialContent) return;
 
     const currentContent = JSON.stringify(editor.document);
-    const newContent = JSON.stringify(initialContent);
+    const newContent = JSON.stringify(normalizedInitialContent);
 
-    if (currentContent !== newContent && Array.isArray(initialContent)) {
-      editor.replaceBlocks(editor.document, initialContent);
+    if (currentContent !== newContent) {
+      editor.replaceBlocks(editor.document, normalizedInitialContent);
     }
-  }, [editor, initialContent]);
+  }, [editor, normalizedInitialContent]);
 
   const handleExportPDF = async () => {
     if (!editor) return;

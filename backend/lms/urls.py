@@ -26,6 +26,7 @@ router.register(r'question-bank-courses', views.QuestionBankCourseViewSet, basen
 router.register(r'question-bank-topics', views.QuestionBankTopicViewSet, basename='question-bank-topic')
 router.register(r'question-bank-questions', views.QuestionBankQuestionViewSet, basename='question-bank-question')
 router.register(r'reel-jobs', views.ReelGenerationJobViewSet, basename='reel-job')
+router.register(r'forum-posts', views.ForumPostViewSet, basename='forum-post')
 
 # 🎬 VIDEO RENDERING (ADMIN ONLY)
 router.register(r'videos', views.VideoViewSet, basename='video')
