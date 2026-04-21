@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   CircleUserRound,
@@ -568,7 +568,7 @@ function ForumProfileSection({ user, isAuthenticated, onRequireAuth, myPosts, lo
   );
 }
 
-export default function ForumPage() {
+function ForumPageContent() {
   const { user, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { profileType } = useProfile();
@@ -1011,5 +1011,13 @@ export default function ForumPage() {
         submitting={creating}
       />
     </div>
+  );
+}
+
+export default function ForumPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <ForumPageContent />
+    </Suspense>
   );
 }
