@@ -41,6 +41,7 @@ export default function Header() {
   const isActive = (path) => pathname === path;
   const navigationContent = activeHomeContent?.navigation || {};
   const tutorialTopics = Array.isArray(activeHomeContent?.tutorials) ? activeHomeContent.tutorials : [];
+  const configuredSubnavGroups = Array.isArray(navigationContent?.subnav_groups) ? navigationContent.subnav_groups : [];
   const subnavRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -93,6 +94,32 @@ export default function Header() {
     filtered.splice(insertAt, 0, { label: "Study Materials", url: null, type: "study-materials" });
     return filtered;
   }, [navLinks, studyMaterialsLinks]);
+
+  const subnavGroups = useMemo(() => {
+    if (configuredSubnavGroups.length > 0) {
+      return configuredSubnavGroups
+        .map((group) => ({
+          label: group?.label || "",
+          items: Array.isArray(group?.items) ? group.items.filter((item) => item?.label && item?.url) : [],
+        }))
+        .filter((group) => group.label && group.items.length > 0);
+    }
+
+    return tutorialTopics
+      .map((topic) => {
+        const pages = Array.isArray(topic.pages) ? topic.pages : topic?.slug ? [topic] : [];
+        return {
+          label: topic.title,
+          items: pages
+            .filter((page) => page?.title && page?.slug)
+            .map((page) => ({
+              label: page.title,
+              url: `/tutorial/${topic.slug}/${page.slug}`,
+            })),
+        };
+      })
+      .filter((group) => group.label && group.items.length > 0);
+  }, [configuredSubnavGroups, tutorialTopics]);
 
   const updateScrollState = () => {
     const el = subnavRef.current;
@@ -357,7 +384,7 @@ export default function Header() {
         </div>
       </div>
 
-      {navigationContent.tutorials_enabled && tutorialTopics.length > 0 && (
+      {navigationContent.tutorials_enabled && subnavGroups.length > 0 && (
         <div className="border-t border-slate-200/80 bg-[#1d2a35] text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
             <div className="relative">
@@ -374,22 +401,35 @@ export default function Header() {
                 onScroll={updateScrollState}
                 className="flex gap-1 overflow-x-auto scroll-smooth whitespace-nowrap scrollbar-none md:px-10"
               >
-                {tutorialTopics.map((topic) => {
-                  const href = `/tutorial/${topic.slug}`;
-                  const active = pathname === href;
+                {subnavGroups.map((group) => {
+                  const active = group.items.some((item) => pathname === item.url);
 
                   return (
-                    <Link
-                      key={topic.slug}
-                      href={href}
-                      className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
-                        active
-                          ? "border-emerald-400 bg-[#263543] text-white"
-                          : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
-                      }`}
-                    >
-                      {topic.title}
-                    </Link>
+                    <DropdownMenu key={group.label}>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
+                            active
+                              ? "border-emerald-400 bg-[#263543] text-white"
+                              : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
+                          }`}
+                        >
+                          {group.label}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="mt-2 w-64">
+                        <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {group.items.map((item) => (
+                          <DropdownMenuItem key={`${group.label}-${item.url}`} asChild>
+                            <Link href={item.url} className="cursor-pointer font-medium">
+                              {item.label}
+                            </Link>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   );
                 })}
               </div>

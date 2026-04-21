@@ -743,18 +743,30 @@ const mergeSection = (baseSection = {}, overrideSection = {}) => {
   return merged;
 };
 
-const mergeTutorials = (baseTutorials = [], overrideTutorials) => {
-  if (!Array.isArray(overrideTutorials)) {
-    return baseTutorials;
-  }
+const normalizeTutorialPages = (tutorial, fallback = {}) => {
+  const fallbackPages = Array.isArray(fallback.pages)
+    ? fallback.pages
+    : fallback?.slug
+      ? [fallback]
+      : [];
 
-  return overrideTutorials.map((tutorial) => {
-    const fallback = baseTutorials.find((item) => item.slug === tutorial.slug) || {};
-    const fallbackConcepts = Array.isArray(fallback.conceptsCovered) ? fallback.conceptsCovered : [];
-    const conceptsCovered = Array.isArray(tutorial.conceptsCovered)
-      ? tutorial.conceptsCovered.map((concept) => {
+  const inputPages = Array.isArray(tutorial.pages)
+    ? tutorial.pages
+    : tutorial?.slug
+      ? [tutorial]
+      : [];
+
+  return inputPages.map((page, index) => {
+    const fallbackPage = fallbackPages.find((item) => item.slug === page.slug) || fallbackPages[index] || {};
+    const fallbackConcepts = Array.isArray(fallbackPage.conceptsCovered) ? fallbackPage.conceptsCovered : [];
+    const conceptsCovered = Array.isArray(page.conceptsCovered)
+      ? page.conceptsCovered.map((concept) => {
           if (typeof concept === "string") {
-            return buildConceptNote(tutorial.slug || fallback.slug || "tutorial", tutorial.title || fallback.title || "Tutorial", concept);
+            return buildConceptNote(
+              page.slug || fallbackPage.slug || tutorial.slug || fallback.slug || "tutorial",
+              page.title || fallbackPage.title || tutorial.title || fallback.title || "Tutorial",
+              concept
+            );
           }
 
           const conceptFallback = fallbackConcepts.find((item) => item.slug === concept.slug) || {};
@@ -766,12 +778,38 @@ const mergeTutorials = (baseTutorials = [], overrideTutorials) => {
       : fallbackConcepts;
 
     return {
+      ...fallbackPage,
+      ...page,
+      conceptsCovered,
+      learnPoints: Array.isArray(page.learnPoints)
+        ? page.learnPoints
+        : (Array.isArray(fallbackPage.learnPoints) ? fallbackPage.learnPoints : []),
+    };
+  });
+};
+
+const mergeTutorials = (baseTutorials = [], overrideTutorials) => {
+  if (!Array.isArray(overrideTutorials)) {
+    return baseTutorials;
+  }
+
+  return overrideTutorials.map((tutorial) => {
+    const fallback = baseTutorials.find((item) => item.slug === tutorial.slug) || {};
+    const pages = normalizeTutorialPages(tutorial, fallback);
+
+    if (Array.isArray(tutorial.pages) || Array.isArray(fallback.pages)) {
+      return {
+        ...fallback,
+        ...tutorial,
+        pages,
+      };
+    }
+
+    return {
       ...fallback,
       ...tutorial,
-      conceptsCovered,
-      learnPoints: Array.isArray(tutorial.learnPoints)
-        ? tutorial.learnPoints
-        : (Array.isArray(fallback.learnPoints) ? fallback.learnPoints : []),
+      ...pages[0],
+      pages,
     };
   });
 };
