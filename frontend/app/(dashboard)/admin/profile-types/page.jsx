@@ -36,7 +36,40 @@ const createEmptyPrimaryLink = () => ({
   visibility: 'public',
 });
 
+const createEmptySubnavLink = () => ({
+  label: '',
+  url: '',
+});
+
+const createEmptySubnavGroup = () => ({
+  label: '',
+  items: [createEmptySubnavLink()],
+});
+
 const createEmptyTutorial = () => ({
+  slug: '',
+  title: '',
+  description: '',
+  pages: [
+    {
+      slug: '',
+      title: '',
+      shortDescription: '',
+      overview: '',
+      conceptsCovered: [
+        {
+          slug: '',
+          title: '',
+          noteUrl: '',
+        },
+      ],
+      learnPoints: [''],
+      scopeLabel: '',
+    },
+  ],
+});
+
+const createEmptyTutorialPage = () => ({
   slug: '',
   title: '',
   shortDescription: '',
@@ -71,29 +104,79 @@ const buildManualHomeContent = (slug, incoming = {}) => {
     ...defaults.navigation,
     ...(incoming.navigation || {}),
     primary_links: ensureArray(incoming.navigation?.primary_links, defaults.navigation?.primary_links || []),
+    subnav_groups: ensureArray(incoming.navigation?.subnav_groups, defaults.navigation?.subnav_groups || []).map((group) => ({
+      label: group?.label || '',
+      items: ensureArray(group?.items, []).map((item) => ({
+        label: item?.label || '',
+        url: item?.url || '',
+      })),
+    })),
   };
   const tutorials = ensureArray(incoming.tutorials, defaults.tutorials || []).map((tutorial) => {
     const fallback = ensureArray(defaults.tutorials, []).find((item) => item.slug === tutorial.slug) || {};
+    const fallbackPages = ensureArray(fallback.pages, fallback?.slug ? [fallback] : []);
+    const pages = ensureArray(tutorial.pages, tutorial?.slug ? [tutorial] : []).map((page, pageIndex) => {
+      const fallbackPage = fallbackPages.find((item) => item.slug === page.slug) || fallbackPages[pageIndex] || {};
+      return {
+        ...fallbackPage,
+        ...page,
+        conceptsCovered: ensureArray(page.conceptsCovered, fallbackPage.conceptsCovered || []).map((concept, index) => {
+          if (typeof concept === 'string') {
+            const fallbackConcept = ensureArray(fallbackPage.conceptsCovered, [])[index] || {};
+            return {
+              slug: fallbackConcept.slug || '',
+              title: concept,
+              noteUrl: fallbackConcept.noteUrl || '',
+            };
+          }
+
+          return {
+            slug: concept.slug || '',
+            title: concept.title || '',
+            noteUrl: concept.noteUrl || '',
+          };
+        }),
+        learnPoints: ensureArray(page.learnPoints, fallbackPage.learnPoints || ['']),
+      };
+    });
+
+    if (Array.isArray(tutorial.pages) || Array.isArray(fallback.pages)) {
+      return {
+        ...fallback,
+        ...tutorial,
+        description: tutorial.description || fallback.description || '',
+        pages: pages.length ? pages : [createEmptyTutorialPage()],
+      };
+    }
+
     return {
       ...fallback,
       ...tutorial,
-      conceptsCovered: ensureArray(tutorial.conceptsCovered, fallback.conceptsCovered || []).map((concept, index) => {
-        if (typeof concept === 'string') {
-          const fallbackConcept = ensureArray(fallback.conceptsCovered, [])[index] || {};
-          return {
-            slug: fallbackConcept.slug || '',
-            title: concept,
-            noteUrl: fallbackConcept.noteUrl || '',
-          };
-        }
+      description: tutorial.description || '',
+      pages: pages.length ? pages : [{
+        slug: tutorial.slug || '',
+        title: tutorial.title || '',
+        shortDescription: tutorial.shortDescription || '',
+        overview: tutorial.overview || '',
+        conceptsCovered: ensureArray(tutorial.conceptsCovered, fallback.conceptsCovered || []).map((concept, index) => {
+          if (typeof concept === 'string') {
+            const fallbackConcept = ensureArray(fallback.conceptsCovered, [])[index] || {};
+            return {
+              slug: fallbackConcept.slug || '',
+              title: concept,
+              noteUrl: fallbackConcept.noteUrl || '',
+            };
+          }
 
-        return {
-          slug: concept.slug || '',
-          title: concept.title || '',
-          noteUrl: concept.noteUrl || '',
-        };
-      }),
-      learnPoints: ensureArray(tutorial.learnPoints, fallback.learnPoints || ['']),
+          return {
+            slug: concept.slug || '',
+            title: concept.title || '',
+            noteUrl: concept.noteUrl || '',
+          };
+        }),
+        learnPoints: ensureArray(tutorial.learnPoints, fallback.learnPoints || ['']),
+        scopeLabel: tutorial.scopeLabel || fallback.scopeLabel || '',
+      }],
     };
   });
 
@@ -328,6 +411,11 @@ export default function ProfileTypesPage() {
     [formState.home_content],
   );
 
+  const subnavGroups = useMemo(
+    () => ensureArray(formState.home_content?.navigation?.subnav_groups, []),
+    [formState.home_content],
+  );
+
   const tutorials = useMemo(
     () => ensureArray(formState.home_content?.tutorials, []),
     [formState.home_content],
@@ -522,6 +610,127 @@ export default function ProfileTypesPage() {
                             </div>
                           ))}
                         </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-semibold">Subnavigation Dropdowns</h3>
+                              <p className="text-sm text-slate-600">Each group becomes one dropdown in the subnavigation bar.</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => syncHomeContent((prev) => ({
+                                ...prev,
+                                navigation: {
+                                  ...prev.navigation,
+                                  subnav_groups: [...ensureArray(prev.navigation?.subnav_groups, []), createEmptySubnavGroup()],
+                                },
+                              }))}
+                            >
+                              <Plus className="mr-2 h-4 w-4" /> Add Group
+                            </Button>
+                          </div>
+
+                          {subnavGroups.map((group, groupIndex) => (
+                            <div key={`subnav-group-${groupIndex}`} className="rounded-lg border p-4 space-y-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Dropdown Label</label>
+                                <Input
+                                  value={group.label || ''}
+                                  onChange={(e) => syncHomeContent((prev) => {
+                                    const groups = [...ensureArray(prev.navigation?.subnav_groups, [])];
+                                    groups[groupIndex] = { ...groups[groupIndex], label: e.target.value };
+                                    return { ...prev, navigation: { ...prev.navigation, subnav_groups: groups } };
+                                  })}
+                                />
+                              </div>
+
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold">Dropdown Items</h4>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => syncHomeContent((prev) => {
+                                      const groups = [...ensureArray(prev.navigation?.subnav_groups, [])];
+                                      const items = [...ensureArray(groups[groupIndex]?.items, []), createEmptySubnavLink()];
+                                      groups[groupIndex] = { ...groups[groupIndex], items };
+                                      return { ...prev, navigation: { ...prev.navigation, subnav_groups: groups } };
+                                    })}
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" /> Add Item
+                                  </Button>
+                                </div>
+
+                                {ensureArray(group.items, []).map((item, itemIndex) => (
+                                  <div key={`${groupIndex}-${itemIndex}`} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_1fr_auto]">
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Item Label</label>
+                                      <Input
+                                        value={item.label || ''}
+                                        onChange={(e) => syncHomeContent((prev) => {
+                                          const groups = [...ensureArray(prev.navigation?.subnav_groups, [])];
+                                          const items = [...ensureArray(groups[groupIndex]?.items, [])];
+                                          items[itemIndex] = { ...items[itemIndex], label: e.target.value };
+                                          groups[groupIndex] = { ...groups[groupIndex], items };
+                                          return { ...prev, navigation: { ...prev.navigation, subnav_groups: groups } };
+                                        })}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Item URL</label>
+                                      <Input
+                                        value={item.url || ''}
+                                        onChange={(e) => syncHomeContent((prev) => {
+                                          const groups = [...ensureArray(prev.navigation?.subnav_groups, [])];
+                                          const items = [...ensureArray(groups[groupIndex]?.items, [])];
+                                          items[itemIndex] = { ...items[itemIndex], url: e.target.value };
+                                          groups[groupIndex] = { ...groups[groupIndex], items };
+                                          return { ...prev, navigation: { ...prev.navigation, subnav_groups: groups } };
+                                        })}
+                                      />
+                                    </div>
+                                    <div className="flex items-end">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="text-red-600"
+                                        onClick={() => syncHomeContent((prev) => {
+                                          const groups = [...ensureArray(prev.navigation?.subnav_groups, [])];
+                                          const items = ensureArray(groups[groupIndex]?.items, []).filter((_, idx) => idx !== itemIndex);
+                                          groups[groupIndex] = { ...groups[groupIndex], items };
+                                          return { ...prev, navigation: { ...prev.navigation, subnav_groups: groups } };
+                                        })}
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="text-red-600"
+                                  onClick={() => syncHomeContent((prev) => ({
+                                    ...prev,
+                                    navigation: {
+                                      ...prev.navigation,
+                                      subnav_groups: ensureArray(prev.navigation?.subnav_groups, []).filter((_, idx) => idx !== groupIndex),
+                                    },
+                                  }))}
+                                >
+                                  Remove Group
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </CardContent>
                     </Card>
 
@@ -638,7 +847,7 @@ export default function ProfileTypesPage() {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm text-slate-600">Each topic becomes one tab in the subnavigation and one `/tutorial/[slug]` page.</p>
+                          <p className="text-sm text-slate-600">Each tutorial group becomes one header tab. Inside it, add tutorial pages that appear in the tutorial subnavigation.</p>
                           <Button
                             type="button"
                             variant="outline"
@@ -656,7 +865,7 @@ export default function ProfileTypesPage() {
                           <div key={`${tutorial.slug}-${tutorialIndex}`} className="rounded-lg border p-4 space-y-4">
                             <div className="grid gap-3 md:grid-cols-2">
                               <div className="space-y-2">
-                                <label className="text-sm font-medium">Topic Title</label>
+                                <label className="text-sm font-medium">Tutorial Group Title</label>
                                 <Input
                                   value={tutorial.title || ''}
                                   onChange={(e) => syncHomeContent((prev) => {
@@ -667,7 +876,7 @@ export default function ProfileTypesPage() {
                                 />
                               </div>
                               <div className="space-y-2">
-                                <label className="text-sm font-medium">Slug</label>
+                                <label className="text-sm font-medium">Group Slug</label>
                                 <Input
                                   value={tutorial.slug || ''}
                                   onChange={(e) => syncHomeContent((prev) => {
@@ -678,35 +887,13 @@ export default function ProfileTypesPage() {
                                 />
                               </div>
                               <div className="space-y-2 md:col-span-2">
-                                <label className="text-sm font-medium">Short Description</label>
-                                <Input
-                                  value={tutorial.shortDescription || ''}
-                                  onChange={(e) => syncHomeContent((prev) => {
-                                    const items = [...ensureArray(prev.tutorials, [])];
-                                    items[tutorialIndex] = { ...items[tutorialIndex], shortDescription: e.target.value };
-                                    return { ...prev, tutorials: items };
-                                  })}
-                                />
-                              </div>
-                              <div className="space-y-2 md:col-span-2">
-                                <label className="text-sm font-medium">Overview</label>
+                                <label className="text-sm font-medium">Group Description</label>
                                 <Textarea
-                                  rows={4}
-                                  value={tutorial.overview || ''}
+                                  rows={3}
+                                  value={tutorial.description || ''}
                                   onChange={(e) => syncHomeContent((prev) => {
                                     const items = [...ensureArray(prev.tutorials, [])];
-                                    items[tutorialIndex] = { ...items[tutorialIndex], overview: e.target.value };
-                                    return { ...prev, tutorials: items };
-                                  })}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Scope Label</label>
-                                <Input
-                                  value={tutorial.scopeLabel || ''}
-                                  onChange={(e) => syncHomeContent((prev) => {
-                                    const items = [...ensureArray(prev.tutorials, [])];
-                                    items[tutorialIndex] = { ...items[tutorialIndex], scopeLabel: e.target.value };
+                                    items[tutorialIndex] = { ...items[tutorialIndex], description: e.target.value };
                                     return { ...prev, tutorials: items };
                                   })}
                                 />
@@ -715,22 +902,18 @@ export default function ProfileTypesPage() {
 
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold">Core Concepts</h4>
+                                <h4 className="text-sm font-semibold">Tutorial Pages</h4>
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   onClick={() => syncHomeContent((prev) => {
                                     const items = [...ensureArray(prev.tutorials, [])];
-                                    const conceptsCovered = [
-                                      ...ensureArray(items[tutorialIndex]?.conceptsCovered, []),
-                                      {
-                                        slug: '',
-                                        title: '',
-                                        noteUrl: '',
-                                      },
+                                    const pages = [
+                                      ...ensureArray(items[tutorialIndex]?.pages, []),
+                                      createEmptyTutorialPage(),
                                     ];
-                                    items[tutorialIndex] = { ...items[tutorialIndex], conceptsCovered };
+                                    items[tutorialIndex] = { ...items[tutorialIndex], pages };
                                     return { ...prev, tutorials: items };
                                   })}
                                 >
@@ -738,48 +921,223 @@ export default function ProfileTypesPage() {
                                 </Button>
                               </div>
 
-                              {ensureArray(tutorial.conceptsCovered, []).map((concept, conceptIndex) => (
-                                <div key={`${tutorial.slug}-concept-${conceptIndex}`} className="rounded-lg border p-4 space-y-3">
+                              {ensureArray(tutorial.pages, []).map((page, pageIndex) => (
+                                <div key={`${tutorial.slug}-page-${pageIndex}`} className="rounded-lg border p-4 space-y-4">
                                   <div className="grid gap-3 md:grid-cols-2">
                                     <div className="space-y-2">
-                                      <label className="text-sm font-medium">Concept Title</label>
+                                      <label className="text-sm font-medium">Page Title</label>
                                       <Input
-                                        value={concept.title || ''}
+                                        value={page.title || ''}
                                         onChange={(e) => syncHomeContent((prev) => {
                                           const items = [...ensureArray(prev.tutorials, [])];
-                                          const conceptsCovered = [...ensureArray(items[tutorialIndex]?.conceptsCovered, [])];
-                                          conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], title: e.target.value };
-                                          items[tutorialIndex] = { ...items[tutorialIndex], conceptsCovered };
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          pages[pageIndex] = { ...pages[pageIndex], title: e.target.value };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
                                           return { ...prev, tutorials: items };
                                         })}
                                       />
                                     </div>
                                     <div className="space-y-2">
-                                      <label className="text-sm font-medium">Concept Slug</label>
+                                      <label className="text-sm font-medium">Page Slug</label>
                                       <Input
-                                        value={concept.slug || ''}
+                                        value={page.slug || ''}
                                         onChange={(e) => syncHomeContent((prev) => {
                                           const items = [...ensureArray(prev.tutorials, [])];
-                                          const conceptsCovered = [...ensureArray(items[tutorialIndex]?.conceptsCovered, [])];
-                                          conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], slug: e.target.value };
-                                          items[tutorialIndex] = { ...items[tutorialIndex], conceptsCovered };
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          pages[pageIndex] = { ...pages[pageIndex], slug: e.target.value };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
                                           return { ...prev, tutorials: items };
                                         })}
                                       />
                                     </div>
                                     <div className="space-y-2">
-                                      <label className="text-sm font-medium">Note URL</label>
+                                      <label className="text-sm font-medium">Short Description</label>
                                       <Input
-                                        value={concept.noteUrl || ''}
+                                        value={page.shortDescription || ''}
                                         onChange={(e) => syncHomeContent((prev) => {
                                           const items = [...ensureArray(prev.tutorials, [])];
-                                          const conceptsCovered = [...ensureArray(items[tutorialIndex]?.conceptsCovered, [])];
-                                          conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], noteUrl: e.target.value };
-                                          items[tutorialIndex] = { ...items[tutorialIndex], conceptsCovered };
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          pages[pageIndex] = { ...pages[pageIndex], shortDescription: e.target.value };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
                                           return { ...prev, tutorials: items };
                                         })}
                                       />
                                     </div>
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Scope Label</label>
+                                      <Input
+                                        value={page.scopeLabel || ''}
+                                        onChange={(e) => syncHomeContent((prev) => {
+                                          const items = [...ensureArray(prev.tutorials, [])];
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          pages[pageIndex] = { ...pages[pageIndex], scopeLabel: e.target.value };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                          return { ...prev, tutorials: items };
+                                        })}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium">Overview</label>
+                                    <Textarea
+                                      rows={4}
+                                      value={page.overview || ''}
+                                      onChange={(e) => syncHomeContent((prev) => {
+                                        const items = [...ensureArray(prev.tutorials, [])];
+                                        const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                        pages[pageIndex] = { ...pages[pageIndex], overview: e.target.value };
+                                        items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                        return { ...prev, tutorials: items };
+                                      })}
+                                    />
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-sm font-semibold">Core Concepts</h5>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => syncHomeContent((prev) => {
+                                          const items = [...ensureArray(prev.tutorials, [])];
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          const conceptsCovered = [
+                                            ...ensureArray(pages[pageIndex]?.conceptsCovered, []),
+                                            { slug: '', title: '', noteUrl: '' },
+                                          ];
+                                          pages[pageIndex] = { ...pages[pageIndex], conceptsCovered };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                          return { ...prev, tutorials: items };
+                                        })}
+                                      >
+                                        <Plus className="mr-2 h-4 w-4" /> Add Concept
+                                      </Button>
+                                    </div>
+
+                                    {ensureArray(page.conceptsCovered, []).map((concept, conceptIndex) => (
+                                      <div key={`${tutorial.slug}-page-${pageIndex}-concept-${conceptIndex}`} className="rounded-lg border p-4 space-y-3">
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <label className="text-sm font-medium">Concept Title</label>
+                                            <Input
+                                              value={concept.title || ''}
+                                              onChange={(e) => syncHomeContent((prev) => {
+                                                const items = [...ensureArray(prev.tutorials, [])];
+                                                const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                                const conceptsCovered = [...ensureArray(pages[pageIndex]?.conceptsCovered, [])];
+                                                conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], title: e.target.value };
+                                                pages[pageIndex] = { ...pages[pageIndex], conceptsCovered };
+                                                items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                                return { ...prev, tutorials: items };
+                                              })}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <label className="text-sm font-medium">Concept Slug</label>
+                                            <Input
+                                              value={concept.slug || ''}
+                                              onChange={(e) => syncHomeContent((prev) => {
+                                                const items = [...ensureArray(prev.tutorials, [])];
+                                                const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                                const conceptsCovered = [...ensureArray(pages[pageIndex]?.conceptsCovered, [])];
+                                                conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], slug: e.target.value };
+                                                pages[pageIndex] = { ...pages[pageIndex], conceptsCovered };
+                                                items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                                return { ...prev, tutorials: items };
+                                              })}
+                                            />
+                                          </div>
+                                          <div className="space-y-2 md:col-span-2">
+                                            <label className="text-sm font-medium">Note URL</label>
+                                            <Input
+                                              value={concept.noteUrl || ''}
+                                              onChange={(e) => syncHomeContent((prev) => {
+                                                const items = [...ensureArray(prev.tutorials, [])];
+                                                const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                                const conceptsCovered = [...ensureArray(pages[pageIndex]?.conceptsCovered, [])];
+                                                conceptsCovered[conceptIndex] = { ...conceptsCovered[conceptIndex], noteUrl: e.target.value };
+                                                pages[pageIndex] = { ...pages[pageIndex], conceptsCovered };
+                                                items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                                return { ...prev, tutorials: items };
+                                              })}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="flex justify-end">
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="text-red-600"
+                                            onClick={() => syncHomeContent((prev) => {
+                                              const items = [...ensureArray(prev.tutorials, [])];
+                                              const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                              const conceptsCovered = ensureArray(pages[pageIndex]?.conceptsCovered, []).filter((_, idx) => idx !== conceptIndex);
+                                              pages[pageIndex] = { ...pages[pageIndex], conceptsCovered };
+                                              items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                              return { ...prev, tutorials: items };
+                                            })}
+                                          >
+                                            Remove Concept
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-sm font-semibold">Learning Points</h5>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => syncHomeContent((prev) => {
+                                          const items = [...ensureArray(prev.tutorials, [])];
+                                          const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                          const learnPoints = [...ensureArray(pages[pageIndex]?.learnPoints, []), ''];
+                                          pages[pageIndex] = { ...pages[pageIndex], learnPoints };
+                                          items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                          return { ...prev, tutorials: items };
+                                        })}
+                                      >
+                                        <Plus className="mr-2 h-4 w-4" /> Add Point
+                                      </Button>
+                                    </div>
+
+                                    {ensureArray(page.learnPoints, []).map((point, pointIndex) => (
+                                      <div key={`${tutorial.slug}-page-${pageIndex}-point-${pointIndex}`} className="flex gap-2">
+                                        <Input
+                                          value={point || ''}
+                                          onChange={(e) => syncHomeContent((prev) => {
+                                            const items = [...ensureArray(prev.tutorials, [])];
+                                            const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                            const learnPoints = [...ensureArray(pages[pageIndex]?.learnPoints, [])];
+                                            learnPoints[pointIndex] = e.target.value;
+                                            pages[pageIndex] = { ...pages[pageIndex], learnPoints };
+                                            items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                            return { ...prev, tutorials: items };
+                                          })}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          className="text-red-600"
+                                          onClick={() => syncHomeContent((prev) => {
+                                            const items = [...ensureArray(prev.tutorials, [])];
+                                            const pages = [...ensureArray(items[tutorialIndex]?.pages, [])];
+                                            const learnPoints = ensureArray(pages[pageIndex]?.learnPoints, []).filter((_, idx) => idx !== pointIndex);
+                                            pages[pageIndex] = { ...pages[pageIndex], learnPoints };
+                                            items[tutorialIndex] = { ...items[tutorialIndex], pages };
+                                            return { ...prev, tutorials: items };
+                                          })}
+                                        >
+                                          Remove
+                                        </Button>
+                                      </div>
+                                    ))}
                                   </div>
 
                                   <div className="flex justify-end">
@@ -789,61 +1147,14 @@ export default function ProfileTypesPage() {
                                       className="text-red-600"
                                       onClick={() => syncHomeContent((prev) => {
                                         const items = [...ensureArray(prev.tutorials, [])];
-                                        const conceptsCovered = ensureArray(items[tutorialIndex]?.conceptsCovered, []).filter((_, idx) => idx !== conceptIndex);
-                                        items[tutorialIndex] = { ...items[tutorialIndex], conceptsCovered };
+                                        const pages = ensureArray(items[tutorialIndex]?.pages, []).filter((_, idx) => idx !== pageIndex);
+                                        items[tutorialIndex] = { ...items[tutorialIndex], pages };
                                         return { ...prev, tutorials: items };
                                       })}
                                     >
-                                      Remove Concept
+                                      Remove Page
                                     </Button>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold">Learning Points</h4>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => syncHomeContent((prev) => {
-                                    const items = [...ensureArray(prev.tutorials, [])];
-                                    const learnPoints = [...ensureArray(items[tutorialIndex]?.learnPoints, []), ''];
-                                    items[tutorialIndex] = { ...items[tutorialIndex], learnPoints };
-                                    return { ...prev, tutorials: items };
-                                  })}
-                                >
-                                  <Plus className="mr-2 h-4 w-4" /> Add New
-                                </Button>
-                              </div>
-
-                              {ensureArray(tutorial.learnPoints, []).map((point, pointIndex) => (
-                                <div key={`${tutorial.slug}-point-${pointIndex}`} className="flex gap-2">
-                                  <Input
-                                    value={point || ''}
-                                    onChange={(e) => syncHomeContent((prev) => {
-                                      const items = [...ensureArray(prev.tutorials, [])];
-                                      const learnPoints = [...ensureArray(items[tutorialIndex]?.learnPoints, [])];
-                                      learnPoints[pointIndex] = e.target.value;
-                                      items[tutorialIndex] = { ...items[tutorialIndex], learnPoints };
-                                      return { ...prev, tutorials: items };
-                                    })}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="text-red-600"
-                                    onClick={() => syncHomeContent((prev) => {
-                                      const items = [...ensureArray(prev.tutorials, [])];
-                                      const learnPoints = ensureArray(items[tutorialIndex]?.learnPoints, []).filter((_, idx) => idx !== pointIndex);
-                                      items[tutorialIndex] = { ...items[tutorialIndex], learnPoints };
-                                      return { ...prev, tutorials: items };
-                                    })}
-                                  >
-                                    Remove
-                                  </Button>
                                 </div>
                               ))}
                             </div>
