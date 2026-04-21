@@ -896,3 +896,80 @@ class ReelGenerationJob(models.Model):
         verbose_name = 'Reel Generation Job'
         verbose_name_plural = 'Reel Generation Jobs'
         ordering = ['-created_at']
+
+
+class ForumPost(models.Model):
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forum_posts'
+    )
+    title = models.CharField(max_length=180, blank=True)
+    content = models.TextField()
+    rich_content = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title or f"Post #{self.pk}"
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'created_at']),
+            models.Index(fields=['author', 'created_at']),
+        ]
+
+
+class ForumPostLike(models.Model):
+    post = models.ForeignKey(
+        ForumPost,
+        on_delete=models.CASCADE,
+        related_name='likes'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forum_post_likes'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user_id} -> {self.post_id}"
+
+    class Meta:
+        unique_together = ['post', 'user']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+
+class ForumComment(models.Model):
+    post = models.ForeignKey(
+        ForumPost,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forum_comments'
+    )
+    content = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Comment #{self.pk} on post #{self.post_id}"
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+            models.Index(fields=['author', 'created_at']),
+            models.Index(fields=['is_active', 'created_at']),
+        ]

@@ -1,17 +1,29 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { useProfile } from '@/context/ProfileContext';
 import { ArrowLeft, BookOpen, FileText, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { buildProfileHomeContent } from '@/app/data/homeContent';
 
 export default function TutorialConceptNotePage({ params }) {
-  const { activeHomeContent, loading } = useProfile();
+  const { tutorialSlug, conceptSlug } = use(params);
+  const { activeHomeContent, profileTypes, loading } = useProfile();
   const tutorials = Array.isArray(activeHomeContent?.tutorials) ? activeHomeContent.tutorials : [];
-  const tutorial = tutorials.find((item) => item.slug === params.tutorialSlug);
+  const allTutorials = [
+    ...tutorials,
+    ...profileTypes.flatMap((profile) => {
+      const content = buildProfileHomeContent(profile.slug, profile.home_content);
+      return Array.isArray(content?.tutorials) ? content.tutorials : [];
+    }),
+  ];
+  const tutorial =
+    tutorials.find((item) => item.slug === tutorialSlug) ||
+    allTutorials.find((item) => item.slug === tutorialSlug);
   const concept = Array.isArray(tutorial?.conceptsCovered)
-    ? tutorial.conceptsCovered.find((item) => item.slug === params.conceptSlug)
+    ? tutorial.conceptsCovered.find((item) => item.slug === conceptSlug)
     : null;
 
   if (loading) {

@@ -52,6 +52,12 @@ const createEmptyTutorial = () => ({
   scopeLabel: '',
 });
 
+const createEmptyReview = () => ({
+  name: '',
+  course: '',
+  text: '',
+});
+
 const ensureArray = (value, fallback) => (Array.isArray(value) ? value : fallback);
 
 const getDefaultHomeContent = (slug) => {
@@ -95,6 +101,15 @@ const buildManualHomeContent = (slug, incoming = {}) => {
     ...defaults,
     ...incoming,
     navigation,
+    testimonials: {
+      ...(defaults.testimonials || {}),
+      ...(incoming.testimonials || {}),
+      items: ensureArray(incoming.testimonials?.items, defaults.testimonials?.items || []).map((item) => ({
+        name: item?.name || '',
+        course: item?.course || '',
+        text: item?.text || '',
+      })),
+    },
     tutorials,
   };
 };
@@ -269,6 +284,11 @@ export default function ProfileTypesPage() {
     { accessorKey: 'slug', header: 'Slug' },
     { accessorKey: 'order', header: 'Order' },
     {
+      id: 'reviews_count',
+      header: 'Reviews',
+      cell: ({ row }) => ensureArray(row.original.home_content?.testimonials?.items, []).filter((item) => item?.text).length,
+    },
+    {
       accessorKey: 'is_active',
       header: 'Status',
       cell: ({ row }) => (
@@ -310,6 +330,11 @@ export default function ProfileTypesPage() {
 
   const tutorials = useMemo(
     () => ensureArray(formState.home_content?.tutorials, []),
+    [formState.home_content],
+  );
+
+  const testimonials = useMemo(
+    () => ensureArray(formState.home_content?.testimonials?.items, []),
     [formState.home_content],
   );
 
@@ -492,6 +517,113 @@ export default function ProfileTypesPage() {
                                   }))}
                                 >
                                   Remove
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Student Success Stories</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Section Title</label>
+                            <Input
+                              value={formState.home_content.testimonials?.title || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                testimonials: { ...prev.testimonials, title: e.target.value },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Section Subtitle</label>
+                            <Input
+                              value={formState.home_content.testimonials?.subtitle || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                testimonials: { ...prev.testimonials, subtitle: e.target.value },
+                              }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold">Reviews</h3>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => syncHomeContent((prev) => ({
+                                ...prev,
+                                testimonials: {
+                                  ...prev.testimonials,
+                                  items: [...ensureArray(prev.testimonials?.items, []), createEmptyReview()],
+                                },
+                              }))}
+                            >
+                              <Plus className="mr-2 h-4 w-4" /> Add Review
+                            </Button>
+                          </div>
+
+                          {testimonials.map((review, reviewIndex) => (
+                            <div key={`${review.name}-${reviewIndex}`} className="rounded-lg border p-4 space-y-3">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Student Name</label>
+                                  <Input
+                                    value={review.name || ''}
+                                    onChange={(e) => syncHomeContent((prev) => {
+                                      const items = [...ensureArray(prev.testimonials?.items, [])];
+                                      items[reviewIndex] = { ...items[reviewIndex], name: e.target.value };
+                                      return { ...prev, testimonials: { ...prev.testimonials, items } };
+                                    })}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Course / Label</label>
+                                  <Input
+                                    value={review.course || ''}
+                                    onChange={(e) => syncHomeContent((prev) => {
+                                      const items = [...ensureArray(prev.testimonials?.items, [])];
+                                      items[reviewIndex] = { ...items[reviewIndex], course: e.target.value };
+                                      return { ...prev, testimonials: { ...prev.testimonials, items } };
+                                    })}
+                                  />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                  <label className="text-sm font-medium">Review Text</label>
+                                  <Textarea
+                                    rows={3}
+                                    value={review.text || ''}
+                                    onChange={(e) => syncHomeContent((prev) => {
+                                      const items = [...ensureArray(prev.testimonials?.items, [])];
+                                      items[reviewIndex] = { ...items[reviewIndex], text: e.target.value };
+                                      return { ...prev, testimonials: { ...prev.testimonials, items } };
+                                    })}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="text-red-600"
+                                  onClick={() => syncHomeContent((prev) => ({
+                                    ...prev,
+                                    testimonials: {
+                                      ...prev.testimonials,
+                                      items: ensureArray(prev.testimonials?.items, []).filter((_, idx) => idx !== reviewIndex),
+                                    },
+                                  }))}
+                                >
+                                  Remove Review
                                 </Button>
                               </div>
                             </div>
