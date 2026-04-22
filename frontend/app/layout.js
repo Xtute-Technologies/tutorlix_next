@@ -5,6 +5,7 @@ import { ProfileProvider } from "@/context/ProfileContext";
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import AuthModal from "@/components/auth/AuthModal";
 import { Toaster } from "@/components/ui/sonner";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 
 const geistSans = Geist({
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <AuthModalProvider>
             <ProfileProvider>
+              <GoogleAnalytics />
               {/* <Header /> */}
               <main className="flex-1">
                 {children}
