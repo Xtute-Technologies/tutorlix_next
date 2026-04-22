@@ -237,6 +237,18 @@ export const questionBankQuestionAPI = {
   },
 };
 
+export const aiTeacherAPI = {
+  getStatus: async () => {
+    const response = await axiosInstance.get('/api/lms/ai-teacher/status/');
+    return response.data;
+  },
+
+  chat: async (data = {}) => {
+    const response = await axiosInstance.post('/api/lms/ai-teacher/chat/', data);
+    return response.data;
+  },
+};
+
 export const forumAPI = {
   list: async (params = {}) => {
     const response = await axiosInstance.get('/api/lms/forum-posts/', { params });

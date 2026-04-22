@@ -52,6 +52,7 @@ export default function Header() {
   };
   const fallbackPrimaryLinks = [
     { label: "Home", url: "/", visibility: "public" },
+    { label: "AI Teacher", url: "/ai-teacher", visibility: "public" },
     { label: "Live Classes", url: "/courses", visibility: "public" },
     { label: questionBanksLink.label, url: questionBanksLink.href, visibility: "public" },
     { label: "Notes", url: "/notes", visibility: "public" },
