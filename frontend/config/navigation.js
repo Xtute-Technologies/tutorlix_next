@@ -50,6 +50,7 @@ export const getNavItems = (role) => {
         isActive: true,
         items: [
           { title: "Users", url: "/admin/users-management", icon: Users },
+          { title: "Forum", url: "/admin/forum", icon: MessageSquare },
           { title: "Products", url: "/admin/products", icon: Package },
           { title: "Profile Types", url: "/admin/profile-types", icon: Users },
           { title: "Categories", url: "/admin/categories", icon: Tag },

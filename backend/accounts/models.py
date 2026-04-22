@@ -46,6 +46,10 @@ class User(AbstractUser):
         default=False,
         help_text="Can seller apply manual price override"
     )
+    forum_posting_blocked = models.BooleanField(
+        default=False,
+        help_text="Prevents the user from creating or editing forum posts."
+    )
     
     def __str__(self):
         return f"{self.get_full_name()} ({self.get_role_display()})"

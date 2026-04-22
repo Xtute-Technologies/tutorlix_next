@@ -8,7 +8,7 @@ from .models import (
     Recording, Attendance, TestScore,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
     QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob,
-    ForumPost, ForumPostLike, ForumComment,
+    ForumPost, ForumPostLike, ForumComment, ForumNotification,
 )
 from django.utils.text import slugify
 
@@ -151,6 +151,7 @@ class ForumPostSerializer(serializers.ModelSerializer):
             'content',
             'rich_content',
             'preview_text',
+            'is_active',
             'likes_count',
             'comments_count',
             'liked_by_me',
@@ -160,7 +161,7 @@ class ForumPostSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'author', 'preview_text', 'likes_count', 'comments_count', 'liked_by_me', 'recent_comments', 'can_edit', 'can_delete', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'author', 'preview_text', 'is_active', 'likes_count', 'comments_count', 'liked_by_me', 'recent_comments', 'can_edit', 'can_delete', 'created_at', 'updated_at']
         extra_kwargs = {
             'content': {'required': False, 'allow_blank': True},
             'rich_content': {'required': False},
@@ -255,6 +256,36 @@ class ForumPostSerializer(serializers.ModelSerializer):
 
     def get_can_delete(self, obj):
         return self.get_can_edit(obj)
+
+
+class ForumNotificationSerializer(serializers.ModelSerializer):
+    actor = PublicUserSerializer(read_only=True)
+    post_title = serializers.SerializerMethodField()
+    post_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ForumNotification
+        fields = [
+            'id',
+            'notification_type',
+            'message',
+            'is_read',
+            'created_at',
+            'read_at',
+            'actor',
+            'post',
+            'post_title',
+            'post_url',
+        ]
+        read_only_fields = fields
+
+    def get_post_title(self, obj):
+        return obj.post.title if obj.post else ''
+
+    def get_post_url(self, obj):
+        if not obj.post_id:
+            return ''
+        return f'/forum?post={obj.post_id}'
 
 
 # ============= Category Serializers =============
