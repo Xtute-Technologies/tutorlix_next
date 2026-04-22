@@ -4,13 +4,13 @@ import Script from "next/script";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID = "G-FPH97SRGGE";
 
 export default function GoogleAnalytics() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!GA_MEASUREMENT_ID || typeof window === "undefined" || typeof window.gtag !== "function") {
+    if (typeof window === "undefined" || typeof window.gtag !== "function") {
       return;
     }
 
@@ -18,10 +18,6 @@ export default function GoogleAnalytics() {
       page_path: pathname,
     });
   }, [pathname]);
-
-  if (!GA_MEASUREMENT_ID) {
-    return null;
-  }
 
   return (
     <>
