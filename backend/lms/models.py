@@ -973,3 +973,53 @@ class ForumComment(models.Model):
             models.Index(fields=['author', 'created_at']),
             models.Index(fields=['is_active', 'created_at']),
         ]
+
+
+class ForumNotification(models.Model):
+    TYPE_NEW_POST = 'new_post'
+    TYPE_POST_LIKE = 'post_like'
+    TYPE_POST_COMMENT = 'post_comment'
+    TYPE_POST_SHARE = 'post_share'
+
+    NOTIFICATION_TYPE_CHOICES = [
+        (TYPE_NEW_POST, 'New Post'),
+        (TYPE_POST_LIKE, 'Post Like'),
+        (TYPE_POST_COMMENT, 'Post Comment'),
+        (TYPE_POST_SHARE, 'Post Share'),
+    ]
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forum_notifications',
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='forum_notifications_sent',
+        null=True,
+        blank=True,
+    )
+    post = models.ForeignKey(
+        ForumPost,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        null=True,
+        blank=True,
+    )
+    notification_type = models.CharField(max_length=32, choices=NOTIFICATION_TYPE_CHOICES)
+    message = models.CharField(max_length=255)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.recipient_id} - {self.notification_type}"
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', 'created_at']),
+            models.Index(fields=['recipient', 'created_at']),
+            models.Index(fields=['notification_type', 'created_at']),
+        ]

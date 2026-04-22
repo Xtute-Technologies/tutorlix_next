@@ -17,6 +17,7 @@ import { User, LogOut, Settings, LayoutDashboard, BookOpen, Menu, Repeat, LogIn,
 import { useEffect, useMemo, useRef, useState } from "react";
 import ProfileTypeModal from "@/components/ProfileTypeModal";
 import { useProfile } from "@/context/ProfileContext";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Header() {
   const { user, logout, loading } = useAuth();
@@ -209,6 +210,7 @@ export default function Header() {
             <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100"></div>
           ) : user ? (
             <>
+              <NotificationBell />
               {/* Authenticated User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

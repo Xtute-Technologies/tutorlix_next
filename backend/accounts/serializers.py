@@ -21,7 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'phone', 'role','is_active']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'phone', 'role','is_active', 'forum_posting_blocked']
         read_only_fields = ['id', 'username','is_active']
     
     def get_full_name(self, obj):
@@ -41,7 +41,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'state', 'role', 'student_status',
             'profile_image', 'bio', 'created_at', 'updated_at', 'is_active', 'allow_manual_price',
-            'email_verified'
+            'forum_posting_blocked', 'email_verified'
         ]
         # REMOVED 'is_active' from read_only_fields so it can be updated
         read_only_fields = ['id', 'username', 'created_at', 'updated_at']
@@ -139,7 +139,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'full_name',"profile_image"]
+        fields = ['id', 'full_name', 'profile_image', 'forum_posting_blocked']
     
     def get_full_name(self, obj):
         return obj.get_full_name()

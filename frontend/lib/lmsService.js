@@ -273,6 +273,11 @@ export const forumAPI = {
     return response.data;
   },
 
+  share: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/forum-posts/${id}/share/`);
+    return response.data;
+  },
+
   getComments: async (id, params = {}) => {
     const response = await axiosInstance.get(`/api/lms/forum-posts/${id}/comments/`, { params });
     return response.data;
@@ -280,6 +285,28 @@ export const forumAPI = {
 
   createComment: async (id, data) => {
     const response = await axiosInstance.post(`/api/lms/forum-posts/${id}/comments/`, data);
+    return response.data;
+  },
+};
+
+export const forumNotificationAPI = {
+  list: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/forum-notifications/', { params });
+    return response.data;
+  },
+
+  unreadCount: async () => {
+    const response = await axiosInstance.get('/api/lms/forum-notifications/unread_count/');
+    return response.data;
+  },
+
+  markRead: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/forum-notifications/${id}/mark_read/`);
+    return response.data;
+  },
+
+  markAllRead: async () => {
+    const response = await axiosInstance.post('/api/lms/forum-notifications/mark_all_read/');
     return response.data;
   },
 };

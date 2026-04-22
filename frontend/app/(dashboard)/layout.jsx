@@ -1,6 +1,7 @@
 "use client";
 
 import { AppSidebar } from "@//components/app-sidebar";
+import Header from "@/components/Header";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/context/AuthContext";
@@ -62,21 +63,28 @@ export default function AdminRootLayout({ children }) {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <SidebarProvider>
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>{generateBreadcrumbs()}</BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
-        </SidebarInset>
-      </SidebarProvider>
+      <div className="min-h-screen bg-slate-100">
+        <Header />
+        <div className="min-h-[calc(100svh-4rem)]">
+          <SidebarProvider>
+            <AppSidebar variant="inset" className="top-16 h-[calc(100svh-4rem)]" />
+            <SidebarInset className="min-h-[calc(100svh-4rem)] bg-transparent">
+              <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 shadow-sm backdrop-blur md:px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+                <Breadcrumb>
+                  <BreadcrumbList>{generateBreadcrumbs()}</BreadcrumbList>
+                </Breadcrumb>
+              </header>
+              <div className="flex flex-1 flex-col p-3 md:p-4">
+                <div className="min-h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                  {children}
+                </div>
+              </div>
+            </SidebarInset>
+          </SidebarProvider>
+        </div>
+      </div>
     </ThemeProvider>
   );
 }

@@ -341,6 +341,10 @@ function ForumPostCard({
         await navigator.clipboard.writeText(shareUrl);
         toast.success('Post link copied.');
       }
+
+      if (isAuthenticated) {
+        await forumAPI.share(post.id);
+      }
     } catch {
       // no-op
     }
@@ -569,7 +573,7 @@ function ForumProfileSection({ user, isAuthenticated, onRequireAuth, myPosts, lo
 }
 
 function ForumPageContent() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { profileType } = useProfile();
   const searchParams = useSearchParams();
@@ -592,6 +596,7 @@ function ForumPageContent() {
   const [postSheetOpen, setPostSheetOpen] = useState(false);
 
   const selectedPostId = searchParams.get('post');
+  const hidePostAction = isAuthenticated && user?.forum_posting_blocked;
 
   const requireAuth = () => openAuthModal('login');
 
@@ -717,6 +722,18 @@ function ForumPageContent() {
   useEffect(() => {
     loadMyPosts();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    refreshUser();
+
+    const timer = setInterval(() => {
+      refreshUser();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [isAuthenticated, refreshUser]);
 
   useEffect(() => {
     if (!selectedPostId) return;
@@ -965,7 +982,7 @@ function ForumPageContent() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto grid max-w-7xl grid-cols-3 gap-2 px-4 py-3">
+        <div className={`mx-auto grid max-w-7xl gap-2 px-4 py-3 ${hidePostAction ? 'grid-cols-2' : 'grid-cols-3'}`}>
           <Button
             type="button"
             variant="ghost"
@@ -975,21 +992,23 @@ function ForumPageContent() {
             <Repeat2 className="h-4 w-4" />
             Timeline
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-11 rounded-full bg-slate-700 text-white hover:bg-slate-600 hover:text-white"
-            onClick={() => {
-              if (!isAuthenticated) {
-                requireAuth();
-                return;
-              }
-              setPostSheetOpen(true);
-            }}
-          >
-            <PlusSquare className="h-4 w-4" />
-            Post
-          </Button>
+          {!hidePostAction ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 rounded-full bg-slate-700 text-white hover:bg-slate-600 hover:text-white"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  requireAuth();
+                  return;
+                }
+                setPostSheetOpen(true);
+              }}
+            >
+              <PlusSquare className="h-4 w-4" />
+              Post
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -1002,14 +1021,16 @@ function ForumPageContent() {
         </div>
       </div>
 
-      <ForumComposerSheet
-        open={postSheetOpen}
-        onOpenChange={setPostSheetOpen}
-        isAuthenticated={isAuthenticated}
-        onRequireAuth={requireAuth}
-        onCreate={handleCreatePost}
-        submitting={creating}
-      />
+      {!hidePostAction ? (
+        <ForumComposerSheet
+          open={postSheetOpen}
+          onOpenChange={setPostSheetOpen}
+          isAuthenticated={isAuthenticated}
+          onRequireAuth={requireAuth}
+          onCreate={handleCreatePost}
+          submitting={creating}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { authService } from '@/lib/authService';
 import { useRouter } from 'next/navigation';
 
@@ -16,19 +16,37 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       if (authService.isAuthenticated()) {
         const userData = await authService.getCurrentUser();
         setUser(userData);
+        return userData;
       }
     } catch (error) {
       console.error('Error loading user:', error);
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!authService.isAuthenticated()) {
+      setUser(null);
+      return null;
+    }
+
+    try {
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+      return userData;
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      return null;
+    }
+  }, []);
 
   const login = async (credentials, shouldRedirect = true) => {
     try {
@@ -95,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateProfile,
+    refreshUser,
     isAuthenticated: !!user,
   };
 

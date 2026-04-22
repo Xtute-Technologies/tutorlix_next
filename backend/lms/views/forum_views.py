@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
@@ -5,8 +6,43 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from lms.models import ForumComment, ForumPost, ForumPostLike
+from lms.models import ForumComment, ForumNotification, ForumPost, ForumPostLike
 from lms.serializers import ForumCommentSerializer, ForumPostSerializer
+
+User = get_user_model()
+
+
+def create_new_post_notifications(post, actor):
+    recipient_ids = list(
+        User.objects.filter(is_active=True).exclude(id=actor.id).values_list('id', flat=True)
+    )
+    if not recipient_ids:
+        return
+
+    message = f'{actor.get_full_name()} added a new forum post.'
+    ForumNotification.objects.bulk_create([
+        ForumNotification(
+            recipient_id=recipient_id,
+            actor=actor,
+            post=post,
+            notification_type=ForumNotification.TYPE_NEW_POST,
+            message=message,
+        )
+        for recipient_id in recipient_ids
+    ], batch_size=500)
+
+
+def create_post_owner_notification(post, actor, notification_type, message):
+    if not post.author_id or post.author_id == actor.id:
+        return
+
+    ForumNotification.objects.create(
+        recipient=post.author,
+        actor=actor,
+        post=post,
+        notification_type=notification_type,
+        message=message,
+    )
 
 
 class ForumPostViewSet(
@@ -47,14 +83,17 @@ class ForumPostViewSet(
         return queryset.filter(is_active=True)
 
     def get_permissions(self):
-        if self.action in ['create', 'toggle_like', 'mine', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'toggle_like', 'share', 'mine', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated()]
         if self.action == 'comments' and self.request.method.lower() == 'post':
             return [IsAuthenticated()]
         return [AllowAny()]
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        if getattr(self.request.user, 'forum_posting_blocked', False):
+            raise PermissionDenied('You are blocked from posting in the forum.')
+        post = serializer.save(author=self.request.user)
+        create_new_post_notifications(post, self.request.user)
 
     def _can_manage_post(self, post):
         user = self.request.user
@@ -64,6 +103,8 @@ class ForumPostViewSet(
         post = self.get_object()
         if not self._can_manage_post(post):
             raise PermissionDenied('You do not have permission to edit this post.')
+        if getattr(self.request.user, 'forum_posting_blocked', False):
+            raise PermissionDenied('You are blocked from posting in the forum.')
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -87,11 +128,29 @@ class ForumPostViewSet(
         like, created = ForumPostLike.objects.get_or_create(post=post, user=request.user)
         if not created:
             like.delete()
+        else:
+            create_post_owner_notification(
+                post,
+                request.user,
+                ForumNotification.TYPE_POST_LIKE,
+                f'{request.user.get_full_name()} liked your forum post.',
+            )
 
         return Response({
             'liked': created,
             'likes_count': post.likes.count(),
         })
+
+    @action(detail=True, methods=['post'], url_path='share')
+    def share(self, request, pk=None):
+        post = self.get_object()
+        create_post_owner_notification(
+            post,
+            request.user,
+            ForumNotification.TYPE_POST_SHARE,
+            f'{request.user.get_full_name()} shared your forum post.',
+        )
+        return Response({'shared': True})
 
     @action(detail=True, methods=['get', 'post'])
     def comments(self, request, pk=None):
@@ -107,5 +166,11 @@ class ForumPostViewSet(
 
         serializer = ForumCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(post=post, author=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        comment = serializer.save(post=post, author=request.user)
+        create_post_owner_notification(
+            post,
+            request.user,
+            ForumNotification.TYPE_POST_COMMENT,
+            f'{request.user.get_full_name()} commented on your forum post.',
+        )
+        return Response(ForumCommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
