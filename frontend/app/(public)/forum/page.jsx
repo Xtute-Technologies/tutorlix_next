@@ -728,12 +728,35 @@ function ForumPageContent() {
 
     refreshUser();
 
+    const handleVisibilityRefresh = () => {
+      if (!document.hidden) {
+        refreshUser();
+      }
+    };
+
+    const handleFocusRefresh = () => {
+      refreshUser();
+    };
+
     const timer = setInterval(() => {
       refreshUser();
-    }, 5000);
+    }, 2000);
 
-    return () => clearInterval(timer);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+    window.addEventListener('focus', handleFocusRefresh);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      window.removeEventListener('focus', handleFocusRefresh);
+    };
   }, [isAuthenticated, refreshUser]);
+
+  useEffect(() => {
+    if (hidePostAction && postSheetOpen) {
+      setPostSheetOpen(false);
+    }
+  }, [hidePostAction, postSheetOpen]);
 
   useEffect(() => {
     if (!selectedPostId) return;

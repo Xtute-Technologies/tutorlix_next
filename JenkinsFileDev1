@@ -16,6 +16,7 @@ pipeline {
         FRONTEND_IMAGE = 'ankitvashishta7/tutorlix-frontend'
         IMAGE_TAG = "${BUILD_NUMBER}"
         BACKEND_SECRET_NAME = 'backend-env'
+        OLLAMA_MODEL = 'qwen2.5:3b-instruct'
     }
 
     stages {
@@ -94,6 +95,55 @@ pipeline {
             }
         }
 
+        stage('Ensure Ollama') {
+            steps {
+                sh '''
+                    set -e
+                    export KUBECONFIG="$HOME/.kube/config"
+
+                    echo "🧠 Ensuring Ollama is installed..."
+                    if command -v ollama >/dev/null 2>&1; then
+                        ollama --version || true
+                    else
+                        curl -fsSL https://ollama.com/install.sh | sh
+                    fi
+
+                    echo "🚀 Ensuring Ollama service is running..."
+                    if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files | grep -q '^ollama.service'; then
+                        sudo systemctl enable ollama || true
+                        sudo systemctl restart ollama || sudo systemctl start ollama || true
+                    fi
+
+                    if ! curl -fsS http://127.0.0.1:11434/api/version >/dev/null 2>&1; then
+                        pkill -f "ollama serve" || true
+                        nohup ollama serve >/tmp/ollama-dev.log 2>&1 &
+                    fi
+
+                    for i in $(seq 1 20); do
+                        if curl -fsS http://127.0.0.1:11434/api/version >/dev/null 2>&1; then
+                            break
+                        fi
+                        sleep 2
+                    done
+
+                    curl -fsS http://127.0.0.1:11434/api/version
+
+                    echo "📦 Ensuring Ollama model exists..."
+                    if ! ollama show "$OLLAMA_MODEL" >/dev/null 2>&1; then
+                        ollama pull "$OLLAMA_MODEL"
+                    fi
+
+                    OLLAMA_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+                    if [ -z "$OLLAMA_NODE_IP" ]; then
+                        echo "❌ Could not resolve Kubernetes node internal IP for Ollama"
+                        exit 1
+                    fi
+                    echo "$OLLAMA_NODE_IP" > .ollama_node_ip_dev
+                    echo "✅ Ollama will be exposed to backend via http://$OLLAMA_NODE_IP:11434"
+                '''
+            }
+        }
+
         stage('Cluster Preflight') {
             steps {
                 sh '''
@@ -150,11 +200,14 @@ pipeline {
                         export KUBECONFIG="$HOME/.kube/config"
 
                         echo "🔐 Syncing backend dev secrets..."
+                        OLLAMA_NODE_IP=$(cat .ollama_node_ip_dev)
                         kubectl create secret generic "$BACKEND_SECRET_NAME" \
                           --from-literal=RAZORPAY_SECRET_ID="$RAZORPAY_SECRET_ID" \
                           --from-literal=RAZORPAY_SECRET_KEY="$RAZORPAY_SECRET_KEY" \
                           --from-literal=RAZORPAY_WEBHOOK_SECRET="$RAZORPAY_WEBHOOK_SECRET" \
                           --from-literal=GROQ_API_KEY="$GROQ_API_KEY" \
+                          --from-literal=OLLAMA_BASE_URL="http://$OLLAMA_NODE_IP:11434" \
+                          --from-literal=OLLAMA_AI_TEACHER_MODEL="$OLLAMA_MODEL" \
                           --from-literal=FRONTEND_URL="https://dev.tutorlix.com" \
                           --dry-run=client -o yaml | kubectl apply -f -
 
