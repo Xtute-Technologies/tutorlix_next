@@ -13,6 +13,7 @@ pipeline {
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
         BACKEND_SECRET_NAME = 'backend-prod-env'
         OLLAMA_MODEL = 'qwen2.5:3b-instruct'
+        ROLLOUT_TIMEOUT = '600s'
     }
 
     stages {
@@ -154,7 +155,16 @@ pipeline {
                             export KUBECONFIG=$HOME/.kube/config
 
                             echo "⏳ Waiting for backend-prod rollout..."
-                            kubectl rollout status deployment/backend-prod --timeout=180s
+                            kubectl rollout status deployment/backend-prod --timeout="$ROLLOUT_TIMEOUT" || {
+                                echo "❌ backend-prod rollout did not complete"
+                                kubectl get deployment backend-prod -o wide || true
+                                kubectl describe deployment backend-prod || true
+                                kubectl get pods -l app=backend-prod -o wide || true
+                                kubectl describe pods -l app=backend-prod || true
+                                kubectl logs deployment/backend-prod -c backend-prod --tail=200 || true
+                                kubectl logs deployment/backend-prod -c ollama --tail=200 || true
+                                exit 1
+                            }
 
                             MIGRATE_JOB_NAME="backend-prod-migrate-$(date +%s)"
 
@@ -211,7 +221,15 @@ EOF
                             export KUBECONFIG=$HOME/.kube/config
 
                             echo "⏳ Waiting for frontend-prod rollout..."
-                            kubectl rollout status deployment/frontend-prod --timeout=180s
+                            kubectl rollout status deployment/frontend-prod --timeout="$ROLLOUT_TIMEOUT" || {
+                                echo "❌ frontend-prod rollout did not complete"
+                                kubectl get deployment frontend-prod -o wide || true
+                                kubectl describe deployment frontend-prod || true
+                                kubectl get pods -l app=frontend-prod -o wide || true
+                                kubectl describe pods -l app=frontend-prod || true
+                                kubectl logs deployment/frontend-prod -c frontend-prod --tail=200 || true
+                                exit 1
+                            }
                         '''
                     }
                 }
