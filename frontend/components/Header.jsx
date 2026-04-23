@@ -72,6 +72,9 @@ export default function Header() {
       if (visibility === "both") return true;
       return true;
     });
+    if (!visibleLinks.some((link) => link.url === "/ai-teacher")) {
+      visibleLinks.splice(Math.min(visibleLinks.length, 1), 0, { label: "AI Teacher", url: "/ai-teacher", visibility: "public" });
+    }
     if (!visibleLinks.some((link) => link.url === "/forum")) {
       visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, { label: "Forum", url: "/forum", visibility: "public" });
     }
