@@ -52,7 +52,6 @@ export default function Header() {
   };
   const fallbackPrimaryLinks = [
     { label: "Home", url: "/", visibility: "public" },
-    { label: "AI Teacher", url: "/ai-teacher", visibility: "public" },
     { label: "Live Classes", url: "/courses", visibility: "public" },
     { label: questionBanksLink.label, url: questionBanksLink.href, visibility: "public" },
     { label: "Notes", url: "/notes", visibility: "public" },
@@ -72,9 +71,6 @@ export default function Header() {
       if (visibility === "both") return true;
       return true;
     });
-    if (!visibleLinks.some((link) => link.url === "/ai-teacher")) {
-      visibleLinks.splice(Math.min(visibleLinks.length, 1), 0, { label: "AI Teacher", url: "/ai-teacher", visibility: "public" });
-    }
     if (!visibleLinks.some((link) => link.url === "/forum")) {
       visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, { label: "Forum", url: "/forum", visibility: "public" });
     }

@@ -421,7 +421,6 @@ export const defaultProfileHomeContent = {
     navigation: {
       primary_links: [
         { label: "Home", url: "/", visibility: "public" },
-        { label: "AI Teacher", url: "/ai-teacher", visibility: "public" },
         { label: "Live Classes", url: "/courses", visibility: "public" },
         { label: "Question Banks", url: "/question-banks", visibility: "public" },
         { label: "Notes", url: "/notes", visibility: "public" },
@@ -526,7 +525,6 @@ export const defaultProfileHomeContent = {
     navigation: {
       primary_links: [
         { label: "Home", url: "/", visibility: "public" },
-        { label: "AI Teacher", url: "/ai-teacher", visibility: "public" },
         { label: "Live Classes", url: "/courses", visibility: "public" },
         { label: "Question Banks", url: "/question-banks", visibility: "public" },
         { label: "Notes", url: "/notes", visibility: "public" },
@@ -630,7 +628,6 @@ export const defaultProfileHomeContent = {
     navigation: {
       primary_links: [
         { label: "Home", url: "/", visibility: "public" },
-        { label: "AI Teacher", url: "/ai-teacher", visibility: "public" },
         { label: "Live Classes", url: "/courses", visibility: "public" },
         { label: "Question Banks", url: "/question-banks", visibility: "public" },
         { label: "Notes", url: "/notes", visibility: "public" },
