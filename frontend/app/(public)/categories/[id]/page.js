@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { getCoursePath } from '@/lib/courseUrls';
 import { categoryAPI, productAPI } from '@/lib/lmsService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -176,7 +177,7 @@ export default function CategoryDetailPage() {
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProducts.map((product) => (
-              <Link key={product.id} href={`/courses/${product.id}`}>
+              <Link key={product.id} href={getCoursePath(product)}>
                 <Card className="h-full hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer">
                   {/* Course Image */}
                   {product.primary_image ? (

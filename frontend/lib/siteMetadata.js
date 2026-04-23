@@ -1,4 +1,5 @@
 import { buildProfileHomeContent } from '@/app/data/homeContent';
+import { getCoursePath } from '@/lib/courseUrls';
 
 export const SITE_URL = 'https://tutorlix.com';
 const API_BASE_URL =
@@ -178,7 +179,7 @@ export async function getSitemapEntries() {
 
   if (products.status === 'fulfilled') {
     products.value.forEach((product) => {
-      pushUrl(entries, `/courses/${product.id}`, product.updated_at || product.created_at);
+      pushUrl(entries, getCoursePath(product), product.updated_at || product.created_at);
     });
   }
 

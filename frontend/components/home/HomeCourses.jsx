@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, BookOpen } from 'lucide-react';
+import { getCoursePath } from '@/lib/courseUrls';
 import { cn } from "@/lib/utils";
 import { FALLBACK_IMAGE } from "@/app/data/homeContent";
 
@@ -78,7 +79,7 @@ export default function HomeCourses({
         ) : products.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {products.map((product) => (
-              <Link key={product.id} href={`/courses/${product.id}`} className="group h-full block">
+              <Link key={product.id} href={getCoursePath(product)} className="group h-full block">
                 <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-gray-200/60 overflow-hidden flex flex-col">
                   
                   {/* Course Image */}

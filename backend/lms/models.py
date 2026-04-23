@@ -165,6 +165,17 @@ class Product(models.Model):
     
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug and self.name:
+            base_slug = slugify(self.name) or 'course'
+            slug = base_slug
+            suffix = 2
+            while Product.objects.exclude(pk=self.pk).filter(slug=slug).exists():
+                slug = f'{base_slug}-{suffix}'
+                suffix += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
     
     def get_effective_price(self):
         """Returns discounted price if available, otherwise regular price"""

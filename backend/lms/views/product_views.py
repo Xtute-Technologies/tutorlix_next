@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import slugify
+from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 import logging
 
@@ -137,6 +139,26 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self.action == "list" or self.action == "featured":
             return ProductListSerializer
         return ProductSerializer
+
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_value = self.kwargs.get(self.lookup_field)
+
+        if lookup_value is None:
+            return super().get_object()
+
+        if str(lookup_value).isdigit():
+            return get_object_or_404(queryset, pk=lookup_value)
+
+        product = queryset.filter(slug=lookup_value).first()
+        if product:
+            return product
+
+        for item in queryset:
+            if slugify(item.slug or item.name) == lookup_value:
+                return item
+
+        return get_object_or_404(queryset, pk=lookup_value)
 
     # --- Custom Actions ---
 

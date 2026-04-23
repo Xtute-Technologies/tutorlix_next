@@ -28,6 +28,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
+import { getCoursePath } from '@/lib/courseUrls';
 import { useProfile } from '@/context/ProfileContext';
 import { forumAPI, productAPI } from '@/lib/lmsService';
 import { publicNoteAPI } from '@/lib/notesService';
@@ -187,7 +188,7 @@ function ForumComposerSheet({ open, onOpenChange, isAuthenticated, onRequireAuth
 function ForumAdCard({ ad }) {
   if (!ad) return null;
 
-  const href = ad.kind === 'course' ? `/courses/${ad.id}` : `/notes/${ad.slug || ad.id}`;
+  const href = ad.kind === 'course' ? getCoursePath(ad) : `/notes/${ad.slug || ad.id}`;
   const price = ad.kind === 'course'
     ? `₹${ad.effective_price || ad.discounted_price || ad.price || 0}`
     : ad.effective_price || ad.discounted_price || ad.price
