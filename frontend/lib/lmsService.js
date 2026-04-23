@@ -247,6 +247,16 @@ export const aiTeacherAPI = {
     const response = await axiosInstance.post('/api/lms/ai-teacher/chat/', data);
     return response.data;
   },
+
+  createFaceSession: async (data = {}) => {
+    const response = await axiosInstance.post('/api/lms/ai-teacher/face-session/', data);
+    return response.data;
+  },
+
+  endFaceSession: async (conversationId) => {
+    const response = await axiosInstance.post(`/api/lms/ai-teacher/face-session/${conversationId}/end/`);
+    return response.data;
+  },
 };
 
 export const forumAPI = {

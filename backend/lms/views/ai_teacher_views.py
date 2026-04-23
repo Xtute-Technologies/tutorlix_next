@@ -35,21 +35,21 @@ def _note_candidates_for_user(user, profile_type=''):
     queryset = Note.objects.filter(is_active=True, is_draft=False).select_related('product', 'creator')
     if profile_type:
         queryset = queryset.filter(profileTypes__icontains=profile_type)
-    return [note for note in queryset[:120] if note.can_user_access(user)]
+    return [note for note in queryset[:40] if note.can_user_access(user)]
 
 
 def _question_bank_candidates(profile_type=''):
     course_queryset = QuestionBankCourse.objects.filter(is_active=True)
     if profile_type:
         course_queryset = course_queryset.filter(profileTypes__icontains=profile_type)
-    courses = list(course_queryset[:60])
+    courses = list(course_queryset[:24])
     topics = list(
         QuestionBankTopic.objects.filter(is_active=True, course__in=courses)
-        .select_related('course')[:200]
+        .select_related('course')[:80]
     )
     questions = list(
         QuestionBankQuestion.objects.filter(is_active=True, topic__in=topics)
-        .select_related('topic', 'topic__course')[:300]
+        .select_related('topic', 'topic__course')[:120]
     )
     return courses, topics, questions
 
@@ -70,7 +70,7 @@ def _build_grounding_context(user, question, profile_type=''):
               'title': note.title,
               'slug': note.slug,
               'description': note.description or '',
-              'content': note_text[:2200],
+              'content': note_text[:1200],
           })
 
     courses, topics, questions = _question_bank_candidates(profile_type=profile_type)
@@ -98,15 +98,15 @@ def _build_grounding_context(user, question, profile_type=''):
                 'topic_slug': item.topic.slug,
                 'course_title': item.topic.course.title,
                 'title': item.topic.title,
-                'question': item.question[:700],
-                'answer': item.answer[:900],
+                'question': item.question[:360],
+                'answer': item.answer[:480],
             })
 
     note_entries.sort(key=lambda item: item['score'], reverse=True)
     question_entries.sort(key=lambda item: item['score'], reverse=True)
 
-    top_notes = note_entries[:3]
-    top_qbank = question_entries[:4]
+    top_notes = note_entries[:2]
+    top_qbank = question_entries[:3]
 
     context_parts = []
 
@@ -179,6 +179,12 @@ class AITeacherStatusView(APIView):
                 'base_url': getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434'),
                 'speech_to_text': 'browser',
                 'text_to_speech': 'browser',
+                'face_provider': 'tavus' if getattr(settings, 'TAVUS_API_KEY', '') and getattr(settings, 'TAVUS_PERSONA_ID', '') else None,
+                'face_enabled': bool(
+                    getattr(settings, 'TAVUS_API_KEY', '') and
+                    getattr(settings, 'TAVUS_PERSONA_ID', '') and
+                    getattr(settings, 'TAVUS_REPLICA_ID', '')
+                ),
             }
         )
 
@@ -218,7 +224,7 @@ class AITeacherChatView(APIView):
             }
         ]
 
-        for item in history[-10:]:
+        for item in history[-6:]:
             if not isinstance(item, dict):
                 continue
             role = item.get('role')
@@ -285,3 +291,119 @@ class AITeacherChatView(APIView):
                 'sources': sources,
             }
         )
+
+
+class AITeacherFaceSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        tavus_api_key = getattr(settings, 'TAVUS_API_KEY', '')
+        tavus_persona_id = getattr(settings, 'TAVUS_PERSONA_ID', '')
+        tavus_replica_id = getattr(settings, 'TAVUS_REPLICA_ID', '')
+
+        if not tavus_api_key or not tavus_persona_id or not tavus_replica_id:
+            return Response(
+                {
+                    'error': 'Realistic face is not configured. Set TAVUS_API_KEY, TAVUS_PERSONA_ID, and TAVUS_REPLICA_ID.',
+                },
+                status=503,
+            )
+
+        profile_type = (request.data.get('profile_type') or '').strip()
+        topic_focus = (request.data.get('topic_focus') or '').strip()
+        user = request.user
+
+        contextual_prompt = (
+            f'The student is {user.get_full_name().strip() or user.username or "Student"}. '
+            'Act as a calm one-to-one teacher. '
+        )
+        if profile_type:
+            contextual_prompt += f'The active profile type is {profile_type}. '
+        if topic_focus:
+            contextual_prompt += f'The current topic focus is {topic_focus}. '
+
+        payload = {
+            'replica_id': tavus_replica_id,
+            'persona_id': tavus_persona_id,
+            'conversation_name': f'Tutorlix AI Teacher - {user.username}',
+            'custom_greeting': (
+                f'Hi {user.first_name or user.username}, I am ready to help.'
+                if not topic_focus else
+                f'Hi {user.first_name or user.username}, I am ready to help you with {topic_focus}.'
+            ),
+            'conversational_context': contextual_prompt,
+            'require_auth': False,
+            'max_participants': 2,
+        }
+
+        try:
+            response = requests.post(
+                'https://tavusapi.com/v2/conversations',
+                headers={
+                    'Content-Type': 'application/json',
+                    'x-api-key': tavus_api_key,
+                },
+                json=payload,
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            return Response(
+                {
+                    'error': 'Failed to initialize realistic face session.',
+                    'details': str(exc),
+                },
+                status=502,
+            )
+
+        if response.status_code >= 400:
+            return Response(
+                {
+                    'error': 'Tavus conversation creation failed.',
+                    'details': response.text[:500],
+                },
+                status=502,
+            )
+
+        data = response.json()
+        return Response(
+            {
+                'conversation_id': data.get('conversation_id'),
+                'conversation_url': data.get('conversation_url'),
+                'status': data.get('status'),
+            }
+        )
+
+
+class AITeacherFaceSessionEndView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, conversation_id):
+        tavus_api_key = getattr(settings, 'TAVUS_API_KEY', '')
+        if not tavus_api_key:
+            return Response({'ok': True})
+
+        try:
+            response = requests.post(
+                f'https://tavusapi.com/v2/conversations/{conversation_id}/end',
+                headers={'x-api-key': tavus_api_key},
+                timeout=20,
+            )
+        except requests.RequestException as exc:
+            return Response(
+                {
+                    'error': 'Failed to end realistic face session.',
+                    'details': str(exc),
+                },
+                status=502,
+            )
+
+        if response.status_code >= 400:
+            return Response(
+                {
+                    'error': 'Tavus conversation end failed.',
+                    'details': response.text[:500],
+                },
+                status=502,
+            )
+
+        return Response({'ok': True})
