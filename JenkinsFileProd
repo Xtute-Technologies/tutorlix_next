@@ -39,6 +39,7 @@ pipeline {
                             echo "🚀 Building backend prod image..."
                             docker build \
                             --network=host \
+                            -f backend/Dockerfile.prod \
                             -t $BACKEND_IMAGE \
                             ./backend
 
@@ -54,6 +55,7 @@ pipeline {
                             echo "🚀 Building frontend prod image..."
                             docker build \
                             --network=host \
+                            -f frontend/Dockerfile.prod \
                             -t $FRONTEND_IMAGE \
                             ./frontend
 
@@ -166,9 +168,16 @@ pipeline {
                                 exit 1
                             }
 
+                            BACKEND_POD=$(kubectl get pods -l app=backend-prod --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
+                            BACKEND_NODE=$(kubectl get pod "$BACKEND_POD" -o jsonpath='{.spec.nodeName}')
                             MIGRATE_JOB_NAME="backend-prod-migrate-$(date +%s)"
 
-                            echo "🗄️ Running migrations in job $MIGRATE_JOB_NAME ..."
+                            if [ -z "$BACKEND_POD" ] || [ -z "$BACKEND_NODE" ]; then
+                                echo "❌ Could not resolve backend pod or node for migration job"
+                                exit 1
+                            fi
+
+                            echo "🗄️ Running migrations in job $MIGRATE_JOB_NAME on node $BACKEND_NODE ..."
                             cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
 kind: Job
@@ -178,6 +187,7 @@ spec:
   backoffLimit: 0
   template:
     spec:
+      nodeName: ${BACKEND_NODE}
       restartPolicy: Never
       containers:
         - name: migrate
