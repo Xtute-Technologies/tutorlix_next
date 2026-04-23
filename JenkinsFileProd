@@ -156,15 +156,51 @@ pipeline {
                             echo "⏳ Waiting for backend-prod rollout..."
                             kubectl rollout status deployment/backend-prod --timeout=180s
 
-                            BACKEND_POD=$(kubectl get pods -l app=backend-prod --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
+                            MIGRATE_JOB_NAME="backend-prod-migrate-$(date +%s)"
 
-                            if [ -z "$BACKEND_POD" ]; then
-                                echo "❌ No backend-prod pod found for migrations"
+                            echo "🗄️ Running migrations in job $MIGRATE_JOB_NAME ..."
+                            cat <<EOF | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${MIGRATE_JOB_NAME}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ${BACKEND_IMAGE}
+          imagePullPolicy: Always
+          command: ["python", "manage.py", "migrate"]
+          envFrom:
+            - secretRef:
+                name: ${BACKEND_SECRET_NAME}
+          volumeMounts:
+            - name: db-storage
+              mountPath: /app/db.sqlite3
+            - name: media-storage
+              mountPath: /app/media
+      volumes:
+        - name: db-storage
+          hostPath:
+            path: /var/www/tutorlix-prod/backend/db.sqlite3
+            type: FileOrCreate
+        - name: media-storage
+          hostPath:
+            path: /var/www/tutorlix-prod/backend/media
+            type: DirectoryOrCreate
+EOF
+
+                            kubectl wait --for=condition=complete job/"$MIGRATE_JOB_NAME" --timeout=180s || {
+                                kubectl logs job/"$MIGRATE_JOB_NAME" || true
+                                kubectl describe job "$MIGRATE_JOB_NAME" || true
                                 exit 1
-                            fi
+                            }
 
-                            echo "🗄️ Running migrations on $BACKEND_POD ..."
-                            kubectl exec "$BACKEND_POD" -- python manage.py migrate
+                            kubectl logs job/"$MIGRATE_JOB_NAME"
+                            kubectl delete job "$MIGRATE_JOB_NAME" --ignore-not-found=true
                         '''
                     }
                 }
