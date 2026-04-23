@@ -34,10 +34,6 @@ router.register(r'videos', views.VideoViewSet, basename='video')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('ai-teacher/status/', views.AITeacherStatusView.as_view(), name='ai-teacher-status'),
-    path('ai-teacher/chat/', views.AITeacherChatView.as_view(), name='ai-teacher-chat'),
-    path('ai-teacher/face-session/', views.AITeacherFaceSessionView.as_view(), name='ai-teacher-face-session'),
-    path('ai-teacher/face-session/<str:conversation_id>/end/', views.AITeacherFaceSessionEndView.as_view(), name='ai-teacher-face-session-end'),
     re_path(
         r'^webhook/payment-status/?$',
         views.RazorpayWebhookView.as_view(),

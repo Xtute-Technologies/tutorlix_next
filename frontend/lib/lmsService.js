@@ -237,28 +237,6 @@ export const questionBankQuestionAPI = {
   },
 };
 
-export const aiTeacherAPI = {
-  getStatus: async () => {
-    const response = await axiosInstance.get('/api/lms/ai-teacher/status/');
-    return response.data;
-  },
-
-  chat: async (data = {}) => {
-    const response = await axiosInstance.post('/api/lms/ai-teacher/chat/', data);
-    return response.data;
-  },
-
-  createFaceSession: async (data = {}) => {
-    const response = await axiosInstance.post('/api/lms/ai-teacher/face-session/', data);
-    return response.data;
-  },
-
-  endFaceSession: async (conversationId) => {
-    const response = await axiosInstance.post(`/api/lms/ai-teacher/face-session/${conversationId}/end/`);
-    return response.data;
-  },
-};
-
 export const forumAPI = {
   list: async (params = {}) => {
     const response = await axiosInstance.get('/api/lms/forum-posts/', { params });
