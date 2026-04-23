@@ -31,6 +31,37 @@ def _score_text(query_tokens, text):
     return sum(1 for token in query_tokens if token in haystack)
 
 
+def _normalize_ollama_base_url(value):
+    base_url = (value or 'http://localhost:11434').strip()
+    if not base_url:
+        return 'http://localhost:11434'
+
+    if ' ' in base_url:
+        base_url = base_url.split()[0]
+
+    if '://' not in base_url:
+        if ':' in base_url and not base_url.startswith('['):
+            return f'http://[{base_url}]'
+        return f'http://{base_url}'
+
+    scheme, remainder = base_url.split('://', 1)
+    if '/' in remainder:
+        host_port, path = remainder.split('/', 1)
+        suffix = f'/{path}'
+    else:
+        host_port = remainder
+        suffix = ''
+
+    if (
+        ':' in host_port and
+        not host_port.startswith('[') and
+        host_port.count(':') > 1
+    ):
+        host_port = f'[{host_port}]'
+
+    return f'{scheme}://{host_port}{suffix}'
+
+
 def _note_candidates_for_user(user, profile_type=''):
     queryset = Note.objects.filter(is_active=True, is_draft=False).select_related('product', 'creator')
     if profile_type:
@@ -212,7 +243,9 @@ class AITeacherChatView(APIView):
                 }
             )
 
-        ollama_base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434').rstrip('/')
+        ollama_base_url = _normalize_ollama_base_url(
+            getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+        ).rstrip('/')
         model = getattr(settings, 'OLLAMA_AI_TEACHER_MODEL', 'qwen2.5:3b-instruct')
         timeout = getattr(settings, 'OLLAMA_AI_TEACHER_TIMEOUT', 90)
         grounding_context, sources = _build_grounding_context(request.user, message, profile_type=profile_type)
