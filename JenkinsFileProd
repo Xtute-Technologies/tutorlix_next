@@ -75,76 +75,15 @@ pipeline {
             }
         }
 
-        stage('Ensure Ollama') {
+        stage('Configure Ollama') {
             steps {
                 sh '''
                     set -e
                     export KUBECONFIG=$HOME/.kube/config
 
-                    echo "🧠 Ensuring Ollama is installed..."
-                    if command -v ollama >/dev/null 2>&1; then
-                        ollama --version || true
-                    else
-                        curl -fsSL https://ollama.com/install.sh | sh
-                    fi
-
-                    echo "🚀 Ensuring Ollama service is running..."
-                    if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files | grep -q '^ollama.service'; then
-                        sudo systemctl enable ollama || true
-                        sudo systemctl restart ollama || sudo systemctl start ollama || true
-                    fi
-
-                    if ! curl -fsS http://127.0.0.1:11434/api/version >/dev/null 2>&1; then
-                        pkill -f "ollama serve" || true
-                        nohup ollama serve >/tmp/ollama-prod.log 2>&1 &
-                    fi
-
-                    for i in $(seq 1 20); do
-                        if curl -fsS http://127.0.0.1:11434/api/version >/dev/null 2>&1; then
-                            break
-                        fi
-                        sleep 2
-                    done
-
-                    curl -fsS http://127.0.0.1:11434/api/version
-
-                    echo "📦 Ensuring Ollama model exists..."
-                    if ! ollama show "$OLLAMA_MODEL" >/dev/null 2>&1; then
-                        ollama pull "$OLLAMA_MODEL"
-                    fi
-
-                    OLLAMA_NODE_IPS=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-                    OLLAMA_NODE_IP=''
-                    OLLAMA_FIRST_IP=''
-                    for addr in $OLLAMA_NODE_IPS; do
-                        if [ -z "$OLLAMA_FIRST_IP" ]; then
-                            OLLAMA_FIRST_IP="$addr"
-                        fi
-                        case "$addr" in
-                            *.*)
-                                OLLAMA_NODE_IP="$addr"
-                                break
-                                ;;
-                        esac
-                    done
-                    if [ -z "$OLLAMA_NODE_IP" ]; then
-                        OLLAMA_NODE_IP="$OLLAMA_FIRST_IP"
-                    fi
-                    if [ -z "$OLLAMA_NODE_IP" ]; then
-                        echo "❌ Could not resolve Kubernetes node internal IP for Ollama"
-                        exit 1
-                    fi
-                    echo "$OLLAMA_NODE_IP" > .ollama_node_ip_prod
-                    case "$OLLAMA_NODE_IP" in
-                        *:*)
-                            OLLAMA_BASE_URL="http://[$OLLAMA_NODE_IP]:11434"
-                            ;;
-                        *)
-                            OLLAMA_BASE_URL="http://$OLLAMA_NODE_IP:11434"
-                            ;;
-                    esac
+                    OLLAMA_BASE_URL="http://127.0.0.1:11434"
                     echo "$OLLAMA_BASE_URL" > .ollama_base_url_prod
-                    echo "✅ Ollama will be exposed to backend via $OLLAMA_BASE_URL"
+                    echo "✅ Ollama will run in the backend-prod pod via $OLLAMA_BASE_URL"
                 '''
             }
         }
@@ -253,6 +192,10 @@ pipeline {
 
                     echo "🔍 Services:"
                     kubectl get svc
+
+                    echo "🔍 Backend pod Ollama check:"
+                    kubectl exec deployment/backend-prod -c backend-prod -- printenv | grep OLLAMA
+                    kubectl exec deployment/backend-prod -c ollama -- ollama list
                 '''
             }
         }

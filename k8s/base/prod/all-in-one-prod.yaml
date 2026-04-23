@@ -29,6 +29,24 @@ spec:
               mountPath: /app/db.sqlite3
             - name: media-storage
               mountPath: /app/media
+        - name: ollama
+          image: ollama/ollama:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 11434
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              ollama serve &
+              until ollama list >/dev/null 2>&1; do
+                sleep 2
+              done
+              ollama show qwen2.5:3b-instruct >/dev/null 2>&1 || ollama pull qwen2.5:3b-instruct
+              wait
+          volumeMounts:
+            - name: ollama-storage
+              mountPath: /root/.ollama
 
       volumes:
         - name: db-storage
@@ -38,6 +56,10 @@ spec:
         - name: media-storage
           hostPath:
             path: /var/www/tutorlix-prod/backend/media
+            type: DirectoryOrCreate
+        - name: ollama-storage
+          hostPath:
+            path: /var/www/tutorlix-prod/ollama
             type: DirectoryOrCreate
 ---
 apiVersion: v1
