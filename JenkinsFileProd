@@ -114,7 +114,7 @@ pipeline {
                     fi
 
                     OLLAMA_NODE_IPS=$(kubectl get nodes -o jsonpath='{range .items[0].status.addresses[?(@.type=="InternalIP")]}{.address}{"\n"}{end}')
-                    OLLAMA_NODE_IP=$(printf '%s\n' "$OLLAMA_NODE_IPS" | grep -E '^[0-9]+\.' | head -n 1)
+                    OLLAMA_NODE_IP=$(printf '%s\n' "$OLLAMA_NODE_IPS" | grep -E '^[0-9][0-9.]*$' | head -n 1)
                     if [ -z "$OLLAMA_NODE_IP" ]; then
                         OLLAMA_NODE_IP=$(printf '%s\n' "$OLLAMA_NODE_IPS" | grep -v '^$' | head -n 1)
                     fi
