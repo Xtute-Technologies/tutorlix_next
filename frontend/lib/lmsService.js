@@ -96,6 +96,11 @@ export const productAPI = {
     return response.data;
   },
 
+  getBySlugOrId: async (value) => {
+    const response = await axiosInstance.get(`/api/lms/products/${value}/`);
+    return response.data;
+  },
+
   // Create product
   create: async (data) => {
     const response = await axiosInstance.post('/api/lms/products/', data);

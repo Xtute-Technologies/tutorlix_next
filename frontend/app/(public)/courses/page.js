@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { getCoursePath } from '@/lib/courseUrls';
 import { productAPI, categoryAPI } from '@/lib/lmsService';
 import { useProfile } from '@/context/ProfileContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -245,7 +246,7 @@ function CoursesContent() {
       ) : products.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => (
-            <Link key={product.id} href={`/courses/${product.id}`} className="group">
+            <Link key={product.id} href={getCoursePath(product)} className="group">
               <Card className="h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-gray-200/60">
                 {/* Course Image */}
                 <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-gray-100">

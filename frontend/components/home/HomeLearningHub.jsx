@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, LibraryBig, Search } from 'lucide-react';
 
 import { useProfile } from '@/context/ProfileContext';
+import { getCoursePath } from '@/lib/courseUrls';
 import { questionBankCourseAPI } from '@/lib/lmsService';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -121,7 +122,7 @@ export default function HomeLearningHub({ products = [] }) {
                 featuredCourses.map((product) => (
                   <Link
                     key={product.id}
-                    href={`/courses/${product.id}`}
+                    href={getCoursePath(product)}
                     className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-all hover:border-slate-300 hover:bg-slate-50"
                   >
                     <div className="min-w-0">

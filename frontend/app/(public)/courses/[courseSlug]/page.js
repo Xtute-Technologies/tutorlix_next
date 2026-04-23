@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productAPI, productLeadAPI } from '@/lib/lmsService';
+import { getCoursePath } from '@/lib/courseUrls';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,16 +29,14 @@ import {
   Maximize2
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import FormBuilder from '@/components/FormBuilder'; // Import FormBuilder
+import FormBuilder from '@/components/FormBuilder';
 import { z } from 'zod';
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3";
 
-// --- Validation Schema ---
 const enrollSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
-  // Enforces 10 digits exactly
   phone: z.string()
     .min(10, "Phone number must be 10 digits")
     .max(10, "Phone number must be 10 digits")
@@ -51,12 +50,8 @@ export default function CourseDetailPage() {
   const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Image States
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-
-  // Enrollment Dialog State
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
   const [enrollSubmitting, setEnrollSubmitting] = useState(false);
   const [enrollSuccess, setEnrollSuccess] = useState(false);
@@ -66,17 +61,25 @@ export default function CourseDetailPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        const data = await productAPI.getById(params.id);
+        const lookup = Array.isArray(params.courseSlug) ? params.courseSlug[0] : params.courseSlug;
+        const data = await productAPI.getBySlugOrId(lookup);
         setProduct(data);
-        if (data?.name) document.title = `${data.name} | Tutorlix`;
+        if (data?.name) {
+          document.title = `${data.name} | Tutorlix`;
+        }
+
+        const canonicalPath = getCoursePath(data);
+        if (lookup && canonicalPath !== `/courses/${lookup}`) {
+          router.replace(canonicalPath);
+        }
       } catch (error) {
         console.error('Error fetching product:', error);
       } finally {
         setLoading(false);
       }
     };
-    if (params.id) fetchProduct();
-  }, [params.id]);
+    if (params.courseSlug) fetchProduct();
+  }, [params.courseSlug, router]);
 
   const handleNextImage = useCallback((e) => {
     e?.stopPropagation();
@@ -102,13 +105,12 @@ export default function CourseDetailPage() {
   }, [isLightboxOpen, handleNextImage, handlePrevImage]);
 
   const handleEnroll = () => {
-    // Pre-fill form if user is logged in
     if (user) {
         setDefaultEnrollValues({
             name: user.full_name || (user.first_name ? `${user.first_name} ${user.last_name}` : ''),
             email: user.email || '',
-            phone: user.phone || '', 
-            state: user.state || '' 
+            phone: user.phone || '',
+            state: user.state || ''
         });
     } else {
         setDefaultEnrollValues({});
@@ -122,9 +124,7 @@ export default function CourseDetailPage() {
       setEnrollSubmitting(true);
       await productLeadAPI.create({
           ...data,
-          // If backend expects +91, prepend it here. 
-          // If backend just wants 10 digits, send data.phone as is.
-          phone: `${data.phone}`, 
+          phone: `${data.phone}`,
           product: product.id,
           source: 'Course Page'
       });
@@ -136,23 +136,22 @@ export default function CourseDetailPage() {
     }
   };
 
-  // --- Form Fields Configuration ---
   const enrollFields = useMemo(() => [
     { name: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe', required: true },
     { name: 'email', label: 'Email Address', type: 'email', placeholder: 'john@example.com', required: true },
-    { 
-        name: 'phone', 
-        label: 'Mobile Number', 
-        type: 'phone', // Uses the custom +91 input we added to FormBuilder
-        placeholder: '9876543210', 
-        required: true 
+    {
+        name: 'phone',
+        label: 'Mobile Number',
+        type: 'phone',
+        placeholder: '9876543210',
+        required: true
     },
-    { 
-        name: 'state', 
-        label: 'State', 
-        type: 'state_names', // Uses the Autocomplete State logic in FormBuilder
-        placeholder: 'Select your state', 
-        required: true 
+    {
+        name: 'state',
+        label: 'State',
+        type: 'state_names',
+        placeholder: 'Select your state',
+        required: true
     },
   ], []);
 
@@ -182,8 +181,6 @@ export default function CourseDetailPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
-      
-      {/* --- BREADCRUMB --- */}
       <div className="border-b border-slate-100 bg-white sticky top-0 z-30 backdrop-blur-md bg-white/80 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -200,33 +197,28 @@ export default function CourseDetailPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
-          {/* --- LEFT CONTENT --- */}
           <div className="lg:col-span-8 space-y-10">
-            
-            {/* Header */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 mb-4">
                  <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-md px-3 font-medium">
                     {product.category_name || "Development"}
                  </Badge>
               </div>
-              
+
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
                 {product.name}
               </h1>
-              
+
               <p className="text-lg text-slate-600 leading-relaxed max-w-2xl">
                 {product.description}
               </p>
             </div>
 
-            {/* Main Image (Smart Fit) */}
-            <div 
+            <div
               className="relative w-full aspect-video rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 group cursor-pointer"
               onClick={() => setIsLightboxOpen(true)}
             >
-                <div 
+                <div
                   className="absolute inset-0 bg-cover bg-center blur-2xl opacity-50 scale-110 transition-transform duration-700"
                   style={{ backgroundImage: `url(${mainImageSrc})` }}
                 />
@@ -243,7 +235,6 @@ export default function CourseDetailPage() {
                 </div>
             </div>
 
-            {/* Thumbnails */}
             {images.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                 {images.map((image, index) => (
@@ -260,12 +251,11 @@ export default function CourseDetailPage() {
               </div>
             )}
 
-            {/* Content Tabs */}
             <div className="pt-8">
                 <Tabs defaultValue="overview" className="w-full">
                     <TabsList className="w-full justify-start bg-transparent border-b border-slate-200 rounded-none h-auto p-0 mb-8 gap-8">
                         {['Overview', 'Curriculum', 'Instructor'].map((tab) => (
-                             <TabsTrigger 
+                             <TabsTrigger
                                 key={tab}
                                 value={tab.toLowerCase()}
                                 className="rounded-none border-b-2 border-transparent px-0 py-3 data-[state=active]:border-slate-900 data-[state=active]:bg-transparent data-[state=active]:text-slate-900 data-[state=active]:shadow-none text-slate-500 hover:text-slate-700 text-base font-medium transition-colors"
@@ -275,12 +265,11 @@ export default function CourseDetailPage() {
                         ))}
                     </TabsList>
 
-                    {/* OVERVIEW */}
                     <TabsContent value="overview" className="animate-in fade-in-50 duration-500">
                           {product.overview ? (
-                            <article 
+                            <article
                               className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-a:text-blue-600 hover:prose-a:text-blue-500 prose-img:rounded-xl"
-                              dangerouslySetInnerHTML={{ __html: product.overview }} 
+                              dangerouslySetInnerHTML={{ __html: product.overview }}
                             />
                           ) : (
                             <div className="space-y-4 text-slate-600 leading-relaxed">
@@ -290,7 +279,6 @@ export default function CourseDetailPage() {
                           )}
                     </TabsContent>
 
-                    {/* CURRICULUM */}
                     <TabsContent value="curriculum" className="space-y-8 animate-in fade-in-50 duration-500">
                         <div>
                             <h3 className="text-xl font-bold mb-4">Course Content</h3>
@@ -337,7 +325,6 @@ export default function CourseDetailPage() {
                         </div>
                     </TabsContent>
 
-                    {/* INSTRUCTOR */}
                     <TabsContent value="instructor" className="animate-in fade-in-50 duration-500">
                         <div className="space-y-4">
                             {product.instructors && product.instructors.length > 0 ? (
@@ -368,11 +355,8 @@ export default function CourseDetailPage() {
             </div>
           </div>
 
-          {/* --- RIGHT SIDEBAR --- */}
           <div className="lg:col-span-4 relative">
              <div className="sticky top-24 space-y-6">
-                
-                {/* Price Card */}
                 <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
                    <div className="mb-6">
                       <p className="text-sm text-slate-500 font-medium mb-1">
@@ -399,10 +383,9 @@ export default function CourseDetailPage() {
                       Enroll Now
                    </Button>
 
-                   {/* Features */}
                    <div className="space-y-4 pt-6 border-t border-slate-100">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">This course includes:</h4>
-                      
+
                       {product.features && product.features.length > 0 ? (
                           product.features.map((feature, index) => (
                               <div key={index} className="flex items-start gap-3 text-sm text-slate-600">
@@ -422,11 +405,9 @@ export default function CourseDetailPage() {
                 </div>
              </div>
           </div>
-
         </div>
       </div>
 
-      {/* --- FULL SCREEN LIGHTBOX --- */}
       {isLightboxOpen && (
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center">
            <button onClick={() => setIsLightboxOpen(false)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 p-2 rounded-full transition-colors z-50">
@@ -434,8 +415,8 @@ export default function CourseDetailPage() {
            </button>
 
            <div className="relative w-full h-full flex items-center justify-center p-4">
-              <img 
-                 src={mainImageSrc} 
+              <img
+                 src={mainImageSrc}
                  className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl"
                  alt="Full screen preview"
               />
@@ -454,14 +435,13 @@ export default function CourseDetailPage() {
         </div>
       )}
 
-      {/* --- ENROLLMENT DIALOG (Using FormBuilder) --- */}
       <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{enrollSuccess ? "Thank You!" : "Enroll Now"}</DialogTitle>
             <DialogDescription>
-              {enrollSuccess 
-                ? "Your interest has been recorded. Our team will contact you shortly." 
+              {enrollSuccess
+                ? "Your interest has been recorded. Our team will contact you shortly."
                 : "Please share your details to proceed with enrollment."}
             </DialogDescription>
           </DialogHeader>
@@ -490,7 +470,6 @@ export default function CourseDetailPage() {
           )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

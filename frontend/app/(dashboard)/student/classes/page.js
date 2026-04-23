@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getCoursePath } from '@/lib/courseUrls';
 import { studentClassAPI, courseClassAPI } from '@/lib/lmsService';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -131,7 +132,7 @@ export default function StudentClassesPage() {
 
             {/* Case 2: Expired Subscription */}
             {isExpired && (
-                <Button variant="destructive" className="w-full md:w-auto" onClick={() => window.location.href = `/courses/${classItem.product || ''}`}>
+                <Button variant="destructive" className="w-full md:w-auto" onClick={() => window.location.href = getCoursePath({ id: classItem.product, slug: classItem.product_slug, name: classItem.course_name })}>
                     Renew / Pay Now
                 </Button>
             )}
