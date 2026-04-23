@@ -113,14 +113,11 @@ pipeline {
                         ollama pull "$OLLAMA_MODEL"
                     fi
 
-                    OLLAMA_NODE_IP=$(
-                        kubectl get nodes -o jsonpath='{range .items[0].status.addresses[?(@.type=="InternalIP")]}{.address}{"\n"}{end}' \
-                        | awk '
-                            /^[0-9]+\./ { print; found=1; exit }
-                            NF && !first { first=$0 }
-                            END { if (!found && first) print first }
-                        '
-                    )
+                    OLLAMA_NODE_IPS=$(kubectl get nodes -o jsonpath='{range .items[0].status.addresses[?(@.type=="InternalIP")]}{.address}{"\n"}{end}')
+                    OLLAMA_NODE_IP=$(printf '%s\n' "$OLLAMA_NODE_IPS" | grep -E '^[0-9]+\.' | head -n 1)
+                    if [ -z "$OLLAMA_NODE_IP" ]; then
+                        OLLAMA_NODE_IP=$(printf '%s\n' "$OLLAMA_NODE_IPS" | grep -v '^$' | head -n 1)
+                    fi
                     if [ -z "$OLLAMA_NODE_IP" ]; then
                         echo "❌ Could not resolve Kubernetes node internal IP for Ollama"
                         exit 1
