@@ -91,7 +91,7 @@ export const getNavItems = (role) => {
           { title: "Masterclass", url: "/admin/masterclass", icon: GraduationCap },
           { title: "Recordings", url: "/admin/recordings", icon: Video },
           { title: "Attendance", url: "/admin/attendance", icon: CheckSquare },
-          { title: "Test Scores", url: "/admin/test-scores", icon: GraduationCap },
+          { title: "Tests", url: "/admin/test-scores", icon: GraduationCap },
         ],
       },
 
@@ -146,7 +146,7 @@ export const getNavItems = (role) => {
           { title: "Classes", url: "/student/classes", icon: Users },
           { title: "Recordings", url: "/student/recordings", icon: Video },
           { title: "Attendance", url: "/student/attendance", icon: CheckSquare },
-          { title: "Test Scores", url: "/student/scores", icon: GraduationCap },
+          { title: "Tests", url: "/student/scores", icon: GraduationCap },
           { title: "Study Material", url: "/student/notes", icon: FileText },
         ],
       },
@@ -172,7 +172,7 @@ export const getNavItems = (role) => {
           { title: "Question Bank", url: "/teacher/question-bank", icon: FileText },
           { title: "Recordings", url: "/teacher/recordings", icon: Video },
           { title: "Attendance", url: "/teacher/attendance", icon: CheckSquare },
-          { title: "Test Scores", url: "/teacher/test-scores", icon: GraduationCap },
+          { title: "Tests", url: "/teacher/test-scores", icon: GraduationCap },
          
         ],
       },

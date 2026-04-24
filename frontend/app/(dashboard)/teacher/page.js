@@ -352,7 +352,7 @@ export default function TeacherDashboard() {
                             </Link>
                             <Link href="/teacher/test-scores">
                                 <Button variant="outline" className="w-full justify-start">
-                                    Update Test Scores
+                                    Manage Tests
                                 </Button>
                             </Link>
                         </CardContent>

@@ -582,6 +582,167 @@ class TestScore(models.Model):
         ordering = ['-test_date']
 
 
+class Test(models.Model):
+    STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('archived', 'Archived'),
+    )
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    instructions = models.TextField(blank=True, null=True)
+    product = models.ForeignKey(
+        'Product',
+        on_delete=models.CASCADE,
+        related_name='tests'
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='tests_created',
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    duration_minutes = models.PositiveIntegerField(default=60)
+    lock_on_window_blur = models.BooleanField(default=True)
+    available_from = models.DateTimeField(blank=True, null=True)
+    available_until = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    def total_marks(self):
+        return sum(question.marks for question in self.questions.all())
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class TestQuestion(models.Model):
+    QUESTION_TYPE_CHOICES = (
+        ('multiple_choice', 'Multiple Choice'),
+        ('subjective', 'Subjective'),
+        ('file_upload', 'File Upload'),
+        ('coding', 'Coding'),
+    )
+
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='questions'
+    )
+    order = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=255, blank=True, null=True)
+    prompt = models.TextField()
+    question_type = models.CharField(max_length=30, choices=QUESTION_TYPE_CHOICES)
+    marks = models.DecimalField(max_digits=6, decimal_places=2, default=1, validators=[MinValueValidator(0)])
+    is_required = models.BooleanField(default=True)
+    options = models.JSONField(default=list, blank=True)
+    correct_options = models.JSONField(default=list, blank=True)
+    attachment = models.FileField(upload_to='tests/questions/', blank=True, null=True)
+    allowed_file_types = models.CharField(max_length=255, blank=True, null=True)
+    starter_code = models.TextField(blank=True, null=True)
+    coding_language = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.test.title} - Q{self.order}"
+
+    class Meta:
+        ordering = ['order', 'id']
+
+
+class TestAttempt(models.Model):
+    STATUS_CHOICES = (
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        ('locked', 'Locked'),
+        ('submitted', 'Submitted'),
+    )
+
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='attempts'
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='test_attempts',
+        limit_choices_to={'role': 'student'}
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
+    started_at = models.DateTimeField(blank=True, null=True)
+    last_resumed_at = models.DateTimeField(blank=True, null=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    last_activity_at = models.DateTimeField(blank=True, null=True)
+    locked_at = models.DateTimeField(blank=True, null=True)
+    unlocked_at = models.DateTimeField(blank=True, null=True)
+    unlocked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='test_attempts_unlocked'
+    )
+    locked_reason = models.TextField(blank=True, null=True)
+    window_violation_count = models.PositiveIntegerField(default=0)
+    current_question_index = models.PositiveIntegerField(default=0)
+    time_spent_seconds = models.PositiveIntegerField(default=0)
+    total_awarded_marks = models.DecimalField(max_digits=8, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.student.username} - {self.test.title}"
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['test', 'student']
+
+
+class TestAnswer(models.Model):
+    attempt = models.ForeignKey(
+        TestAttempt,
+        on_delete=models.CASCADE,
+        related_name='answers'
+    )
+    question = models.ForeignKey(
+        TestQuestion,
+        on_delete=models.CASCADE,
+        related_name='answers'
+    )
+    selected_options = models.JSONField(default=list, blank=True)
+    subjective_answer = models.TextField(blank=True, null=True)
+    code_answer = models.TextField(blank=True, null=True)
+    code_language = models.CharField(max_length=50, blank=True, null=True)
+    uploaded_file = models.FileField(upload_to='tests/answers/', blank=True, null=True)
+    awarded_marks = models.DecimalField(max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    review_comment = models.TextField(blank=True, null=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='graded_test_answers'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.attempt} - {self.question_id}"
+
+    class Meta:
+        ordering = ['question__order', 'id']
+        unique_together = ['attempt', 'question']
+
+
 class Expense(models.Model):
     """
     Expenses tracking
