@@ -1,1 +1,5 @@
-export { default } from '../question-bank/page';
+import { redirect } from 'next/navigation';
+
+export default function QuestionBanksAliasPage() {
+  redirect('/question-bank');
+}

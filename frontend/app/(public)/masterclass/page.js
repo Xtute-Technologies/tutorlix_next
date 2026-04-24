@@ -1,9 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { masterclassAPI } from '@/lib/lmsService';
+import { useProfile } from '@/context/ProfileContext';
+import { getSeoProfileContent } from '@/lib/seo';
 
 export default function MasterclassesPage() {
+    const { profileType, activeHomeContent } = useProfile();
+    const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -37,16 +42,29 @@ export default function MasterclassesPage() {
             <div className="bg-gradient-to-r from-slate-900 to-slate-600 py-20 text-white">
                 <div className="max-w-7xl mx-auto px-6 text-center">
                     <h1 className="text-5xl font-bold">
-                        Tutorlix Free Masterclasses
+                        {seoContent.masterclass.title}
                     </h1>
                     <p className="mt-4 text-lg text-blue-100">
-                        Learn directly from industry professionals through live sessions for free.
+                        {seoContent.masterclass.description}
                     </p>
                 </div>
             </div>
 
             {/* MAIN CONTENT */}
             <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+                <div className="lg:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <h2 className="text-2xl font-bold text-slate-900">{seoContent.masterclass.introTitle}</h2>
+                    <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600 md:text-base">
+                        {seoContent.masterclass.introDescription}{' '}
+                        Students can combine these sessions with
+                        <Link href="/courses" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">live classes and courses</Link>,
+                        <Link href="/notes" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">notes</Link>
+                        and
+                        <Link href="/question-bank" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">question banks</Link>
+                        for a complete revision routine.
+                    </p>
+                </div>
 
                 {/* 🟦 MASTERCLASS GRID */}
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -66,7 +84,7 @@ export default function MasterclassesPage() {
                                 {imageUrl && (
                                     <img
                                         src={imageUrl}
-                                        alt={item.name}
+                                        alt={`${seoContent.masterclass.imageAltPrefix} ${item.name}`}
                                         className="w-full h-52 object-cover"
                                     />
                                 )}
@@ -103,35 +121,35 @@ export default function MasterclassesPage() {
                 <div className="bg-gray-50 rounded-2xl p-8 shadow-md border border-gray-100 h-fit">
 
                     <h3 className="text-2xl font-bold text-gray-900 mb-8">
-                        Why Tutorlix Masterclass?
+                        {seoContent.masterclass.benefitTitle}
                     </h3>
 
                     <div className="space-y-6 text-gray-600">
 
                         <div>
                             <h4 className="font-semibold text-gray-900">
-                                🎓 Industry Experts
+                                🎯 Exam-focused sessions
                             </h4>
                             <p className="text-sm mt-1">
-                                Learn from professionals working in real-world tech environments.
+                                Focus on the high-value maths ideas and question types that matter most for revision.
                             </p>
                         </div>
 
                         <div>
                             <h4 className="font-semibold text-gray-900">
-                                🚀 Practical Sessions
+                                🧠 Concept clarity
                             </h4>
                             <p className="text-sm mt-1">
-                                No boring theory — focus on implementation & problem solving.
+                                Break down difficult topics into manageable methods and step-by-step explanations.
                             </p>
                         </div>
 
                         <div>
                             <h4 className="font-semibold text-gray-900">
-                                💡 Career-Focused Learning
+                                📝 Better problem solving
                             </h4>
                             <p className="text-sm mt-1">
-                                Understand skills required to crack real tech interviews.
+                                Learn how to approach advanced maths questions with a calmer, more structured process.
                             </p>
                         </div>
 
@@ -140,7 +158,7 @@ export default function MasterclassesPage() {
                                 📈 Live Interaction
                             </h4>
                             <p className="text-sm mt-1">
-                                Ask questions live and engage directly with instructors.
+                                Ask questions live and use the session to clear doubts before your next assessment.
                             </p>
                         </div>
 

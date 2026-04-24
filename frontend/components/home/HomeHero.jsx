@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Check, Sparkles, Plus } from "lucide-react";
 import DotGrid from "@/components/DotGrid";
 import { useProfile } from "@/context/ProfileContext";
+import { getSeoProfileContent } from "@/lib/seo";
 import { z } from "zod";
 import FormBuilder from "@/components/FormBuilder";
 import { productLeadAPI } from "@/lib/lmsService";
@@ -38,6 +40,7 @@ const PROFILE_INTERESTS = {
 
 export default function HomeHero({ categories = [] }) {
   const { profileType, activeHomeContent } = useProfile();
+  const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
   const [open, setOpen] = useState(false);
   const [selectedInterest, setSelectedInterest] = useState("");
   const [submittingLead, setSubmittingLead] = useState(false);
@@ -117,8 +120,13 @@ export default function HomeHero({ categories = [] }) {
         <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-8 items-start">
           {/* Left Content */}
           <div className="space-y-5">
-            <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{heroContent.tag}</p>
-            <h1 className="text-2xl md:text-4xl font-extrabold leading-tight whitespace-pre-line">{heroContent.headline}</h1>
+            <p className="text-green-400 font-medium uppercase text-sm tracking-wide">{heroContent.tag || "Tutorlix Online Learning"}</p>
+            <h1 className="text-2xl md:text-4xl font-extrabold leading-tight">
+              {seoContent.courses.title}
+            </h1>
+            <p className="max-w-3xl text-sm leading-7 text-slate-200 md:text-base">
+              {seoContent.courses.subtitle}
+            </p>
             {quickPrograms.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {quickPrograms.map((program) => (
@@ -138,6 +146,20 @@ export default function HomeHero({ categories = [] }) {
                   <p className="text-sm md:text-base text-slate-200">{text}</p>
                 </div>
               ))}
+            </div>
+            <div className="flex flex-wrap gap-3 pt-1 text-sm font-medium">
+              <Link href="/courses" className="rounded-full border border-white/15 bg-white/8 px-4 py-2 text-slate-100 transition hover:bg-white/12">
+                Live Classes
+              </Link>
+              <Link href="/question-bank" className="rounded-full border border-white/15 bg-white/8 px-4 py-2 text-slate-100 transition hover:bg-white/12">
+                Question Banks
+              </Link>
+              <Link href="/notes" className="rounded-full border border-white/15 bg-white/8 px-4 py-2 text-slate-100 transition hover:bg-white/12">
+                Study Notes
+              </Link>
+              <Link href="/masterclass" className="rounded-full border border-white/15 bg-white/8 px-4 py-2 text-slate-100 transition hover:bg-white/12">
+                Masterclass
+              </Link>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {heroStats.slice(0, 3).map((stat, index) => (

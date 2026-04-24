@@ -17,7 +17,7 @@ export default function HomeAbout() {
             <div>
               <Badge variant="outline" className="mb-4 bg-white text-slate-900 border-slate-300">{aboutContent.badge}</Badge>
               <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4 leading-tight whitespace-pre-line">
-                {aboutContent.title}
+                Start Your Maths Learning Journey
               </h2>
               <div className="prose prose-slate text-slate-600">
                 <p className="text-base mb-4">
@@ -45,7 +45,7 @@ export default function HomeAbout() {
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-700 opacity-80" />
               <img
                 src={aboutContent.image_url || FALLBACK_IMAGE}
-                alt="Students learning"
+                alt="Students learning maths online with Tutorlix"
                 className="w-full h-full object-cover mix-blend-overlay opacity-60"
               />
               <div className="absolute bottom-8 left-8 right-8 text-white">

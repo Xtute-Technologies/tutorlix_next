@@ -47,10 +47,10 @@ export default function HomeLearningHub({ products = [] }) {
 
               <div className="mt-4 max-w-2xl space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-                  Search question banks and jump straight into worked answers
+                  Live Classes, Notes and Question Banks
                 </h2>
                 <p className="text-sm leading-6 text-slate-600 md:text-base">
-                  Open database-backed question-bank courses matched to the active profile and move from course to topic to detailed practice questions.
+                  Move between live maths classes, topic-wise question banks and guided notes so students can revise concepts, practise exam-style questions and build confidence before tests.
                 </p>
               </div>
 
@@ -62,7 +62,7 @@ export default function HomeLearningHub({ products = [] }) {
                   </Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/courses">Browse Courses</Link>
+                  <Link href="/notes">Browse Notes</Link>
                 </Button>
               </div>
 
@@ -107,9 +107,9 @@ export default function HomeLearningHub({ products = [] }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Badge variant="outline">Featured Courses</Badge>
-                <h2 className="mt-3 text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+                <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                   Courses remain one click away
-                </h2>
+                </h3>
                 <p className="mt-2 text-sm leading-5 text-slate-600">
                   Keep both learning paths visible: structured course discovery and direct question practice.
                 </p>

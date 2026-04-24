@@ -10,9 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import SeoFaqSection from '@/components/seo/SeoFaqSection';
+import { getSeoProfileContent } from '@/lib/seo';
 
 export default function PublicQuestionBankPage() {
-  const { profileType } = useProfile();
+  const { profileType, activeHomeContent } = useProfile();
+  const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
   const [searchQuery, setSearchQuery] = useState('');
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,16 +66,28 @@ export default function PublicQuestionBankPage() {
       <div className="space-y-4">
         <Badge variant="outline">Public Question Bank</Badge>
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">Question Bank</h1>
-          <p className="max-w-3xl text-gray-600">
-            Search available IB Mathematics banks and open a course to view syllabus topics.
+          <h1 className="text-4xl font-bold text-gray-900">{seoContent.questionBank.title}</h1>
+          <p className="max-w-4xl text-gray-600">
+            {seoContent.questionBank.description}
           </p>
         </div>
       </div>
 
+      <Card className="border-slate-200 bg-slate-50 p-6">
+        <h2 className="text-2xl font-bold text-slate-900">{seoContent.questionBank.introTitle}</h2>
+        <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600 md:text-base">
+          {seoContent.questionBank.introDescription}{' '}
+          Learners can strengthen weak areas with
+          <Link href="/courses" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">live classes and courses</Link>
+          and
+          <Link href="/notes" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">study notes</Link>
+          for a more complete study plan.
+        </p>
+      </Card>
+
       {!isSchoolProfile ? (
         <Card className="p-6 text-sm text-muted-foreground">
-          Question-bank courses are loaded from the database and filtered by the currently selected profile.
+          {seoContent.questionBank.emptyState}
         </Card>
       ) : (
         <>
@@ -145,6 +160,12 @@ export default function PublicQuestionBankPage() {
           )}
         </>
       )}
+
+      <SeoFaqSection
+        title="Question Bank FAQs"
+        description={seoContent.questionBank.faqDescription}
+        faqs={seoContent.questionBank.faqs}
+      />
     </div>
   );
 }

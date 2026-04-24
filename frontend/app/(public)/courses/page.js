@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { getCoursePath } from '@/lib/courseUrls';
@@ -13,12 +13,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, BookOpen, SlidersHorizontal, X, Loader2 } from 'lucide-react';
 import { cn } from "@/lib/utils"; // Assuming you have a cn utility, if not use standard template literals
+import SeoFaqSection from '@/components/seo/SeoFaqSection';
+import JsonLd from '@/components/seo/JsonLd';
+import { buildCourseListSchema, getSeoProfileContent } from '@/lib/seo';
 
 function CoursesContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { profileType, activeHomeContent } = useProfile();
+  const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
   const questionBanksUrl = activeHomeContent?.navigation?.question_banks_url || '/question-banks';
   const questionBanksLabel = activeHomeContent?.navigation?.question_banks_label || 'Question Bank';
 
@@ -35,6 +39,18 @@ function CoursesContent() {
   
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
   const [sortBy, setSortBy] = useState(searchParams.get('ordering') || '');
+  const courseSchema = useMemo(
+    () =>
+      buildCourseListSchema(
+        products.map((product) => ({
+          name: product.name,
+          description: product.description,
+          path: getCoursePath(product),
+        })),
+        '/courses'
+      ),
+    [products]
+  );
 
   // --- 1. Initial Data Load (Categories) ---
   useEffect(() => {
@@ -128,12 +144,13 @@ function CoursesContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <JsonLd data={courseSchema} />
       
       {/* --- Header Section --- */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Explore Courses</h1>
-          <p className="text-gray-600">Find the perfect course to upgrade your skills.</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{seoContent.courses.title}</h1>
+          <p className="text-gray-600">{seoContent.courses.subtitle}</p>
         </div>
         
         {/* Sort Dropdown (kept simple on the right) */}
@@ -154,8 +171,35 @@ function CoursesContent() {
         </div>
       </div>
 
+      <section className="mb-10 rounded-3xl border border-slate-200 bg-slate-50 px-6 py-8">
+        <div className="max-w-4xl space-y-4">
+          <h2 className="text-2xl font-bold text-slate-900">{seoContent.courses.introTitle}</h2>
+          <p className="text-base leading-7 text-slate-700">{seoContent.courses.introParagraphs[0]}</p>
+          <p className="text-base leading-7 text-slate-700">
+            {seoContent.courses.introParagraphs[1]}{' '}
+            <Link href={questionBanksUrl} className="mx-1 font-medium text-primary underline-offset-4 hover:underline">{questionBanksLabel.toLowerCase()}</Link>,
+            <Link href="/notes" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">study notes</Link>
+            and focused revision support.
+          </p>
+        </div>
+      </section>
+
       {/* --- Search & Category Area --- */}
       <div className="space-y-6 mb-10">
+        <Card className="border-slate-200 bg-white">
+          <CardContent className="p-6">
+            <h2 className="text-2xl font-bold text-slate-900">{seoContent.courses.liveTitle}</h2>
+            <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600 md:text-base">
+              {seoContent.courses.liveDescription}{' '}
+              Students can learn through classes here, then deepen revision with
+              <Link href="/notes" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">notes</Link>
+              and
+              <Link href={questionBanksUrl} className="mx-1 font-medium text-primary underline-offset-4 hover:underline">{questionBanksLabel.toLowerCase()}</Link>.
+              If you need help choosing the right course, please
+              <Link href="/contact" className="ml-1 font-medium text-primary underline-offset-4 hover:underline">contact Tutorlix</Link>.
+            </p>
+          </CardContent>
+        </Card>
         {profileType === 'school' && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
@@ -253,7 +297,7 @@ function CoursesContent() {
                   {product.primary_image ? (
                     <img
                       src={product.primary_image}
-                      alt={product.name}
+                      alt={`Online maths course for ${product.name}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
@@ -327,6 +371,23 @@ function CoursesContent() {
           </Button>
         </div>
       )}
+
+      <section className="mt-12 rounded-3xl border border-slate-200 bg-white px-6 py-8">
+        <h2 className="text-2xl font-bold text-slate-900">Study with courses, question banks and notes together</h2>
+        <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600 md:text-base">
+          Students often understand a topic better when they revise it in multiple ways. Use
+          <Link href="/notes" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">study notes</Link>
+          for concept review, use
+          <Link href={questionBanksUrl} className="mx-1 font-medium text-primary underline-offset-4 hover:underline">{questionBanksLabel.toLowerCase()}</Link>
+          for targeted problem solving, and return to live classes ready for deeper discussion.
+        </p>
+      </section>
+
+      <SeoFaqSection
+        title="Courses FAQs"
+        description={seoContent.courses.faqDescription}
+        faqs={seoContent.courses.faqs}
+      />
     </div>
   );
 }

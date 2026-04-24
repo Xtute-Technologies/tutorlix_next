@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { contactMessageAPI } from '@/lib/lmsService'; // Import the API service
+import { useProfile } from '@/context/ProfileContext';
+import { getSeoProfileContent } from '@/lib/seo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Mail, Phone, MapPin, Send, Clock, ArrowRight } from 'lucide-react';
 
 export default function ContactPage() {
+  const { profileType, activeHomeContent } = useProfile();
+  const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -64,7 +68,7 @@ export default function ContactPage() {
           <div className="relative z-10">
             <h2 className="text-3xl font-bold mb-6">Contact Information</h2>
             <p className="text-slate-400 mb-12 leading-relaxed">
-              Have a question about our courses or need support? Fill out the form and our team will get back to you within 24 hours.
+              {seoContent.contact.leftDescription}
             </p>
 
             <div className="space-y-8">
@@ -106,8 +110,10 @@ export default function ContactPage() {
         {/* --- RIGHT PANEL: Form (Light) --- */}
         <div className="lg:w-7/12 p-10 lg:p-12 bg-white">
           <div className="max-w-md mx-auto lg:max-w-none">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Send us a message</h2>
-            <p className="text-slate-500 mb-8 text-sm">We'd love to hear from you. Let's start a conversation.</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Contact Tutorlix</h1>
+            <p className="text-slate-500 mb-8 text-sm">
+              {seoContent.contact.rightDescription}
+            </p>
 
             {status && (
               <div className={`p-4 mb-6 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-2 ${

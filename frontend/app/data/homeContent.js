@@ -9,6 +9,7 @@ import {
   School,
   Laptop,
 } from "lucide-react";
+import { normalizeSeoProfileContent } from '@/lib/seo';
 
 export const profileSelectionOptions = [
   {
@@ -823,6 +824,7 @@ export const buildProfileHomeContent = (profileType, homeContent = {}) => {
     benefits: mergeSection(fallback.benefits, homeContent?.benefits),
     about: mergeSection(fallback.about, homeContent?.about),
     testimonials: mergeSection(fallback.testimonials, homeContent?.testimonials),
+    seo: normalizeSeoProfileContent(profileType, homeContent?.seo),
     tutorials: Array.isArray(homeContent?.tutorials)
       ? mergeTutorials(fallback.tutorials, homeContent.tutorials)
       : fallback.tutorials,
