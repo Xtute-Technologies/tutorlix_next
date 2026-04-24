@@ -3,7 +3,6 @@
 import {
     Dialog,
     DialogContent,
-    DialogOverlay,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -22,12 +21,10 @@ export default function ProfileTypeModal({ open, onSelect }) {
     return (
         <Dialog open={open}>
             {/* Dark + blur overlay */}
-            <DialogOverlay className="bg-black/40 backdrop-blur-xl" />
-
             <DialogContent
                 onInteractOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
-                className="max-w-2xl p-10 bg-white [&>button]:hidden"
+                className="max-h-[90vh] w-[calc(100%-1.5rem)] max-w-2xl overflow-y-auto p-5 sm:p-10 bg-white [&>button]:hidden"
             >
                 {/* Accessibility title */}
                 <VisuallyHidden>
