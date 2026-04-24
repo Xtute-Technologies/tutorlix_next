@@ -86,7 +86,7 @@ export default function HomeCourses({
                   <div className="relative h-36 w-full overflow-hidden bg-gray-100">
                     <img
                       src={product.primary_image || FALLBACK_IMAGE}
-                      alt={product.name}
+                      alt={`Tutorlix maths course for ${product.name}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
                     />

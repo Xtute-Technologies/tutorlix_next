@@ -16,7 +16,6 @@ const STATIC_ROUTES = [
   '/masterclass',
   '/contact',
   '/question-bank',
-  '/question-banks',
   '/privacy',
   '/terms',
   '/shipping',

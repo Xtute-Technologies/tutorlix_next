@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,9 +20,12 @@ import NoteCard from "@/components/notes/NoteCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import SeoFaqSection from '@/components/seo/SeoFaqSection';
+import { getSeoProfileContent } from '@/lib/seo';
 
 export default function PublicNotesPage() {
-  const { profileType } = useProfile();
+  const { profileType, activeHomeContent } = useProfile();
+  const seoContent = activeHomeContent?.seo || getSeoProfileContent(profileType);
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,11 +101,17 @@ export default function PublicNotesPage() {
             <Badge className="bg-black text-white hover:bg-black/90 px-4 py-1 rounded-full uppercase tracking-tighter text-[10px] font-bold">
                <Sparkles className="h-3 w-3 mr-2 inline" /> Premium Educational Content
             </Badge>
-            <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-none">
-              STUDY <br /> SMARTER.
+            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-none">
+              {seoContent.notes.title.includes(' for ') ? (
+                <>
+                  {seoContent.notes.title.split(' for ')[0]} for <br /> {seoContent.notes.title.split(' for ')[1]}
+                </>
+              ) : (
+                seoContent.notes.title
+              )}
             </h1>
             <p className="text-xl text-white/70 font-medium max-w-xl leading-relaxed">
-              Explore high-quality lecture notes, study guides, and resources curated by expert educators.
+              {seoContent.notes.description}
             </p>
             
             {/* Search Input Container */}
@@ -127,6 +137,17 @@ export default function PublicNotesPage() {
       </div>
 
       <div className="container mx-auto max-w-7xl px-4 py-12">
+        <div className="mb-10 rounded-[2rem] border border-border bg-muted/20 p-6">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{seoContent.notes.introTitle}</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground md:text-base">
+            {seoContent.notes.introDescription}{' '}
+            Learners can then move to
+            <Link href="/question-bank" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">question banks</Link>
+            for practice or
+            <Link href="/courses" className="mx-1 font-medium text-primary underline-offset-4 hover:underline">live classes and courses</Link>
+            for guided learning and doubt solving.
+          </p>
+        </div>
         {/* --- Controls & Filter Bar --- */}
         {/* <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-6 w-full md:w-auto">
@@ -232,6 +253,12 @@ export default function PublicNotesPage() {
             )}
           </div>
         )}
+
+        <SeoFaqSection
+          title={seoContent.notes.faqTitle}
+          description={seoContent.notes.faqDescription}
+          faqs={seoContent.notes.faqs}
+        />
       </div>
     </div>
   );

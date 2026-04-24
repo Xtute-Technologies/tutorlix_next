@@ -14,10 +14,10 @@ export default function HomeBenefits() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-8">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">
-            {activeBenefits.title}
+            Why Learn with Tutorlix?
           </h2>
           <p className="text-sm md:text-base text-slate-600">
-            {activeBenefits.subtitle}
+            {activeBenefits.subtitle || 'Students can combine expert guidance, structured practice and flexible online learning in one place.'}
           </p>
         </div>
 

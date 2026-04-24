@@ -8,6 +8,8 @@ import { getCoursePath } from '@/lib/courseUrls';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import JsonLd from '@/components/seo/JsonLd';
+import { buildBreadcrumbSchema, buildCourseSchema } from '@/lib/seo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Accordion,
@@ -178,9 +180,22 @@ export default function CourseDetailPage() {
   const images = product.images || [];
   const currentImageObj = images[selectedImageIndex];
   const mainImageSrc = currentImageObj?.image_url || currentImageObj?.image || product.primary_image || FALLBACK_IMAGE;
+  const courseSchema = buildCourseSchema({
+    name: product.name,
+    description: product.description,
+    image: mainImageSrc,
+    path: getCoursePath(product),
+  });
+  const breadcrumbSchema = buildBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Courses', path: '/courses' },
+    { name: product.name, path: getCoursePath(product) },
+  ]);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
+      <JsonLd data={courseSchema} />
+      <JsonLd data={breadcrumbSchema} />
       <div className="border-b border-slate-100 bg-white sticky top-0 z-30 backdrop-blur-md bg-white/80 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -224,7 +239,7 @@ export default function CourseDetailPage() {
                 />
                 <img
                     src={mainImageSrc}
-                    alt={product.name}
+                    alt={`Online maths course details for ${product.name}`}
                     className="relative w-full h-full object-contain z-10 transition-transform duration-500 group-hover:scale-[1.02]"
                     onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
                 />
@@ -245,7 +260,7 @@ export default function CourseDetailPage() {
                       index === selectedImageIndex ? 'border-slate-900 ring-1 ring-slate-900 opacity-100' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={image.image_url || image.image} alt="Thumbnail" className="w-full h-full object-cover" />
+                    <img src={image.image_url || image.image} alt={`Preview image ${index + 1} for ${product.name}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>

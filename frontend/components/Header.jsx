@@ -23,6 +23,7 @@ export default function Header() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { updateProfile, profileType, profileTypes, activeHomeContent, loading: profileLoading } = useProfile();
 
   useEffect(() => {
@@ -35,6 +36,13 @@ export default function Header() {
   const handleProfileSelect = (type) => {
     updateProfile(type);
     setShowProfileModal(false);
+  };
+
+  const openProfileModalFromMobile = () => {
+    setMobileMenuOpen(false);
+    requestAnimationFrame(() => {
+      setShowProfileModal(true);
+    });
   };
 
   const userInitials = user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || user.username?.[0] || "U"}`.toUpperCase() : "G";
@@ -297,7 +305,7 @@ export default function Header() {
           )}
 
           {/* --- MOBILE TOGGLE & MENU --- */}
-          <DropdownMenu>
+          <DropdownMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <DropdownMenuTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon" className="text-slate-600">
                 <Menu className="h-5 w-5" />
@@ -356,7 +364,10 @@ export default function Header() {
                   {/* Switch Profile (Moved here for mobile) */}
                   <DropdownMenuItem 
                     className="cursor-pointer"
-                    onClick={() => setShowProfileModal(true)}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      openProfileModalFromMobile();
+                    }}
                   >
                     <Repeat className="mr-2 h-4 w-4 text-slate-500" />
                     <span>Switch Profile</span>

@@ -165,9 +165,9 @@ export default function Footer() {
 
       {/* --- BOTTOM: GIANT SHIMMER TEXT --- */}
       <div className="w-full overflow-hidden select-none pointer-events-none opacity-80">
-        <h1 className="text-[13vw] leading-[0.8] font-black tracking-tighter text-center text-shimmer">
+        <div className="text-[13vw] leading-[0.8] font-black tracking-tighter text-center text-shimmer" aria-hidden="true">
           TUTORLIX
-        </h1>
+        </div>
       </div>
     </footer>
   );

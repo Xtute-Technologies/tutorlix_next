@@ -13,6 +13,6 @@ services:
       - "3000:3000"
     command: npm run start
     environment:
-      - NEXT_PUBLIC_API_URL=/api   # 🔥 FIX
+      - NEXT_PUBLIC_API_URL=https://tutorlix.com/api   # 🔥 FIX
     depends_on:
       - backend-prod

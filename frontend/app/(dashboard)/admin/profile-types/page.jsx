@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { profileTypeAPI } from '@/lib/lmsService';
 import { defaultProfileHomeContent } from '@/app/data/homeContent';
+import { normalizeSeoProfileContent } from '@/lib/seo';
 
 const EMPTY_PROFILE = {
   slug: '',
@@ -89,6 +90,11 @@ const createEmptyReview = () => ({
   name: '',
   course: '',
   text: '',
+});
+
+const createEmptyFaq = () => ({
+  question: '',
+  answer: '',
 });
 
 const ensureArray = (value, fallback) => (Array.isArray(value) ? value : fallback);
@@ -193,6 +199,7 @@ const buildManualHomeContent = (slug, incoming = {}) => {
         text: item?.text || '',
       })),
     },
+    seo: normalizeSeoProfileContent(slug, incoming.seo || {}),
     tutorials,
   };
 };
@@ -425,6 +432,104 @@ export default function ProfileTypesPage() {
     () => ensureArray(formState.home_content?.testimonials?.items, []),
     [formState.home_content],
   );
+
+  const seoContent = formState.home_content?.seo || normalizeSeoProfileContent(formState.slug || 'college', {});
+
+  const renderSeoFaqEditor = (sectionKey, title) => {
+    const faqs = ensureArray(seoContent?.[sectionKey]?.faqs, []);
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold">{title}</h4>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => syncHomeContent((prev) => {
+              const section = prev.seo?.[sectionKey] || {};
+              return {
+                ...prev,
+                seo: {
+                  ...prev.seo,
+                  [sectionKey]: {
+                    ...section,
+                    faqs: [...ensureArray(section.faqs, []), createEmptyFaq()],
+                  },
+                },
+              };
+            })}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add FAQ
+          </Button>
+        </div>
+
+        {faqs.map((faq, faqIndex) => (
+          <div key={`${sectionKey}-faq-${faqIndex}`} className="rounded-lg border p-4 space-y-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Question</label>
+              <Input
+                value={faq.question || ''}
+                onChange={(e) => syncHomeContent((prev) => {
+                  const section = prev.seo?.[sectionKey] || {};
+                  const nextFaqs = [...ensureArray(section.faqs, [])];
+                  nextFaqs[faqIndex] = { ...nextFaqs[faqIndex], question: e.target.value };
+                  return {
+                    ...prev,
+                    seo: {
+                      ...prev.seo,
+                      [sectionKey]: { ...section, faqs: nextFaqs },
+                    },
+                  };
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Answer</label>
+              <Textarea
+                rows={3}
+                value={faq.answer || ''}
+                onChange={(e) => syncHomeContent((prev) => {
+                  const section = prev.seo?.[sectionKey] || {};
+                  const nextFaqs = [...ensureArray(section.faqs, [])];
+                  nextFaqs[faqIndex] = { ...nextFaqs[faqIndex], answer: e.target.value };
+                  return {
+                    ...prev,
+                    seo: {
+                      ...prev.seo,
+                      [sectionKey]: { ...section, faqs: nextFaqs },
+                    },
+                  };
+                })}
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-red-600"
+                onClick={() => syncHomeContent((prev) => {
+                  const section = prev.seo?.[sectionKey] || {};
+                  return {
+                    ...prev,
+                    seo: {
+                      ...prev.seo,
+                      [sectionKey]: {
+                        ...section,
+                        faqs: ensureArray(section.faqs, []).filter((_, idx) => idx !== faqIndex),
+                      },
+                    },
+                  };
+                })}
+              >
+                Remove FAQ
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" /></div>;
@@ -731,6 +836,263 @@ export default function ProfileTypesPage() {
                             </div>
                           ))}
                         </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">SEO Content</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Homepage Section Title</label>
+                            <Input
+                              value={seoContent.homepage?.sectionTitle || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  homepage: { ...prev.seo?.homepage, sectionTitle: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Homepage FAQ Description</label>
+                            <Input
+                              value={seoContent.homepage?.faqDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  homepage: { ...prev.seo?.homepage, faqDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Homepage Section Description</label>
+                            <Textarea
+                              rows={4}
+                              value={seoContent.homepage?.sectionDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  homepage: { ...prev.seo?.homepage, sectionDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Courses H1</label>
+                            <Input
+                              value={seoContent.courses?.title || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  courses: { ...prev.seo?.courses, title: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Courses Subtitle</label>
+                            <Input
+                              value={seoContent.courses?.subtitle || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  courses: { ...prev.seo?.courses, subtitle: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Courses Intro Title</label>
+                            <Input
+                              value={seoContent.courses?.introTitle || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  courses: { ...prev.seo?.courses, introTitle: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Live Classes Section Title</label>
+                            <Input
+                              value={seoContent.courses?.liveTitle || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  courses: { ...prev.seo?.courses, liveTitle: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Courses Intro Paragraph 1</label>
+                            <Textarea
+                              rows={3}
+                              value={ensureArray(seoContent.courses?.introParagraphs, ['', ''])[0] || ''}
+                              onChange={(e) => syncHomeContent((prev) => {
+                                const introParagraphs = [...ensureArray(prev.seo?.courses?.introParagraphs, ['', ''])];
+                                introParagraphs[0] = e.target.value;
+                                return {
+                                  ...prev,
+                                  seo: {
+                                    ...prev.seo,
+                                    courses: { ...prev.seo?.courses, introParagraphs },
+                                  },
+                                };
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Courses Intro Paragraph 2</label>
+                            <Textarea
+                              rows={3}
+                              value={ensureArray(seoContent.courses?.introParagraphs, ['', ''])[1] || ''}
+                              onChange={(e) => syncHomeContent((prev) => {
+                                const introParagraphs = [...ensureArray(prev.seo?.courses?.introParagraphs, ['', ''])];
+                                introParagraphs[1] = e.target.value;
+                                return {
+                                  ...prev,
+                                  seo: {
+                                    ...prev.seo,
+                                    courses: { ...prev.seo?.courses, introParagraphs },
+                                  },
+                                };
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Live Classes Description</label>
+                            <Textarea
+                              rows={3}
+                              value={seoContent.courses?.liveDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  courses: { ...prev.seo?.courses, liveDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Question Bank H1</label>
+                            <Input
+                              value={seoContent.questionBank?.title || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  questionBank: { ...prev.seo?.questionBank, title: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Notes H1</label>
+                            <Input
+                              value={seoContent.notes?.title || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  notes: { ...prev.seo?.notes, title: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Masterclass H1</label>
+                            <Input
+                              value={seoContent.masterclass?.title || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  masterclass: { ...prev.seo?.masterclass, title: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Contact Description</label>
+                            <Input
+                              value={seoContent.contact?.rightDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  contact: { ...prev.seo?.contact, rightDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Question Bank Intro Description</label>
+                            <Textarea
+                              rows={3}
+                              value={seoContent.questionBank?.introDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  questionBank: { ...prev.seo?.questionBank, introDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Notes Intro Description</label>
+                            <Textarea
+                              rows={3}
+                              value={seoContent.notes?.introDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  notes: { ...prev.seo?.notes, introDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium">Masterclass Intro Description</label>
+                            <Textarea
+                              rows={3}
+                              value={seoContent.masterclass?.introDescription || ''}
+                              onChange={(e) => syncHomeContent((prev) => ({
+                                ...prev,
+                                seo: {
+                                  ...prev.seo,
+                                  masterclass: { ...prev.seo?.masterclass, introDescription: e.target.value },
+                                },
+                              }))}
+                            />
+                          </div>
+                        </div>
+
+                        {renderSeoFaqEditor('homepage', 'Homepage FAQs')}
+                        {renderSeoFaqEditor('courses', 'Courses FAQs')}
+                        {renderSeoFaqEditor('questionBank', 'Question Bank FAQs')}
+                        {renderSeoFaqEditor('notes', 'Notes FAQs')}
                       </CardContent>
                     </Card>
 

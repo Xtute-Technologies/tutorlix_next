@@ -33,7 +33,16 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-s87kpawfg$ke2#jk*z!fcu50j^
 DEBUG = os.getenv('DEBUG', 'True').lower() in ['true', '1', 'yes']
 
 # Allow comma-separated hosts in env, fallback to defaults
-_default_hosts = ['back.tutorlix.com', 'localhost','dev.tutorlix.com', '127.0.0.1', '192.168.49.2', 'tutorlix.com', 'backend-prod']
+_default_hosts = [
+    'back.tutorlix.com',
+    'localhost',
+    'dev.tutorlix.com',
+    '127.0.0.1',
+    '192.168.49.2',
+    'tutorlix.com',
+    'www.tutorlix.com',
+    'backend-prod',
+]
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS')
 if ALLOWED_HOSTS:
     ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS.split(',') if h.strip()]
@@ -227,9 +236,26 @@ CORS_ALLOWED_ORIGINS = [
     "http://dev.tutorlix.com",
     "https://tutorlix.com",
     "http://tutorlix.com",
+    "https://www.tutorlix.com",
+    "http://www.tutorlix.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:30007",
+    "http://192.168.49.2:30007",
+    "http://localhost:62710",
+    "http://127.0.0.1:62710",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://dev.tutorlix.com",
+    "http://dev.tutorlix.com",
+    "https://tutorlix.com",
+    "http://tutorlix.com",
+    "https://www.tutorlix.com",
+    "http://www.tutorlix.com",
+]
 
 # Email Settings (for password reset)
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
