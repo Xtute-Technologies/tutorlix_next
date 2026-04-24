@@ -461,6 +461,103 @@ export const testScoreAPI = {
   },
 };
 
+export const testAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/tests/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/tests/${id}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/tests/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/tests/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/tests/${id}/`);
+    return response.data;
+  },
+};
+
+export const testQuestionAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/test-questions/', { params });
+    return extractResults(response);
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/test-questions/', data, {
+      headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/test-questions/${id}/`, data, {
+      headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/test-questions/${id}/`);
+    return response.data;
+  },
+};
+
+export const testAttemptAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/test-attempts/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/test-attempts/${id}/`);
+    return response.data;
+  },
+
+  start: async (test) => {
+    const response = await axiosInstance.post('/api/lms/test-attempts/start/', { test });
+    return response.data;
+  },
+
+  saveAnswer: async (attemptId, data) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/save_answer/`, data, {
+      headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+    return response.data;
+  },
+
+  lock: async (attemptId, reason) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/lock/`, { reason });
+    return response.data;
+  },
+
+  unlock: async (attemptId) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/unlock/`);
+    return response.data;
+  },
+
+  gradeAnswer: async (attemptId, data) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/grade_answer/`, data);
+    return response.data;
+  },
+
+  submit: async (attemptId) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/submit/`);
+    return response.data;
+  },
+};
+
 // ============= Expense APIs =============
 
 export const expenseAPI = {
@@ -934,6 +1031,9 @@ const exportVariable = { category: categoryAPI,
   recording: recordingAPI,
   attendance: attendanceAPI,
   testScore: testScoreAPI,
+  test: testAPI,
+  testQuestion: testQuestionAPI,
+  testAttempt: testAttemptAPI,
   expense: expenseAPI,
   contactMessage: contactMessageAPI,
   sellerExpense: sellerExpenseAPI,

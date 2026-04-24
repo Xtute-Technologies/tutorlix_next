@@ -33,7 +33,7 @@ const adminNavItems = [
   { name: "Course Classes", href: "/admin/classes-course", icon: BookOpen },
   { name: "Recordings", href: "/admin/recordings", icon: Video },
   { name: "Attendance", href: "/admin/attendance", icon: CheckSquare },
-  { name: "Test Scores", href: "/admin/test-scores", icon: GraduationCap },
+  { name: "Tests", href: "/admin/test-scores", icon: GraduationCap },
   { name: "Expenses", href: "/admin/expenses", icon: DollarSign },
   { name: "Messages", href: "/admin/messages", icon: MessageSquare },
 ];

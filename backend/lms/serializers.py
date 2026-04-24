@@ -5,7 +5,7 @@ from accounts.serializers import PublicUserSerializer, SimpleUserSerializer
 from .models import (
     Category, ProfileType, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
     StudentSpecificClass, CourseSpecificClass,
-    Recording, Attendance, TestScore,
+    Recording, Attendance, TestScore, Test, TestQuestion, TestAttempt, TestAnswer,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
     QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob,
     ForumPost, ForumPostLike, ForumComment, ForumNotification,
@@ -1106,6 +1106,205 @@ class TestScoreSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Selected user must have teacher role.")
         
         return data
+
+
+class TestQuestionSerializer(serializers.ModelSerializer):
+    attachment_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestQuestion
+        fields = [
+            'id', 'test', 'order', 'title', 'prompt', 'question_type', 'marks',
+            'is_required', 'options', 'correct_options', 'attachment', 'attachment_url',
+            'allowed_file_types', 'starter_code', 'coding_language', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'attachment_url']
+
+    def get_attachment_url(self, obj):
+        request = self.context.get('request')
+        if not obj.attachment:
+            return None
+        if request:
+            return request.build_absolute_uri(obj.attachment.url)
+        return obj.attachment.url
+
+    def validate(self, attrs):
+        question_type = attrs.get('question_type') or getattr(self.instance, 'question_type', None)
+        options = attrs.get('options', getattr(self.instance, 'options', [])) or []
+        correct_options = attrs.get('correct_options', getattr(self.instance, 'correct_options', [])) or []
+
+        if question_type == 'multiple_choice' and len(options) < 2:
+            raise serializers.ValidationError({'options': 'Multiple choice questions require at least two options.'})
+
+        if question_type != 'multiple_choice':
+            attrs['correct_options'] = []
+            attrs['options'] = []
+
+        if question_type != 'file_upload':
+            attrs['allowed_file_types'] = ''
+
+        if question_type != 'coding':
+            attrs['starter_code'] = ''
+            attrs['coding_language'] = ''
+
+        for item in correct_options:
+            if item not in options:
+                raise serializers.ValidationError({'correct_options': 'Correct options must exist in options.'})
+
+        return attrs
+
+
+class TestAnswerSerializer(serializers.ModelSerializer):
+    question_id = serializers.IntegerField(source='question.id', read_only=True)
+    question_prompt = serializers.CharField(source='question.prompt', read_only=True)
+    uploaded_file_url = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = TestAnswer
+        fields = [
+            'id', 'question', 'question_id', 'question_prompt', 'selected_options',
+            'subjective_answer', 'code_answer', 'code_language',
+            'uploaded_file', 'uploaded_file_url', 'awarded_marks', 'review_comment',
+            'reviewed_at', 'reviewed_by', 'reviewed_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'question_id', 'question_prompt', 'uploaded_file_url',
+            'reviewed_at', 'reviewed_by', 'reviewed_by_name', 'created_at', 'updated_at'
+        ]
+
+    def get_uploaded_file_url(self, obj):
+        request = self.context.get('request')
+        if not obj.uploaded_file:
+            return None
+        if request:
+            return request.build_absolute_uri(obj.uploaded_file.url)
+        return obj.uploaded_file.url
+
+
+class StudentVisibleTestQuestionSerializer(serializers.ModelSerializer):
+    attachment_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestQuestion
+        fields = [
+            'id', 'order', 'title', 'prompt', 'question_type', 'marks', 'is_required',
+            'options', 'attachment_url', 'allowed_file_types', 'starter_code', 'coding_language'
+        ]
+
+    def get_attachment_url(self, obj):
+        request = self.context.get('request')
+        if not obj.attachment:
+            return None
+        if request:
+            return request.build_absolute_uri(obj.attachment.url)
+        return obj.attachment.url
+
+
+class TestSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    question_count = serializers.SerializerMethodField()
+    total_marks = serializers.SerializerMethodField()
+    locked_attempt_count = serializers.SerializerMethodField()
+    my_attempt = serializers.SerializerMethodField()
+    questions = TestQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Test
+        fields = [
+            'id', 'title', 'description', 'instructions', 'product', 'product_name',
+            'created_by', 'created_by_name', 'status', 'duration_minutes',
+            'lock_on_window_blur', 'available_from', 'available_until', 'is_active',
+            'question_count', 'total_marks', 'locked_attempt_count', 'my_attempt',
+            'questions', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_by_name', 'question_count', 'total_marks', 'locked_attempt_count', 'my_attempt', 'questions', 'created_at', 'updated_at']
+
+    def get_question_count(self, obj):
+        return obj.questions.count()
+
+    def get_total_marks(self, obj):
+        return str(sum(question.marks for question in obj.questions.all()))
+
+    def get_locked_attempt_count(self, obj):
+        return obj.attempts.filter(status='locked').count()
+
+    def get_my_attempt(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated or user.role != 'student':
+            return None
+        attempt = obj.attempts.filter(student=user).order_by('-updated_at').first()
+        if not attempt:
+            return None
+        return {
+            'id': attempt.id,
+            'status': attempt.status,
+            'locked_at': attempt.locked_at,
+            'submitted_at': attempt.submitted_at,
+            'current_question_index': attempt.current_question_index,
+            'total_awarded_marks': str(attempt.total_awarded_marks or 0),
+            'reviewed_at': attempt.reviewed_at,
+            'reviewed_count': attempt.answers.filter(reviewed_at__isnull=False).count(),
+        }
+
+
+class TestAttemptSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    test_title = serializers.CharField(source='test.title', read_only=True)
+    product_name = serializers.CharField(source='test.product.name', read_only=True)
+    can_unlock = serializers.SerializerMethodField()
+    answered_count = serializers.SerializerMethodField()
+    reviewed_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestAttempt
+        fields = [
+            'id', 'test', 'test_title', 'product_name', 'student', 'student_name', 'status',
+            'started_at', 'last_resumed_at', 'submitted_at', 'last_activity_at',
+            'locked_at', 'unlocked_at', 'unlocked_by', 'locked_reason',
+            'window_violation_count', 'current_question_index', 'time_spent_seconds',
+            'answered_count', 'reviewed_count', 'total_awarded_marks', 'reviewed_at',
+            'can_unlock', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'student_name', 'test_title', 'product_name', 'answered_count',
+            'reviewed_count', 'total_awarded_marks', 'reviewed_at', 'can_unlock',
+            'created_at', 'updated_at'
+        ]
+
+    def get_can_unlock(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated or obj.status != 'locked':
+            return False
+        if user.role == 'admin':
+            return True
+        return user.role == 'teacher' and obj.test.created_by_id == user.id
+
+    def get_answered_count(self, obj):
+        return obj.answers.count()
+
+    def get_reviewed_count(self, obj):
+        return obj.answers.filter(reviewed_at__isnull=False).count()
+
+
+class TestAttemptDetailSerializer(TestAttemptSerializer):
+    test_detail = TestSerializer(source='test', read_only=True)
+    questions = serializers.SerializerMethodField()
+    answers = TestAnswerSerializer(many=True, read_only=True)
+
+    class Meta(TestAttemptSerializer.Meta):
+        fields = TestAttemptSerializer.Meta.fields + ['test_detail', 'questions', 'answers']
+
+    def get_questions(self, obj):
+        serializer = StudentVisibleTestQuestionSerializer(
+            obj.test.questions.all(),
+            many=True,
+            context=self.context
+        )
+        return serializer.data
 
 
 # ============= Expense Serializers =============

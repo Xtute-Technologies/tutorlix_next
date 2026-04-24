@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { bookingAPI, testScoreAPI, attendanceAPI } from '@/lib/lmsService';
+import { bookingAPI, testAPI, attendanceAPI } from '@/lib/lmsService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, BookOpen, Clock, Award, Calendar, StickyNote, ArrowRight } from 'lucide-react';
@@ -13,7 +13,7 @@ export default function StudentDashboardPage() {
   const [stats, setStats] = useState({
     activeCourses: 0,
     classesAttended: 0,
-    avgScore: 0,
+    activeTests: 0,
     nextClass: null
   });
   const [loading, setLoading] = useState(true);
@@ -22,10 +22,10 @@ export default function StudentDashboardPage() {
     const fetchStats = async () => {
       try {
         // Parallel fetch
-        const [bookings, attendance, scores] = await Promise.all([
+        const [bookings, attendance, tests] = await Promise.all([
           bookingAPI.getAll().catch(() => []),
           attendanceAPI.getAll().catch(() => []),
-          testScoreAPI.getAll().catch(() => [])
+          testAPI.getAll().catch(() => [])
         ]);
 
         const activeCourses = Array.isArray(bookings)
@@ -37,24 +37,10 @@ export default function StudentDashboardPage() {
           : 0;
         const attended = Array.isArray(attendance) ? attendance.filter(a => a.status === 'P').length : 0;
 
-        // Calculate avg score
-        let total = 0;
-        let count = 0;
-        if (Array.isArray(scores)) {
-          scores.forEach(s => {
-            const p = parseFloat(s.percentage);
-            if (!isNaN(p)) {
-              total += p;
-              count++;
-            }
-          });
-        }
-        const avgScore = count > 0 ? (total / count).toFixed(1) : 0;
-
         setStats({
           activeCourses,
           classesAttended: attended,
-          avgScore,
+          activeTests: Array.isArray(tests) ? tests.length : 0,
           nextClass: null // Would need class API for this
         });
 
@@ -102,12 +88,12 @@ export default function StudentDashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Tests</CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.avgScore}%</div>
-            <p className="text-xs text-muted-foreground">Across all tests</p>
+            <div className="text-2xl font-bold">{stats.activeTests}</div>
+            <p className="text-xs text-muted-foreground">Available to attempt</p>
           </CardContent>
         </Card>
       </div>
