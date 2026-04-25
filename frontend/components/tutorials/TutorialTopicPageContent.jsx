@@ -87,6 +87,29 @@ export default function TutorialTopicPageContent({ topicName, pageSlug = null })
     conceptsCovered[0] ||
     null;
   const selectedNoteSlug = extractNoteSlug(selectedConcept?.noteUrl);
+  const pageTitle =
+    selectedPage?.title ||
+    topic?.title ||
+    selectedConcept?.title ||
+    selectedNote?.title ||
+    'Tutorial';
+  const pageDescription =
+    selectedPage?.shortDescription ||
+    topic?.description ||
+    selectedConcept?.title ||
+    selectedNote?.description ||
+    null;
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!topic) {
+      document.title = 'Tutorial not found | Tutorlix';
+      return;
+    }
+
+    document.title = `${pageTitle} | Tutorlix`;
+  }, [loading, topic, pageTitle]);
 
   useEffect(() => {
     if (!conceptsCovered.length) {
@@ -168,11 +191,9 @@ export default function TutorialTopicPageContent({ topicName, pageSlug = null })
         </Link>
         <div className="space-y-3">
           {selectedPage?.scopeLabel ? <Badge variant="outline">{selectedPage.scopeLabel}</Badge> : null}
-          <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">{selectedPage?.title || topic.title}</h1>
-          {selectedPage?.shortDescription ? (
-            <p className="max-w-3xl text-base text-slate-600 sm:text-lg">{selectedPage.shortDescription}</p>
-          ) : topic.description ? (
-            <p className="max-w-3xl text-base text-slate-600 sm:text-lg">{topic.description}</p>
+          <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">{pageTitle}</h1>
+          {pageDescription ? (
+            <p className="max-w-3xl text-base text-slate-600 sm:text-lg">{pageDescription}</p>
           ) : null}
         </div>
       </div>
