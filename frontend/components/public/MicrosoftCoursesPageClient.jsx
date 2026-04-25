@@ -83,7 +83,7 @@ export default function MicrosoftCoursesPageClient() {
           params.set('level', level);
         }
 
-        const response = await fetch(`/api/microsoft-catalog?${params.toString()}`);
+        const response = await fetch(`/microsoft-catalog?${params.toString()}`);
         const data = await response.json();
 
         if (!response.ok) {
