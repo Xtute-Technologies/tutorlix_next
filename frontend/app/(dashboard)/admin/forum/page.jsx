@@ -57,6 +57,20 @@ export default function AdminForumPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const ids = new Set(rows.map((row) => row.id));
+    const results = await Promise.allSettled(rows.map((row) => forumAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount} forum post(s) could not be deleted.`);
+      return;
+    }
+
+    setPosts((prev) => prev.filter((post) => !ids.has(post.id)));
+    toast.success(`${rows.length} forum post(s) deleted.`);
+  };
+
   const handleTogglePostingBlock = async (post) => {
     const author = post.author;
     if (!author?.id) return;
@@ -194,6 +208,8 @@ export default function AdminForumPage() {
               columns={columns}
               data={posts}
               searchPlaceholder="Search posts, authors, or content..."
+              onBulkDelete={handleBulkDelete}
+              bulkDeleteLabel="Delete selected"
             />
           )}
         </CardContent>

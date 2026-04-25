@@ -369,6 +369,17 @@ export default function ProfileTypesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => profileTypeAPI.delete(row.slug)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} profile type(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} profile type(s) deleted successfully.` }
+    );
+    fetchProfiles();
+  };
+
   const columns = [
     { accessorKey: 'title', header: 'Title' },
     { accessorKey: 'slug', header: 'Slug' },
@@ -1577,7 +1588,13 @@ export default function ProfileTypesPage() {
           </Card>
         )}
 
-        <DataTable columns={columns} data={profiles} />
+        <DataTable
+          columns={columns}
+          data={profiles}
+          onBulkDelete={handleBulkDelete}
+          bulkDeleteLabel="Delete selected"
+          getRowId={(row) => row.slug}
+        />
       </div>
 
       <Dialog open={!!viewingProfile} onOpenChange={() => setViewingProfile(null)}>

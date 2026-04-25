@@ -147,6 +147,17 @@ export default function OffersPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => offerAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} offer(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} offer(s) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingOffer(null);
@@ -380,6 +391,8 @@ export default function OffersPage() {
               columns={columns}
               data={offers}
               searchPlaceholder="Search offers..."
+              onBulkDelete={handleBulkDelete}
+              bulkDeleteLabel="Delete selected"
             />
 
 

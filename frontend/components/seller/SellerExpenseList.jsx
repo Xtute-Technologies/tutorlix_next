@@ -9,7 +9,8 @@ export default function SellerExpenseList({
   loading, 
   userRole, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onBulkDelete,
 }) {
   const isAdmin = userRole === 'admin';
 
@@ -110,6 +111,8 @@ export default function SellerExpenseList({
       loading={loading}
       searchKey="seller_name" // Search by seller name
       searchPlaceholder="Search by seller..."
+      onBulkDelete={isAdmin ? onBulkDelete : undefined}
+      bulkDeleteLabel="Delete selected"
     />
   );
 }

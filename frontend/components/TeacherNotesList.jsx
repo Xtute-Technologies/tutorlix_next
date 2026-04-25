@@ -15,6 +15,7 @@ export default function TeacherNotesList({
   dependencies, 
   userRole = 'teacher', // 'admin' or 'teacher'
   onDelete,
+  onBulkDelete,
   defaultPageSize = 10 
 }) {
   const isAdmin = userRole === 'admin';
@@ -211,8 +212,9 @@ export default function TeacherNotesList({
       fetchData={adapter}
       dependencies={dependencies}
       defaultPageSize={defaultPageSize}
-      searchKey="title"
       searchPlaceholder={isAdmin ? "Search by title or creator..." : "Search by title..."}
+      onBulkDelete={onBulkDelete}
+      bulkDeleteLabel="Delete selected"
     />
   );
 }

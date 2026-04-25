@@ -11,6 +11,7 @@ export default function SharedExpenseList({
   userRole, 
   onEdit, 
   onDelete,
+  onBulkDelete,
   entityType = 'seller' // 'seller' or 'teacher'
 }) {
   const isAdmin = userRole === 'admin';
@@ -141,6 +142,8 @@ export default function SharedExpenseList({
       loading={loading}
       searchKey={isAdmin ? nameKey : 'description'}
       searchPlaceholder={isAdmin ? `Search by ${entityLabel}...` : 'Search description...'}
+      onBulkDelete={isAdmin ? onBulkDelete : undefined}
+      bulkDeleteLabel="Delete selected"
     />
   );
 }

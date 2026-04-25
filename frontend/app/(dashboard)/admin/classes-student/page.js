@@ -135,6 +135,17 @@ export default function StudentClassesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => studentClassAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} class(es) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} class(es) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const handleManageStudents = (classItem) => {
     setSelectedClass(classItem);
     setShowStudentsDialog(true);
@@ -344,7 +355,13 @@ export default function StudentClassesPage() {
 
         {/* Table */}
       
-          <DataTable data={classes} columns={columns} searchPlaceholder="Search Classess..." />
+          <DataTable
+            data={classes}
+            columns={columns}
+            searchPlaceholder="Search Classess..."
+            onBulkDelete={handleBulkDelete}
+            bulkDeleteLabel="Delete selected"
+          />
       
 
         {/* Add/Edit Form Dialog */}

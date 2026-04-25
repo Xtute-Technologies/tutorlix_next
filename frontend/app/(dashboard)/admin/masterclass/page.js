@@ -113,6 +113,17 @@ export default function MasterclassesPage() {
     fetchData();
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => masterclassAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} class(es) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} class(es) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const classFields = useMemo(() => [
     {
       name: 'name',
@@ -243,6 +254,8 @@ export default function MasterclassesPage() {
         data={classes}
         columns={columns}
         searchPlaceholder="Search classes..."
+        onBulkDelete={handleBulkDelete}
+        bulkDeleteLabel="Delete selected"
       />
 
       {/* Add/Edit Dialog */}

@@ -33,6 +33,7 @@ router.register(r'forum-posts', views.ForumPostViewSet, basename='forum-post')
 router.register(r'forum-notifications', views.ForumNotificationViewSet, basename='forum-notification')
 router.register(r'resources', views.ResourceViewSet, basename='resource')
 router.register(r'approved-resource-domains', views.ApprovedResourceDomainViewSet, basename='approved-resource-domain')
+router.register(r'resource-import-jobs', views.ResourceImportJobViewSet, basename='resource-import-job')
 
 # 🎬 VIDEO RENDERING (ADMIN ONLY)
 router.register(r'videos', views.VideoViewSet, basename='video')

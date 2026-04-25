@@ -122,6 +122,22 @@ export default function MessagesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const ids = new Set(rows.map((row) => row.id));
+    const results = await Promise.allSettled(rows.map((row) => contactMessageAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} message(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} message(s) deleted successfully!` }
+    );
+    if (failedCount === 0 && selectedMessage && ids.has(selectedMessage.id)) {
+      setShowViewDialog(false);
+      setSelectedMessage(null);
+    }
+    fetchData();
+  };
+
   const getStatusBadge = (status) => {
     const variants = {
       new: 'bg-blue-600',
@@ -235,6 +251,8 @@ export default function MessagesPage() {
             loading={loading}
             searchKey="name"
             searchPlaceholder="Search by name or email..."
+            onBulkDelete={handleBulkDelete}
+            bulkDeleteLabel="Delete selected"
           />
 
         {/* View Message Dialog */}

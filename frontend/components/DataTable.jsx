@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -9,9 +9,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from "@/lib/utils"; // Shadcn utility for merging classes
 
 export default function DataTable({ 
@@ -21,6 +22,10 @@ export default function DataTable({
   searchKey = '',
   onRowClick,
   hideSearch = false,
+  onBulkDelete,
+  bulkDeleteLabel = 'Delete selected',
+  bulkDeleteConfirmMessage,
+  getRowId,
 }) {
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
@@ -29,12 +34,49 @@ export default function DataTable({
     pageIndex: 0,
     pageSize: 10,
   });
+  const [rowSelection, setRowSelection] = useState({});
 
   const safeData = Array.isArray(data) ? data : [];
+  const resolvedGetRowId = getRowId || ((row, index) => String(row?.id ?? index));
+
+  useEffect(() => {
+    setRowSelection({});
+  }, [safeData]);
+
+  const selectionColumn = useMemo(() => ({
+    id: '__select__',
+    enableSorting: false,
+    enableColumnFilter: false,
+    header: ({ table }) => (
+      <Checkbox
+        aria-label="Select all rows"
+        checked={
+          table.getIsAllPageRowsSelected()
+          || (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label="Select row"
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        onClick={(event) => event.stopPropagation()}
+      />
+    ),
+    size: 40,
+  }), []);
+
+  const tableColumns = useMemo(
+    () => (onBulkDelete ? [selectionColumn, ...columns] : columns),
+    [columns, onBulkDelete, selectionColumn],
+  );
 
   const table = useReactTable({
     data: safeData,
-    columns,
+    columns: tableColumns,
+    getRowId: resolvedGetRowId,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -43,19 +85,37 @@ export default function DataTable({
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: !!onBulkDelete,
     state: {
       sorting,
       columnFilters,
       globalFilter,
       pagination,
+      rowSelection,
     },
   });
+
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedCount = selectedRows.length;
+
+  const handleBulkDelete = async () => {
+    if (!onBulkDelete || selectedCount === 0) return;
+
+    const confirmMessage = bulkDeleteConfirmMessage
+      || `Delete ${selectedCount} selected ${selectedCount === 1 ? 'item' : 'items'}?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    await onBulkDelete(selectedRows.map((row) => row.original));
+    setRowSelection({});
+  };
 
   return (
     <div className="space-y-4">
       {/* Search Bar */}
       {!hideSearch && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -65,6 +125,22 @@ export default function DataTable({
               className="pl-10 bg-background"
             />
           </div>
+          {onBulkDelete && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {selectedCount > 0 ? `${selectedCount} selected` : 'Select rows'}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={handleBulkDelete}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {bulkDeleteLabel}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -74,10 +150,13 @@ export default function DataTable({
           <thead className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b border-border">
-                {headerGroup.headers.map((header) => (
+                  {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 md:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider"
+                    className={cn(
+                      "px-4 md:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider",
+                      header.id === '__select__' && 'w-12'
+                    )}
                   >
                     {header.isPlaceholder ? null : (
                       <div
@@ -106,7 +185,7 @@ export default function DataTable({
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length}
+                  colSpan={tableColumns.length}
                   className="px-6 py-12 text-center"
                 >
                   <div className="flex flex-col items-center justify-center text-muted-foreground">

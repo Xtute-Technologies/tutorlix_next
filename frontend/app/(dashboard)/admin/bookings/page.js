@@ -141,6 +141,17 @@ export default function BookingsPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => bookingAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} booking(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} booking(s) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const getPaymentStatusBadge = (status) => {
     const variants = {
       pending: 'bg-yellow-600',
@@ -431,8 +442,9 @@ export default function BookingsPage() {
         columns={columns}
         data={bookings}
         loading={loading}
-        // searchKey="student_name"
         searchPlaceholder="Search by student name..."
+        onBulkDelete={handleBulkDelete}
+        bulkDeleteLabel="Delete selected"
       />
 
       {/* Form Dialog */}
