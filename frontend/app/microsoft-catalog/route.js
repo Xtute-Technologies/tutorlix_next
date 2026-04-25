@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 const MICROSOFT_LEARN_CATALOG_URL = 'https://learn.microsoft.com/api/catalog/';
 const ALLOWED_TYPES = ['modules', 'learningPaths', 'courses', 'certifications', 'appliedSkills'];
 
@@ -80,12 +82,24 @@ export async function GET(request) {
 
   try {
     const response = await fetch(upstreamUrl.toString(), {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Tutorlix Microsoft Catalog Proxy/1.0',
+      },
       next: { revalidate: 60 * 60 * 12 },
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
       return NextResponse.json(
-        { error: 'Failed to fetch Microsoft Learn catalog.' },
+        {
+          error: 'Failed to fetch Microsoft Learn catalog.',
+          upstreamStatus: response.status,
+          upstreamStatusText: response.statusText,
+          upstreamBody: errorText.slice(0, 500),
+          source: upstreamUrl.toString(),
+        },
         { status: response.status }
       );
     }
@@ -122,9 +136,13 @@ export async function GET(request) {
       requestedTypes: effectiveTypes,
       source: upstreamUrl.toString(),
     });
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: 'Microsoft Learn catalog is currently unavailable.' },
+      {
+        error: 'Microsoft Learn catalog is currently unavailable.',
+        details: error instanceof Error ? error.message : 'Unknown fetch error',
+        source: upstreamUrl.toString(),
+      },
       { status: 500 }
     );
   }
