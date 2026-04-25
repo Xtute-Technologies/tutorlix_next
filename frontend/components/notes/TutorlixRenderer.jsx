@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Dynamically import the Editor component to turn it into a Renderer
 // We force 'readOnly' prop to true
@@ -15,9 +16,9 @@ const TutorlixEditor = dynamic(() => import("./TutorlixEditor"), {
   ),
 });
 
-export default function TutorlixRenderer({ content }) {
+export default function TutorlixRenderer({ content, className }) {
   return (
-    <div className="prose prose-stone dark:prose-invert max-w-none">
+    <div className={cn("prose prose-stone dark:prose-invert max-w-none", className)}>
       {/* We reuse the Editor logic but lock it down. 
         This ensures distinct visual parity between what the teacher wrote and what the student sees.
       */}
