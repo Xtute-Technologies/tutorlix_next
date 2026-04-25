@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +16,7 @@ const TYPE_LABELS = {
   appliedSkills: 'Applied Skill',
 };
 const catalogCache = new Map();
+const CACHE_DIR = path.join(tmpdir(), 'tutorlix-microsoft-catalog-cache');
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -62,7 +66,25 @@ function buildCacheKey(locale, effectiveTypes) {
   return `${locale}::${effectiveTypes.join(',')}`;
 }
 
-function buildPagedPayload(items, page, pageSize, effectiveTypes, source, stale = false) {
+function sortCatalogItems(items) {
+  return [...items].sort((left, right) => {
+    if (right.popularity !== left.popularity) {
+      return right.popularity - left.popularity;
+    }
+
+    const leftDate = left.last_modified ? new Date(left.last_modified).getTime() : 0;
+    const rightDate = right.last_modified ? new Date(right.last_modified).getTime() : 0;
+    return rightDate - leftDate;
+  });
+}
+
+function filterCatalogItems(items, q, level) {
+  return items
+    .filter((item) => (q ? buildSearchHaystack(item).includes(q) : true))
+    .filter((item) => (level ? item.levels.some((itemLevel) => itemLevel.toLowerCase() === level) : true));
+}
+
+function buildPayloadFromFilteredItems(items, page, pageSize, effectiveTypes, source, stale = false, cachedAt = null) {
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -78,7 +100,29 @@ function buildPagedPayload(items, page, pageSize, effectiveTypes, source, stale 
     requestedTypes: effectiveTypes,
     source,
     stale,
+    cachedAt,
   };
+}
+
+function cacheFilePath(cacheKey) {
+  return path.join(CACHE_DIR, `${encodeURIComponent(cacheKey)}.json`);
+}
+
+async function writeCacheSnapshot(cacheKey, payload) {
+  await mkdir(CACHE_DIR, { recursive: true });
+  const targetFile = cacheFilePath(cacheKey);
+  const tempFile = `${targetFile}.tmp`;
+  await writeFile(tempFile, JSON.stringify(payload), 'utf8');
+  await rename(tempFile, targetFile);
+}
+
+async function readCacheSnapshot(cacheKey) {
+  try {
+    const raw = await readFile(cacheFilePath(cacheKey), 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request) {
@@ -111,7 +155,7 @@ export async function GET(request) {
         Accept: 'application/json',
         'User-Agent': 'Tutorlix Microsoft Catalog Proxy/1.0',
       },
-      next: { revalidate: 60 * 60 * 12 },
+      cache: 'no-store',
       signal: AbortSignal.timeout(15000),
     });
 
@@ -130,35 +174,47 @@ export async function GET(request) {
     }
 
     const data = await response.json();
-    const normalizedItems = normalizeCatalogItems(data, effectiveTypes);
-
-    const filteredItems = normalizedItems
-      .filter((item) => (q ? buildSearchHaystack(item).includes(q) : true))
-      .filter((item) => (level ? item.levels.some((itemLevel) => itemLevel.toLowerCase() === level) : true))
-      .sort((left, right) => {
-        if (right.popularity !== left.popularity) {
-          return right.popularity - left.popularity;
-        }
-
-        const leftDate = left.last_modified ? new Date(left.last_modified).getTime() : 0;
-        const rightDate = right.last_modified ? new Date(right.last_modified).getTime() : 0;
-        return rightDate - leftDate;
-      });
+    const normalizedItems = sortCatalogItems(normalizeCatalogItems(data, effectiveTypes));
+    const cachedAt = new Date().toISOString();
 
     catalogCache.set(cacheKey, {
-      items: filteredItems,
-      cachedAt: new Date().toISOString(),
+      items: normalizedItems,
+      cachedAt,
+      source: upstreamUrl.toString(),
+    });
+    await writeCacheSnapshot(cacheKey, {
+      items: normalizedItems,
+      cachedAt,
       source: upstreamUrl.toString(),
     });
 
-    return NextResponse.json(
-      buildPagedPayload(filteredItems, page, pageSize, effectiveTypes, upstreamUrl.toString(), false)
-    );
+    const filteredItems = filterCatalogItems(normalizedItems, q, level);
+    return NextResponse.json(buildPayloadFromFilteredItems(
+      filteredItems,
+      page,
+      pageSize,
+      effectiveTypes,
+      upstreamUrl.toString(),
+      false,
+      cachedAt
+    ));
   } catch (error) {
-    const cachedEntry = catalogCache.get(cacheKey);
+    const memoryCache = catalogCache.get(cacheKey);
+    const fileCache = memoryCache?.items?.length ? null : await readCacheSnapshot(cacheKey);
+    const cachedEntry = memoryCache?.items?.length ? memoryCache : fileCache;
+
     if (cachedEntry?.items?.length) {
+      const filteredItems = filterCatalogItems(cachedEntry.items, q, level);
       return NextResponse.json({
-        ...buildPagedPayload(cachedEntry.items, page, pageSize, effectiveTypes, cachedEntry.source, true),
+        ...buildPayloadFromFilteredItems(
+          filteredItems,
+          page,
+          pageSize,
+          effectiveTypes,
+          cachedEntry.source,
+          true,
+          cachedEntry.cachedAt || null
+        ),
         cachedAt: cachedEntry.cachedAt,
         warning: 'Serving cached Microsoft Learn catalog data because the upstream service is unavailable.',
       });
