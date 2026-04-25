@@ -306,7 +306,7 @@ const SEO_COPY_BY_PROFILE = {
       ],
     },
     courses: {
-      title: 'Online Tech Courses for College Students',
+      title: 'Tutorlix now aligned with Microsoft Learn Curriculum',
       subtitle: 'Explore guided learning paths in full stack development, DSA, system design, AI and generative AI.',
       introTitle: 'Structured technical learning for skills, projects and interviews',
       introParagraphs: [
