@@ -28,6 +28,14 @@ async function fetchProfileTypes() {
   }
 }
 
+function titleFromSlug(slug = '') {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 export async function findTutorialSeoEntry(topicSlug, pageSlug = null) {
   const profileTypes = await fetchProfileTypes();
 
@@ -47,5 +55,30 @@ export async function findTutorialSeoEntry(topicSlug, pageSlug = null) {
     return { tutorial, page };
   }
 
-  return findDefaultTutorialPage(topicSlug, pageSlug);
+  const fallbackEntry = findDefaultTutorialPage(topicSlug, pageSlug);
+  if (fallbackEntry.page || !pageSlug) {
+    return fallbackEntry;
+  }
+
+  if (!fallbackEntry.tutorial) {
+    return {
+      tutorial: null,
+      page: pageSlug
+        ? {
+            slug: pageSlug,
+            title: titleFromSlug(pageSlug),
+            shortDescription: `Explore ${titleFromSlug(pageSlug)} on Tutorlix.`,
+          }
+        : null,
+    };
+  }
+
+  return {
+    tutorial: fallbackEntry.tutorial,
+    page: {
+      slug: pageSlug,
+      title: titleFromSlug(pageSlug),
+      shortDescription: `Explore ${titleFromSlug(pageSlug)} in ${fallbackEntry.tutorial.title} on Tutorlix.`,
+    },
+  };
 }
