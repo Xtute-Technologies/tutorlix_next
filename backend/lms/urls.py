@@ -31,6 +31,8 @@ router.register(r'test-attempts', views.TestAttemptViewSet, basename='test-attem
 router.register(r'reel-jobs', views.ReelGenerationJobViewSet, basename='reel-job')
 router.register(r'forum-posts', views.ForumPostViewSet, basename='forum-post')
 router.register(r'forum-notifications', views.ForumNotificationViewSet, basename='forum-notification')
+router.register(r'resources', views.ResourceViewSet, basename='resource')
+router.register(r'approved-resource-domains', views.ApprovedResourceDomainViewSet, basename='approved-resource-domain')
 
 # 🎬 VIDEO RENDERING (ADMIN ONLY)
 router.register(r'videos', views.VideoViewSet, basename='video')

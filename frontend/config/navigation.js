@@ -14,6 +14,7 @@ import {
   MessageSquare,
   File,
   FileText,
+  FolderOpen,
 } from "lucide-react";
 
 export const getNavItems = (role) => {
@@ -67,7 +68,7 @@ export const getNavItems = (role) => {
           { title: "Notes Manage", url: "/admin/notes", icon: FileText },
           { title: "Student Enrollments", url: "/admin/notes/enrollments", icon: Users },
           { title: "Transaction", url: "/admin/notes/transactions", icon: Users },
-
+          { title: "Resources", url: "/admin/resources", icon: FolderOpen },
         ],
       },
       {
@@ -185,7 +186,7 @@ export const getNavItems = (role) => {
           { title: "Notes Manage", url: "/teacher/notes", icon: FileText },
           { title: "Student Enrollments", url: "/teacher/notes/enrollments", icon: Users },
           { title: "Transaction", url: "/teacher/notes/transactions", icon: Users },
-
+          { title: "Resources", url: "/teacher/resources", icon: FolderOpen },
         ],
       },
       {

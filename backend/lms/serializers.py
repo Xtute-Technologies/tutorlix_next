@@ -7,7 +7,7 @@ from .models import (
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore, Test, TestQuestion, TestAttempt, TestAnswer,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
-    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob,
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob, Resource, ApprovedResourceDomain,
     ForumPost, ForumPostLike, ForumComment, ForumNotification,
 )
 from django.utils.text import slugify
@@ -1458,4 +1458,116 @@ class ProductLeadCreateSerializer(serializers.ModelSerializer):
         
     def validate_phone(self, value):
         # Basic phone validation if needed
+        return value
+
+
+class ResourceSerializer(serializers.ModelSerializer):
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    download_url = serializers.SerializerMethodField()
+    has_file = serializers.SerializerMethodField()
+    has_external_url = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Resource
+        fields = [
+            'id',
+            'title',
+            'description',
+            'subject',
+            'curriculum',
+            'grade_or_course',
+            'topic',
+            'resource_type',
+            'tags',
+            'external_url',
+            'source_url',
+            'imported_at',
+            'file',
+            'visibility',
+            'uploaded_by',
+            'uploaded_by_name',
+            'has_file',
+            'has_external_url',
+            'download_url',
+            'can_edit',
+            'can_delete',
+            'created_at',
+            'updated_at',
+        ]
+        extra_kwargs = {
+            'file': {'write_only': True, 'required': False, 'allow_null': True},
+        }
+        read_only_fields = [
+            'id',
+            'uploaded_by',
+            'uploaded_by_name',
+            'has_file',
+            'has_external_url',
+            'download_url',
+            'can_edit',
+            'can_delete',
+            'source_url',
+            'imported_at',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_tags(self, value):
+        if value in (None, ''):
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(',') if item.strip()][:30]
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Tags must be a list or comma-separated string.')
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str):
+                raise serializers.ValidationError('Each tag must be a string.')
+            item = item.strip()
+            if item:
+                cleaned.append(item)
+        return cleaned[:30]
+
+    def validate(self, attrs):
+        file_value = attrs.get('file', getattr(self.instance, 'file', None))
+        external_url = attrs.get('external_url', getattr(self.instance, 'external_url', None))
+        if not file_value and not external_url:
+            raise serializers.ValidationError({'file': 'Upload a file or provide an external URL.'})
+        return attrs
+
+    def get_download_url(self, obj):
+        request = self.context.get('request')
+        if not request or not obj.file:
+            return None
+        return request.build_absolute_uri(f'/api/lms/resources/{obj.pk}/download/')
+
+    def get_has_file(self, obj):
+        return bool(obj.file)
+
+    def get_has_external_url(self, obj):
+        return bool(obj.external_url)
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and user.role == 'admin')
+
+    def get_can_delete(self, obj):
+        return self.get_can_edit(obj)
+
+
+class ApprovedResourceDomainSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ApprovedResourceDomain
+        fields = ['id', 'domain', 'description', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_domain(self, value):
+        value = (value or '').strip().lower()
+        if not value:
+          raise serializers.ValidationError('Domain is required.')
+        if '://' in value:
+          raise serializers.ValidationError('Enter only the hostname, for example example.com.')
         return value
