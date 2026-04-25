@@ -83,7 +83,7 @@ export default function MicrosoftCoursesPageClient() {
           params.set('level', level);
         }
 
-        const response = await fetch(`/api/microsoft-catalog?${params.toString()}`);
+        const response = await fetch(`/microsoft-catalog?${params.toString()}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -128,7 +128,7 @@ export default function MicrosoftCoursesPageClient() {
             Microsoft Courses
           </h1>
           <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. This page uses the Microsoft Learn Catalog API and links directly to Microsoft Learn offerings.
+            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. This page links directly to Microsoft Learn offerings.
           </p>
           {['college', 'professional'].includes(profileType) ? (
             <p className="text-sm font-medium text-slate-700">
