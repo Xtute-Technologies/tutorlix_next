@@ -744,7 +744,7 @@ const mergeSection = (baseSection = {}, overrideSection = {}) => {
   return merged;
 };
 
-const normalizeTutorialPages = (tutorial, fallback = {}) => {
+export const normalizeTutorialPages = (tutorial, fallback = {}) => {
   const fallbackPages = Array.isArray(fallback.pages)
     ? fallback.pages
     : fallback?.slug
@@ -813,6 +813,29 @@ const mergeTutorials = (baseTutorials = [], overrideTutorials) => {
       pages,
     };
   });
+};
+
+export const getAllDefaultTutorials = () =>
+  Object.values(defaultProfileHomeContent).flatMap((profile) =>
+    Array.isArray(profile?.tutorials) ? profile.tutorials : []
+  );
+
+export const findDefaultTutorial = (topicSlug) =>
+  getAllDefaultTutorials().find((tutorial) => tutorial?.slug === topicSlug) || null;
+
+export const findDefaultTutorialPage = (topicSlug, pageSlug = null) => {
+  const tutorial = findDefaultTutorial(topicSlug);
+  if (!tutorial) {
+    return { tutorial: null, page: null };
+  }
+
+  const pages = normalizeTutorialPages(tutorial);
+  const page =
+    (pageSlug ? pages.find((item) => item?.slug === pageSlug) : null) ||
+    pages[0] ||
+    null;
+
+  return { tutorial, page };
 };
 
 export const buildProfileHomeContent = (profileType, homeContent = {}) => {

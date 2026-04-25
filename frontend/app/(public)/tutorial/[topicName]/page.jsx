@@ -1,42 +1,58 @@
-'use client';
-
-import { use, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 import TutorialTopicPageContent from '@/components/tutorials/TutorialTopicPageContent';
-import { useProfile } from '@/context/ProfileContext';
-import { buildProfileHomeContent } from '@/app/data/homeContent';
+import { findTutorialSeoEntry } from '@/lib/tutorialSeo';
 
-function normalizeTutorialPages(topic) {
-  if (!topic) return [];
-  if (Array.isArray(topic.pages)) return topic.pages;
-  return topic.slug ? [topic] : [];
+const FALLBACK_TITLE = 'Tutorials | Tutorlix';
+const FALLBACK_DESCRIPTION = 'Explore guided tutorials on Tutorlix.';
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const topicName = resolvedParams?.topicName;
+  const { tutorial, page } = await findTutorialSeoEntry(topicName);
+
+  if (!tutorial) {
+    return {
+      title: FALLBACK_TITLE,
+      description: FALLBACK_DESCRIPTION,
+    };
+  }
+
+  const title = `${page?.title || tutorial.title} | Tutorlix`;
+  const description = page?.shortDescription || tutorial.description || tutorial.overview || FALLBACK_DESCRIPTION;
+  const canonical = `https://tutorlix.com/tutorial/${topicName}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: 'Tutorlix',
+      type: 'article',
+      images: ['https://tutorlix.com/icon.png'],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['https://tutorlix.com/icon.png'],
+    },
+  };
 }
 
-export default function TutorialGroupPage({ params }) {
-  const { topicName } = use(params);
-  const router = useRouter();
-  const { activeHomeContent, profileTypes } = useProfile();
+export default async function TutorialGroupPage({ params }) {
+  const resolvedParams = await params;
+  const topicName = resolvedParams?.topicName;
+  const { tutorial, page } = await findTutorialSeoEntry(topicName);
 
-  useEffect(() => {
-    const tutorials = Array.isArray(activeHomeContent?.tutorials) ? activeHomeContent.tutorials : [];
-    const allTutorials = [
-      ...tutorials,
-      ...profileTypes.flatMap((profile) => {
-        const content = buildProfileHomeContent(profile.slug, profile.home_content);
-        return Array.isArray(content?.tutorials) ? content.tutorials : [];
-      }),
-    ];
-
-    const topic =
-      tutorials.find((item) => item.slug === topicName) ||
-      allTutorials.find((item) => item.slug === topicName);
-    const firstPage = normalizeTutorialPages(topic)[0];
-
-    if (firstPage?.slug && firstPage.slug !== topicName) {
-      router.replace(`/tutorial/${topicName}/${firstPage.slug}`);
-    }
-  }, [activeHomeContent?.tutorials, profileTypes, router, topicName]);
+  if (tutorial && page?.slug && page.slug !== topicName) {
+    redirect(`/tutorial/${topicName}/${page.slug}`);
+  }
 
   return <TutorialTopicPageContent topicName={topicName} />;
 }
