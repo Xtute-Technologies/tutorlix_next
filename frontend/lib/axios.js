@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = '';
+const API_BASE_URL = 'http://localhost:8000';
 
 // ✅ REMOVE forced Content-Type
 const axiosInstance = axios.create({
