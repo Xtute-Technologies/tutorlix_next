@@ -12,6 +12,7 @@ const STATIC_ROUTES = [
   '/courses',
   '/categories',
   '/notes',
+  '/microsoft-courses',
   '/forum',
   '/masterclass',
   '/contact',

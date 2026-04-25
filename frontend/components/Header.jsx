@@ -80,11 +80,23 @@ export default function Header() {
       if (visibility === "both") return true;
       return true;
     });
+
+    if (
+      (profileType === "college" || profileType === "professional") &&
+      !visibleLinks.some((link) => link.url === "/microsoft-courses")
+    ) {
+      visibleLinks.splice(Math.min(visibleLinks.length, 3), 0, {
+        label: "Microsoft Courses",
+        url: "/microsoft-courses",
+        visibility: "public",
+      });
+    }
+
     if (!visibleLinks.some((link) => link.url === "/forum")) {
       visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, { label: "Forum", url: "/forum", visibility: "public" });
     }
     return visibleLinks;
-  }, [navigationContent.primary_links, fallbackPrimaryLinks, user]);
+  }, [navigationContent.primary_links, fallbackPrimaryLinks, profileType, user]);
 
   const studyMaterialsLinks = useMemo(() => {
     const findByUrl = (url, fallbackLabel) => navLinks.find((link) => link.url === url) || { label: fallbackLabel, url };
