@@ -128,7 +128,7 @@ export default function MicrosoftCoursesPageClient() {
             Microsoft Courses
           </h1>
           <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. This page uses the Microsoft Learn Catalog API and links directly to Microsoft Learn offerings.
+            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. This page links directly to Microsoft Learn offerings.
           </p>
           {['college', 'professional'].includes(profileType) ? (
             <p className="text-sm font-medium text-slate-700">
