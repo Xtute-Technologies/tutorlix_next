@@ -188,6 +188,17 @@ export default function TestDetailPage({ role }) {
     }
   };
 
+  const handleBulkDeleteQuestions = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => testQuestionAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} question(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} question(s) deleted successfully.` }
+    );
+    fetchData();
+  };
+
   const handleUnlockAttempt = async (attemptId) => {
     try {
       await testAttemptAPI.unlock(attemptId);
@@ -328,6 +339,8 @@ export default function TestDetailPage({ role }) {
             loading={loading}
             searchKey="prompt"
             searchPlaceholder="Search questions..."
+            onBulkDelete={handleBulkDeleteQuestions}
+            bulkDeleteLabel="Delete selected"
           />
         </div>
 

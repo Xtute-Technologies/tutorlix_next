@@ -115,6 +115,17 @@ export default function ExpensesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => expenseAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} expense(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} expense(s) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingExpense(null);
@@ -277,6 +288,8 @@ export default function ExpensesPage() {
             loading={loading}
             searchKey="name"
             searchPlaceholder="Search by expense name..."
+            onBulkDelete={handleBulkDelete}
+            bulkDeleteLabel="Delete selected"
           />
 
         {/* Add/Edit Form Dialog */}

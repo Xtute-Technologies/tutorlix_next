@@ -134,6 +134,17 @@ export default function TestManagementPage({ role }) {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => testAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} test(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} test(s) deleted successfully.` }
+    );
+    fetchData();
+  };
+
   const fields = useMemo(() => [
     {
       name: 'title',
@@ -287,6 +298,8 @@ export default function TestManagementPage({ role }) {
         loading={loading}
         searchKey="title"
         searchPlaceholder="Search tests..."
+        onBulkDelete={handleBulkDelete}
+        bulkDeleteLabel="Delete selected"
       />
 
       <Dialog open={showForm} onOpenChange={setShowForm}>

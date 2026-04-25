@@ -7,7 +7,7 @@ from .models import (
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore, Test, TestQuestion, TestAttempt, TestAnswer,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
-    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob, Resource, ApprovedResourceDomain,
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob, Resource, ApprovedResourceDomain, ResourceImportJob,
     ForumPost, ForumPostLike, ForumComment, ForumNotification,
 )
 from django.utils.text import slugify
@@ -1571,3 +1571,49 @@ class ApprovedResourceDomainSerializer(serializers.ModelSerializer):
         if '://' in value:
           raise serializers.ValidationError('Enter only the hostname, for example example.com.')
         return value
+
+
+class ResourceImportJobSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    progress_percent = serializers.SerializerMethodField()
+    is_finished = serializers.SerializerMethodField()
+    can_abort = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ResourceImportJob
+        fields = [
+            'id',
+            'source_url',
+            'subject',
+            'curriculum',
+            'grade_or_course',
+            'topic',
+            'visibility',
+            'status',
+            'progress_current',
+            'progress_total',
+            'progress_percent',
+            'created_resources_count',
+            'log_lines',
+            'error_message',
+            'can_abort',
+            'created_by',
+            'created_by_name',
+            'is_finished',
+            'created_at',
+            'started_at',
+            'finished_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+
+    def get_progress_percent(self, obj):
+        if obj.progress_total <= 0:
+            return 0
+        return min(100, int((obj.progress_current / obj.progress_total) * 100))
+
+    def get_is_finished(self, obj):
+        return obj.status in ('completed', 'failed', 'aborted')
+
+    def get_can_abort(self, obj):
+        return obj.status in ('queued', 'running')

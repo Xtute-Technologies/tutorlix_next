@@ -131,6 +131,17 @@ export default function RecordingsPage() {
         }
     };
 
+    const handleBulkDelete = async (rows) => {
+        const results = await Promise.allSettled(rows.map((row) => recordingAPI.delete(row.id)));
+        const failedCount = results.filter((result) => result.status === 'rejected').length;
+        setMessage(
+            failedCount > 0
+                ? { type: 'error', text: `${failedCount} recording(s) could not be deleted.` }
+                : { type: 'success', text: `${rows.length} recording(s) deleted successfully!` }
+        );
+        fetchData();
+    };
+
     const handleCancel = () => {
         setShowForm(false);
         setEditingRecording(null);
@@ -293,7 +304,13 @@ export default function RecordingsPage() {
                 )}
 
                 {/* Table */}
-                <DataTable data={recordings} columns={columns} searchPlaceholder="Search Recordings..." />
+                <DataTable
+                    data={recordings}
+                    columns={columns}
+                    searchPlaceholder="Search Recordings..."
+                    onBulkDelete={handleBulkDelete}
+                    bulkDeleteLabel="Delete selected"
+                />
 
                 {/* Add/Edit Form Dialog */}
                 <Dialog open={showForm} onOpenChange={setShowForm}>

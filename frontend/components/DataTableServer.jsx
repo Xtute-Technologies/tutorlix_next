@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -12,9 +12,11 @@ import {
   ChevronRight,
   Search,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Select, 
   SelectContent, 
@@ -32,6 +34,11 @@ export default function DataTableServer({
   fetchData,
   dependencies = {}, 
   defaultPageSize = 50,
+  searchPlaceholder = "Search all columns...",
+  onBulkDelete,
+  bulkDeleteLabel = "Delete selected",
+  bulkDeleteConfirmMessage,
+  getRowId,
 }) {
   // --- Table State ---
   const [data, setData] = useState([]);
@@ -43,6 +50,7 @@ export default function DataTableServer({
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: defaultPageSize });
   const [sorting, setSorting] = useState([]); 
   const [globalFilter, setGlobalFilter] = useState(""); 
+  const [rowSelection, setRowSelection] = useState({});
 
   // --- Debounced Search ---
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -74,6 +82,7 @@ export default function DataTableServer({
           setData(result.rows || []);
           setPageCount(result.pageCount || 0);
           setTotalRows(result.totalCount || 0);
+          setRowSelection({});
         }
       } catch (error) {
         console.error("Table Fetch Error:", error);
@@ -87,22 +96,70 @@ export default function DataTableServer({
     return () => { isMounted = false; };
   }, [pagination.pageIndex, pagination.pageSize, sorting, debouncedSearch, dependencies, fetchData]);
 
+  const resolvedGetRowId = getRowId || ((row, index) => String(row?.id ?? index));
+
+  const selectionColumn = useMemo(() => ({
+    id: "__select__",
+    enableSorting: false,
+    header: ({ table }) => (
+      <Checkbox
+        aria-label="Select all rows"
+        checked={
+          table.getIsAllPageRowsSelected()
+          || (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label="Select row"
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+      />
+    ),
+  }), []);
+
+  const tableColumns = useMemo(
+    () => (onBulkDelete ? [selectionColumn, ...columns] : columns),
+    [columns, onBulkDelete, selectionColumn],
+  );
+
   // --- Table Configuration ---
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
     pageCount,
+    getRowId: resolvedGetRowId,
     state: {
       pagination,
       sorting,
+      rowSelection,
     },
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: !!onBulkDelete,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedCount = selectedRows.length;
+
+  const handleBulkDelete = async () => {
+    if (!onBulkDelete || selectedCount === 0) return;
+
+    const confirmMessage = bulkDeleteConfirmMessage
+      || `Delete ${selectedCount} selected ${selectedCount === 1 ? "item" : "items"}?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    await onBulkDelete(selectedRows.map((row) => row.original));
+    setRowSelection({});
+  };
 
   return (
     <div className="space-y-4">
@@ -111,14 +168,30 @@ export default function DataTableServer({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search all columns..."
+            placeholder={searchPlaceholder}
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-10"
           />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {onBulkDelete && (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {selectedCount > 0 ? `${selectedCount} selected` : "Select rows"}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={handleBulkDelete}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {bulkDeleteLabel}
+              </Button>
+            </>
+          )}
           <p className="text-sm font-medium text-muted-foreground">Rows per page</p>
           <Select
             value={`${pagination.pageSize}`}
@@ -151,7 +224,13 @@ export default function DataTableServer({
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">
+                    <th
+                      key={header.id}
+                      className={cn(
+                        "h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap",
+                        header.id === "__select__" && "w-12"
+                      )}
+                    >
                       {header.isPlaceholder ? null : (
                         <div
                           className={cn(
@@ -185,7 +264,7 @@ export default function DataTableServer({
             <tbody className="divide-y divide-border">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                  <td colSpan={tableColumns.length} className="h-24 text-center text-muted-foreground">
                     {isLoading ? "Fetching data..." : "No records found matching your filters."}
                   </td>
                 </tr>

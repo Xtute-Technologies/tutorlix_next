@@ -69,6 +69,19 @@ export default function AdminNotesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => noteAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount} note(s) could not be deleted`);
+    } else {
+      toast.success(`${rows.length} note(s) deleted successfully`);
+    }
+
+    setRefreshKey((prev) => prev + 1);
+  };
+
   // Create adapter for DataTableServer with Filters
   const dataAdapter = useMemo(() => {
     return createTableAdapter(
@@ -203,6 +216,7 @@ export default function AdminNotesPage() {
           onPreview={handlePreview}
           onEdit={handleEdit}
           onDelete={handleDeleteTrigger}
+          onBulkDelete={handleBulkDelete}
         />
       </div>
 

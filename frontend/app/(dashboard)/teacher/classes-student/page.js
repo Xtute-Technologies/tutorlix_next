@@ -126,6 +126,17 @@ export default function TeacherStudentClassesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => studentClassAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} class(es) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} class(es) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingClass(null);
@@ -270,6 +281,8 @@ export default function TeacherStudentClassesPage() {
           loading={loading}
           searchKey="name"
           searchPlaceholder="Search classes..."
+          onBulkDelete={handleBulkDelete}
+          bulkDeleteLabel="Delete selected"
         />
 
         <Dialog open={showForm} onOpenChange={setShowForm}>

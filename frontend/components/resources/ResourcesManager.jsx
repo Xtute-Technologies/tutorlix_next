@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Globe,
   Download,
   ExternalLink,
+  FileText,
+  OctagonX,
   Pencil,
   Plus,
   Trash2,
@@ -17,6 +19,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -33,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
-import { approvedResourceDomainAPI, resourceAPI } from '@/lib/lmsService';
+import { approvedResourceDomainAPI, resourceAPI, resourceImportJobAPI } from '@/lib/lmsService';
 
 const EMPTY_FORM = {
   title: '',
@@ -87,7 +90,11 @@ export default function ResourcesManager({ role }) {
   const [newDomainDescription, setNewDomainDescription] = useState('');
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
+  const [activeImportJob, setActiveImportJob] = useState(null);
+  const [showLogsDialog, setShowLogsDialog] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const importCompletionHandledRef = useRef(null);
+  const [abortingImport, setAbortingImport] = useState(false);
 
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [curriculumFilter, setCurriculumFilter] = useState('all');
@@ -103,8 +110,58 @@ export default function ResourcesManager({ role }) {
     fetchResources();
     if (role === 'admin') {
       fetchDomains();
+      fetchLatestImportJob();
     }
   }, [user, role, router]);
+
+  useEffect(() => {
+    if (!isAdmin || !activeImportJob?.id || activeImportJob?.is_finished) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const job = await resourceImportJobAPI.getById(activeImportJob.id);
+        setActiveImportJob(job);
+        fetchResources();
+      } catch (error) {
+        console.error('Failed to poll import job:', error);
+      }
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [isAdmin, activeImportJob?.id, activeImportJob?.is_finished]);
+
+  useEffect(() => {
+    if (!activeImportJob?.id || !activeImportJob?.is_finished) {
+      return;
+    }
+    if (importCompletionHandledRef.current === activeImportJob.id) {
+      return;
+    }
+
+    importCompletionHandledRef.current = activeImportJob.id;
+    setImporting(false);
+
+    if (activeImportJob.status === 'completed') {
+      setMessage({
+        type: 'success',
+        text: `Import completed. ${activeImportJob.created_resources_count || 0} resource(s) created.`,
+      });
+      fetchResources();
+    } else if (activeImportJob.status === 'aborted') {
+      setMessage({
+        type: 'success',
+        text: `Import aborted. ${activeImportJob.created_resources_count || 0} resource(s) were imported before stopping.`,
+      });
+      fetchResources();
+    } else if (activeImportJob.status === 'failed') {
+      setMessage({
+        type: 'error',
+        text: activeImportJob.error_message || 'Import failed.',
+      });
+    }
+  }, [activeImportJob]);
 
   const fetchResources = async () => {
     try {
@@ -126,6 +183,15 @@ export default function ResourcesManager({ role }) {
       setDomains(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch approved domains:', error);
+    }
+  };
+
+  const fetchLatestImportJob = async () => {
+    try {
+      const data = await resourceImportJobAPI.getAll({ ordering: '-created_at' });
+      setActiveImportJob(Array.isArray(data) && data.length > 0 ? data[0] : null);
+    } catch (error) {
+      console.error('Failed to fetch import jobs:', error);
     }
   };
 
@@ -233,6 +299,17 @@ export default function ResourcesManager({ role }) {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => resourceAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} resource(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} resource(s) deleted successfully.` }
+    );
+    fetchResources();
+  };
+
   const handleCreateDomain = async () => {
     if (!newDomain.trim()) return;
     try {
@@ -267,7 +344,9 @@ export default function ResourcesManager({ role }) {
     if (!importUrl.trim()) return;
     try {
       setImporting(true);
-      await resourceAPI.importFromUrl({
+      setMessage({ type: '', text: '' });
+      importCompletionHandledRef.current = null;
+      const job = await resourceAPI.importFromUrl({
         url: importUrl.trim(),
         subject: formData.subject || 'General',
         curriculum: formData.curriculum || 'General',
@@ -276,9 +355,9 @@ export default function ResourcesManager({ role }) {
         visibility: 'teacher',
         resource_type: 'pdf',
       });
+      setActiveImportJob(job);
+      setShowLogsDialog(true);
       setImportUrl('');
-      setMessage({ type: 'success', text: 'Approved URL imported into resources.' });
-      fetchResources();
     } catch (error) {
       console.error('Failed to import resource URL:', error);
       const details = error.response?.data;
@@ -309,6 +388,29 @@ export default function ResourcesManager({ role }) {
       setMessage({ type: 'error', text: 'Failed to download resource.' });
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleAbortImport = async () => {
+    if (!activeImportJob?.id || !activeImportJob?.can_abort) return;
+
+    try {
+      setAbortingImport(true);
+      const job = await resourceImportJobAPI.abort(activeImportJob.id);
+      setActiveImportJob(job);
+      setImporting(false);
+      setMessage({
+        type: 'success',
+        text: 'Import abort requested.',
+      });
+    } catch (error) {
+      console.error('Failed to abort import job:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Failed to abort import.',
+      });
+    } finally {
+      setAbortingImport(false);
     }
   };
 
@@ -510,10 +612,60 @@ export default function ResourcesManager({ role }) {
               <p className="text-xs text-gray-500">
                 The importer downloads PDF files only and saves them to protected storage so Resources use your server download endpoint.
               </p>
-              <Button type="button" onClick={handleImport} disabled={importing}>
-                <Globe className="mr-2 h-4 w-4" />
-                {importing ? 'Importing...' : 'Import URL'}
-              </Button>
+              {activeImportJob && (
+                <div className="space-y-3 rounded-md border bg-gray-50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium capitalize">
+                        Import Status: {activeImportJob.status.replace('_', ' ')}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {activeImportJob.progress_current} / {activeImportJob.progress_total || 0} files processed
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLogsDialog(true)}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      View Logs
+                    </Button>
+                  </div>
+                  <Progress value={activeImportJob.progress_percent || 0} className="h-2 w-full" />
+                  <div className="text-xs text-gray-600">
+                    {activeImportJob.progress_percent || 0}% complete
+                    {typeof activeImportJob.created_resources_count === 'number'
+                      ? ` • ${activeImportJob.created_resources_count} imported`
+                      : ''}
+                  </div>
+                  {activeImportJob.can_abort && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={abortingImport}
+                      onClick={handleAbortImport}
+                    >
+                      <OctagonX className="mr-2 h-4 w-4" />
+                      {abortingImport ? 'Aborting...' : 'Abort Import'}
+                    </Button>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={handleImport} disabled={importing}>
+                  <Globe className="mr-2 h-4 w-4" />
+                  {importing ? 'Importing...' : 'Import URL'}
+                </Button>
+                {activeImportJob && (
+                  <Button type="button" variant="outline" onClick={() => setShowLogsDialog(true)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Open Logs
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -566,6 +718,8 @@ export default function ResourcesManager({ role }) {
           columns={columns}
           data={filteredResources}
           searchPlaceholder="Search resources..."
+          onBulkDelete={handleBulkDelete}
+          bulkDeleteLabel="Delete selected"
         />
       )}
 
@@ -648,6 +802,79 @@ export default function ResourcesManager({ role }) {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLogsDialog} onOpenChange={setShowLogsDialog}>
+        <DialogContent className="max-h-[80vh] max-w-3xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Importer Logs</DialogTitle>
+            <DialogDescription>
+              Review progress and server-side logs for the latest approved-domain import job.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!activeImportJob ? (
+            <p className="text-sm text-gray-500">No import job has started yet.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <Card className="p-3">
+                  <div className="text-xs text-gray-500">Status</div>
+                  <div className="font-medium capitalize">{activeImportJob.status.replace('_', ' ')}</div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-xs text-gray-500">Progress</div>
+                  <div className="font-medium">
+                    {activeImportJob.progress_current} / {activeImportJob.progress_total || 0}
+                  </div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-xs text-gray-500">Imported</div>
+                  <div className="font-medium">{activeImportJob.created_resources_count || 0}</div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-xs text-gray-500">Source</div>
+                  <div className="truncate text-sm font-medium">{activeImportJob.source_url}</div>
+                </Card>
+              </div>
+
+              <Progress value={activeImportJob.progress_percent || 0} className="h-2 w-full" />
+
+              {activeImportJob.can_abort && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={abortingImport}
+                    onClick={handleAbortImport}
+                  >
+                    <OctagonX className="mr-2 h-4 w-4" />
+                    {abortingImport ? 'Aborting...' : 'Abort Import'}
+                  </Button>
+                </div>
+              )}
+
+              <div className="max-h-[42vh] overflow-y-auto rounded-md border bg-black p-3 font-mono text-xs text-green-300">
+                {activeImportJob.log_lines?.length ? (
+                  activeImportJob.log_lines.map((line, index) => (
+                    <div key={`${index}-${line}`} className="whitespace-pre-wrap break-words">
+                      {line}
+                    </div>
+                  ))
+                ) : (
+                  <div>No logs yet.</div>
+                )}
+              </div>
+
+              {activeImportJob.error_message && (
+                <Card className="bg-red-50 p-3 text-sm text-red-800">
+                  {activeImportJob.error_message}
+                </Card>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

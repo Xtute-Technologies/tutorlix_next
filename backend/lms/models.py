@@ -991,6 +991,48 @@ class ApprovedResourceDomain(models.Model):
         ordering = ['domain']
 
 
+class ResourceImportJob(models.Model):
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('running', 'Running'),
+        ('aborted', 'Aborted'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    source_url = models.URLField()
+    subject = models.CharField(max_length=120)
+    curriculum = models.CharField(max_length=120)
+    grade_or_course = models.CharField(max_length=120)
+    topic = models.CharField(max_length=160)
+    visibility = models.CharField(max_length=20, choices=Resource.VISIBILITY_CHOICES, default='teacher')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    progress_current = models.PositiveIntegerField(default=0)
+    progress_total = models.PositiveIntegerField(default=0)
+    created_resources_count = models.PositiveIntegerField(default=0)
+    log_lines = models.JSONField(default=list, blank=True)
+    error_message = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resource_import_jobs',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Resource import {self.pk} - {self.status}'
+
+    class Meta:
+        verbose_name = 'Resource Import Job'
+        verbose_name_plural = 'Resource Import Jobs'
+        ordering = ['-created_at']
+
+
 class QuestionBankCourse(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, max_length=255)

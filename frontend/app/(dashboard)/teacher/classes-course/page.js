@@ -134,6 +134,17 @@ export default function TeacherCourseClassesPage() {
         }
     };
 
+    const handleBulkDelete = async (rows) => {
+        const results = await Promise.allSettled(rows.map((row) => courseClassAPI.delete(row.id)));
+        const failedCount = results.filter((result) => result.status === 'rejected').length;
+        setMessage(
+            failedCount > 0
+                ? { type: 'error', text: `${failedCount} class(es) could not be deleted.` }
+                : { type: 'success', text: `${rows.length} class(es) deleted successfully!` }
+        );
+        fetchData();
+    };
+
     const handleCancel = () => {
         setShowForm(false);
         setEditingClass(null);
@@ -313,7 +324,12 @@ export default function TeacherCourseClassesPage() {
                 )}
 
                 {/* Table */}
-                <DataTable data={classes} columns={columns} />
+                <DataTable
+                    data={classes}
+                    columns={columns}
+                    onBulkDelete={handleBulkDelete}
+                    bulkDeleteLabel="Delete selected"
+                />
 
                 {/* Add/Edit Form Dialog */}
                 <Dialog open={showForm} onOpenChange={setShowForm}>

@@ -177,6 +177,18 @@ export default function TeacherAttendancePage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const attendanceRows = rows.flatMap((row) => row.students || []);
+    const results = await Promise.allSettled(attendanceRows.map((item) => attendanceAPI.delete(item.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} attendance record(s) could not be deleted.` }
+        : { type: 'success', text: `${attendanceRows.length} attendance record(s) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const resetForm = () => {
     setFormData({
       class_name: '',
@@ -303,6 +315,8 @@ export default function TeacherAttendancePage() {
             loading={loading}
             searchKey="class_name"
             searchPlaceholder="Search by class name..."
+            onBulkDelete={handleBulkDelete}
+            bulkDeleteLabel="Delete selected"
           />
 
         {/* Mark Attendance Form Dialog */}

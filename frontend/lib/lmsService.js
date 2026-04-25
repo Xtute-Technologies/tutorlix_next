@@ -314,6 +314,23 @@ export const approvedResourceDomainAPI = {
   },
 };
 
+export const resourceImportJobAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/resource-import-jobs/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/resource-import-jobs/${id}/`);
+    return response.data;
+  },
+
+  abort: async (id) => {
+    const response = await axiosInstance.post(`/api/lms/resource-import-jobs/${id}/abort/`);
+    return response.data;
+  },
+};
+
 export const forumAPI = {
   list: async (params = {}) => {
     const response = await axiosInstance.get('/api/lms/forum-posts/', { params });
@@ -1113,6 +1130,7 @@ const exportVariable = { category: categoryAPI,
   productLead: productLeadAPI,
   resource: resourceAPI,
   approvedResourceDomain: approvedResourceDomainAPI,
+  resourceImportJob: resourceImportJobAPI,
 }
 // Export all APIs
 export default exportVariable;

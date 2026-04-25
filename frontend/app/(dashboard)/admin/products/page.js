@@ -74,6 +74,17 @@ export default function ProductsPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => productAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} product(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} product(s) deleted successfully!` }
+    );
+    fetchData();
+  };
+
   const columns = [
     {
       accessorKey: 'name', header: 'Product', cell: ({ row }) => (
@@ -109,7 +120,15 @@ export default function ProductsPage() {
 
       {message.text && <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{message.text}</div>}
 
-      <DataTable columns={columns} data={products} loading={loading} searchKey="name" searchPlaceholder="Search products..." />
+      <DataTable
+        columns={columns}
+        data={products}
+        loading={loading}
+        searchKey="name"
+        searchPlaceholder="Search products..."
+        onBulkDelete={handleBulkDelete}
+        bulkDeleteLabel="Delete selected"
+      />
 
       {/* --- PREVIEW DIALOG (Mimics Public Page) --- */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>

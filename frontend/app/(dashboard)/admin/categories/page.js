@@ -126,6 +126,17 @@ export default function CategoriesPage() {
     fetchCategories();
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => categoryAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} categorie(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} categorie(s) deleted successfully.` }
+    );
+    fetchCategories();
+  };
+
   const categoryFields = [
     {
       name: 'name',
@@ -246,7 +257,12 @@ export default function CategoriesPage() {
           </Card>
         )}
 
-        <DataTable columns={columns} data={categories} />
+        <DataTable
+          columns={columns}
+          data={categories}
+          onBulkDelete={handleBulkDelete}
+          bulkDeleteLabel="Delete selected"
+        />
       </div>
 
       <Dialog open={!!viewingCategory} onOpenChange={() => setViewingCategory(null)}>

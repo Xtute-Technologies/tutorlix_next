@@ -136,6 +136,17 @@ export default function TeacherExpensesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => teacherExpenseAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+    setMessage(
+      failedCount > 0
+        ? { type: 'error', text: `${failedCount} record(s) could not be deleted.` }
+        : { type: 'success', text: `${rows.length} record(s) deleted successfully` }
+    );
+    fetchData();
+  };
+
   const formFields = useMemo(() => [
     {
       name: 'teacher',
@@ -220,6 +231,7 @@ export default function TeacherExpensesPage() {
         userRole={user?.role}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onBulkDelete={handleBulkDelete}
         entityType="teacher"
       />
 

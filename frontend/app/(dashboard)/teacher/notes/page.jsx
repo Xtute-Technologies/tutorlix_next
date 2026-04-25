@@ -120,6 +120,19 @@ export default function TeacherNotesPage() {
     }
   };
 
+  const handleBulkDelete = async (rows) => {
+    const results = await Promise.allSettled(rows.map((row) => noteAPI.delete(row.id)));
+    const failedCount = results.filter((result) => result.status === 'rejected').length;
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount} note(s) could not be deleted`);
+    } else {
+      toast.success(`${rows.length} note(s) deleted successfully!`);
+    }
+
+    setRefreshKey((prev) => prev + 1);
+  };
+
   const hasActiveFilters = statusFilter !== "all" || productFilter !== "all";
 
   return (
@@ -226,6 +239,7 @@ export default function TeacherNotesPage() {
                 onPreview={handleViewDetail}
                 onEdit={handleEdit}
                 onDelete={handleDeleteTrigger}
+                onBulkDelete={handleBulkDelete}
                 defaultPageSize={20}
             />
           </TabsContent>
@@ -238,6 +252,7 @@ export default function TeacherNotesPage() {
                 onPreview={handleViewDetail}
                 onEdit={handleEdit}
                 onDelete={handleDeleteTrigger}
+                onBulkDelete={handleBulkDelete}
                 defaultPageSize={20}
             />
           </TabsContent>
@@ -250,6 +265,7 @@ export default function TeacherNotesPage() {
                 onPreview={handleViewDetail}
                 onEdit={handleEdit}
                 onDelete={handleDeleteTrigger}
+                onBulkDelete={handleBulkDelete}
                 defaultPageSize={20}
             />
           </TabsContent>
