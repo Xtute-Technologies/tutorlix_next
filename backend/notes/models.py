@@ -7,6 +7,63 @@ from django.utils import timezone
 from datetime import timedelta
 
 
+def _blocknote_text_content(text):
+    return [{"type": "text", "text": text, "styles": {}}]
+
+
+def _blocknote_heading_block(title):
+    return {
+        "type": "heading",
+        "props": {"level": 1},
+        "content": _blocknote_text_content(title),
+        "children": [],
+    }
+
+
+def _extract_block_text(block):
+    content = block.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ""
+
+    parts = []
+    for item in content:
+        if isinstance(item, dict):
+            text = item.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+        elif isinstance(item, str) and item.strip():
+            parts.append(item.strip())
+    return " ".join(parts).strip()
+
+
+def ensure_note_title_heading(content, title):
+    title = (title or "").strip()
+    if not title:
+        return content
+
+    blocks = list(content) if isinstance(content, list) else []
+
+    def is_matching_title_heading(block):
+        if not isinstance(block, dict):
+            return False
+        if block.get("type") != "heading":
+            return False
+        props = block.get("props") or {}
+        if props.get("level") != 1:
+            return False
+        return _extract_block_text(block).casefold() == title.casefold()
+
+    for index, block in enumerate(blocks):
+        if is_matching_title_heading(block):
+            if index == 0:
+                return blocks
+            return [block, *blocks[:index], *blocks[index + 1:]]
+
+    return [_blocknote_heading_block(title), *blocks]
+
+
 class Note(models.Model):
     """
     Main Notes Model
@@ -122,7 +179,8 @@ class Note(models.Model):
     
     def save(self, *args, **kwargs):
         from django.utils.text import slugify
-        from django.core.exceptions import ValidationError
+
+        self.content = ensure_note_title_heading(self.content, self.title)
         
         # Determine base slug (either from provided slug or title)
         if self.slug:
