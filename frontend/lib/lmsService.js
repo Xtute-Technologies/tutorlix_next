@@ -242,6 +242,78 @@ export const questionBankQuestionAPI = {
   },
 };
 
+export const resourceAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/resources/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/resources/${id}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/resources/', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/resources/${id}/`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/resources/${id}/`);
+    return response.data;
+  },
+
+  download: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/resources/${id}/download/`, {
+      responseType: 'blob',
+    });
+    return {
+      blob: response.data,
+      contentDisposition: response.headers['content-disposition'],
+    };
+  },
+
+  importFromUrl: async (data) => {
+    const response = await axiosInstance.post('/api/lms/resources/import_from_url/', data);
+    return response.data;
+  },
+};
+
+export const approvedResourceDomainAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/approved-resource-domains/', { params });
+    return extractResults(response);
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/approved-resource-domains/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/approved-resource-domains/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/approved-resource-domains/${id}/`);
+    return response.data;
+  },
+};
+
 export const forumAPI = {
   list: async (params = {}) => {
     const response = await axiosInstance.get('/api/lms/forum-posts/', { params });
@@ -1039,6 +1111,8 @@ const exportVariable = { category: categoryAPI,
   sellerExpense: sellerExpenseAPI,
   teacherExpense: teacherExpenseAPI,
   productLead: productLeadAPI,
+  resource: resourceAPI,
+  approvedResourceDomain: approvedResourceDomainAPI,
 }
 // Export all APIs
 export default exportVariable;

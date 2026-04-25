@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.files.storage import FileSystemStorage
 from django.utils import timezone
 from django.utils.text import slugify
 from datetime import timedelta
@@ -10,6 +11,8 @@ import uuid
 
 
 # Create your models here.
+
+protected_resource_storage = FileSystemStorage(location=settings.BASE_DIR / 'protected_resources')
 
 
 class Category(models.Model):
@@ -917,6 +920,75 @@ class ProductLead(models.Model):
         verbose_name = 'Product Lead'
         verbose_name_plural = 'Product Leads'
         ordering = ['-created_at']
+
+
+class Resource(models.Model):
+    RESOURCE_TYPE_CHOICES = [
+        ('pdf', 'PDF'),
+        ('worksheet', 'Worksheet'),
+        ('video', 'Video'),
+        ('link', 'Link'),
+        ('notes', 'Notes'),
+        ('question_bank', 'Question Bank'),
+        ('lesson_plan', 'Lesson Plan'),
+    ]
+
+    VISIBILITY_CHOICES = [
+        ('teacher', 'Teacher Only'),
+        ('admin', 'Admin Only'),
+    ]
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    subject = models.CharField(max_length=120)
+    curriculum = models.CharField(max_length=120)
+    grade_or_course = models.CharField(max_length=120)
+    topic = models.CharField(max_length=160)
+    resource_type = models.CharField(max_length=32, choices=RESOURCE_TYPE_CHOICES)
+    tags = models.JSONField(default=list, blank=True)
+    external_url = models.URLField(blank=True, null=True)
+    source_url = models.URLField(blank=True, null=True)
+    imported_at = models.DateTimeField(blank=True, null=True)
+    file = models.FileField(
+        upload_to='resources/%Y/%m/',
+        storage=protected_resource_storage,
+        blank=True,
+        null=True,
+    )
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='teacher')
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resources_uploaded',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Resource'
+        verbose_name_plural = 'Resources'
+        ordering = ['-updated_at', '-created_at']
+
+
+class ApprovedResourceDomain(models.Model):
+    domain = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.domain
+
+    class Meta:
+        verbose_name = 'Approved Resource Domain'
+        verbose_name_plural = 'Approved Resource Domains'
+        ordering = ['domain']
 
 
 class QuestionBankCourse(models.Model):
