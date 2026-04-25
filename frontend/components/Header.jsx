@@ -24,6 +24,7 @@ export default function Header() {
   const pathname = usePathname();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [openTutorialGroup, setOpenTutorialGroup] = useState(null);
   const { updateProfile, profileType, profileTypes, activeHomeContent, loading: profileLoading } = useProfile();
 
   useEffect(() => {
@@ -143,6 +144,10 @@ export default function Header() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [tutorialTopics, profileType, pathname]);
+
+  useEffect(() => {
+    setOpenTutorialGroup(null);
+  }, [pathname]);
 
   const scrollSubnav = (direction) => {
     const el = subnavRef.current;
@@ -412,35 +417,67 @@ export default function Header() {
               <div
                 ref={subnavRef}
                 onScroll={updateScrollState}
-                className="flex gap-1 overflow-x-auto scroll-smooth whitespace-nowrap scrollbar-none md:px-10"
+                className="flex gap-1 overflow-x-auto overflow-y-visible scroll-smooth whitespace-nowrap scrollbar-none md:px-10"
               >
                 {subnavGroups.map((group) => {
                   const active = group.items.some((item) => pathname === item.url);
+                  const isOpen = openTutorialGroup === group.label;
 
                   return (
-                    <DropdownMenu key={group.label}>
+                    <DropdownMenu
+                      key={group.label}
+                      open={isOpen}
+                      onOpenChange={(open) => setOpenTutorialGroup(open ? group.label : null)}
+                    >
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
+                          onMouseEnter={() => setOpenTutorialGroup(group.label)}
+                          onFocus={() => setOpenTutorialGroup(group.label)}
+                          onClick={() => setOpenTutorialGroup((current) => (current === group.label ? null : group.label))}
                           className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
-                            active
+                            active || isOpen
                               ? "border-emerald-400 bg-[#263543] text-white"
                               : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
                           }`}
+                          aria-expanded={isOpen}
                         >
-                          {group.label}
+                          <span className="inline-flex items-center gap-2">
+                            {group.label}
+                            <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          </span>
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="mt-2 w-64">
-                        <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {group.items.map((item) => (
-                          <DropdownMenuItem key={`${group.label}-${item.url}`} asChild>
-                            <Link href={item.url} className="cursor-pointer font-medium">
-                              {item.label}
-                            </Link>
-                          </DropdownMenuItem>
-                        ))}
+                      <DropdownMenuContent
+                        align="start"
+                        side="bottom"
+                        sideOffset={10}
+                        className="z-[120] w-72 rounded-xl border-slate-200 p-2 shadow-2xl"
+                        onMouseEnter={() => setOpenTutorialGroup(group.label)}
+                        onMouseLeave={() => setOpenTutorialGroup((current) => (current === group.label ? null : current))}
+                        onCloseAutoFocus={(event) => event.preventDefault()}
+                      >
+                        <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          {group.label}
+                        </DropdownMenuLabel>
+                        <div className="space-y-1">
+                          {group.items.map((item) => (
+                            <DropdownMenuItem key={`${group.label}-${item.url}`} asChild className="cursor-pointer p-0 focus:bg-transparent">
+                              <Link
+                                href={item.url}
+                                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                  pathname === item.url
+                                    ? "bg-slate-900 text-white"
+                                    : "text-slate-700 hover:bg-slate-100"
+                                }`}
+                                onMouseEnter={() => setOpenTutorialGroup(group.label)}
+                                onClick={() => setOpenTutorialGroup(null)}
+                              >
+                                {item.label}
+                              </Link>
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   );
