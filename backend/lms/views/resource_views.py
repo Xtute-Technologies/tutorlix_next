@@ -41,6 +41,10 @@ class PdfTooLargeError(Exception):
     pass
 
 
+class PdfImportSkipError(Exception):
+    pass
+
+
 class BasicPageParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -123,12 +127,15 @@ def fetch_with_retry(url, *, stream=False, attempts=HTTP_RETRY_ATTEMPTS, timeout
 
 
 def download_pdf_to_resource(resource, pdf_url):
-    response = fetch_with_retry(
-        pdf_url,
-        stream=True,
-        attempts=PDF_RETRY_ATTEMPTS,
-        timeout=(10, 180),
-    )
+    try:
+        response = fetch_with_retry(
+            pdf_url,
+            stream=True,
+            attempts=PDF_RETRY_ATTEMPTS,
+            timeout=(10, 180),
+        )
+    except requests.RequestException as exc:
+        raise PdfImportSkipError(str(exc)) from exc
 
     content_type = (response.headers.get('Content-Type') or '').lower()
     if 'application/pdf' not in content_type and not urlparse(pdf_url).path.lower().endswith('.pdf'):
@@ -249,6 +256,11 @@ def run_resource_import_job(job_id):
         approved_domains = list(
             ApprovedResourceDomain.objects.filter(is_active=True).values_list('domain', flat=True)
         )
+        imported_count = 0
+        duplicate_count = 0
+        oversized_count = 0
+        failed_pdf_count = 0
+        total_pdfs_found = 0
 
         update_job(
             job_id,
@@ -271,14 +283,15 @@ def run_resource_import_job(job_id):
         except requests.RequestException as exc:
             raise ValueError(f'Failed to fetch URL: {exc}') from exc
 
-        imported_count = 0
         content_type = (response.headers.get('Content-Type') or '').lower()
 
         if 'application/pdf' in content_type or parsed.path.lower().endswith('.pdf'):
             ensure_job_not_aborted(job_id)
             update_job(job_id, progress_total=1)
+            total_pdfs_found = 1
             if Resource.objects.filter(source_url=job.source_url).exists():
                 append_job_log(job_id, f'Skipped duplicate PDF: {job.source_url}')
+                duplicate_count += 1
             else:
                 resource = Resource.objects.create(
                     title=(os.path.basename(parsed.path) or 'Imported PDF')[:255],
@@ -302,6 +315,11 @@ def run_resource_import_job(job_id):
                     append_job_log(job_id, f'Imported PDF: {resource.title}')
                 except PdfTooLargeError as exc:
                     append_job_log(job_id, f'Skipped oversized PDF: {job.source_url} ({exc})')
+                    oversized_count += 1
+                    resource.delete()
+                except PdfImportSkipError as exc:
+                    append_job_log(job_id, f'Skipped PDF due to fetch/import failure: {job.source_url} ({exc})')
+                    failed_pdf_count += 1
                     resource.delete()
                 except Exception:
                     resource.delete()
@@ -317,6 +335,7 @@ def run_resource_import_job(job_id):
                 raise ValueError('No importable PDFs were found at this approved URL.')
 
             total = len(pdf_links)
+            total_pdfs_found = total
             update_job(job_id, progress_total=total)
             append_job_log(job_id, f'Found {total} PDF file(s) to process.')
 
@@ -329,6 +348,7 @@ def run_resource_import_job(job_id):
 
                 if Resource.objects.filter(source_url=pdf_url).exists():
                     append_job_log(job_id, f'Skipped duplicate PDF: {pdf_url}')
+                    duplicate_count += 1
                     continue
 
                 resource = Resource.objects.create(
@@ -355,11 +375,25 @@ def run_resource_import_job(job_id):
                     update_job(job_id, created_resources_count=imported_count)
                 except PdfTooLargeError as exc:
                     append_job_log(job_id, f'Skipped oversized PDF {processed}/{total}: {pdf_url} ({exc})')
+                    oversized_count += 1
+                    resource.delete()
+                except PdfImportSkipError as exc:
+                    append_job_log(job_id, f'Skipped PDF {processed}/{total} due to fetch/import failure: {pdf_url} ({exc})')
+                    failed_pdf_count += 1
                     resource.delete()
                 except Exception:
                     resource.delete()
                     raise
 
+        append_job_log(
+            job_id,
+            'Import summary: '
+            f'found={total_pdfs_found}, '
+            f'imported={imported_count}, '
+            f'duplicates_skipped={duplicate_count}, '
+            f'oversized_skipped={oversized_count}, '
+            f'failed_url_skipped={failed_pdf_count}.'
+        )
         append_job_log(job_id, f'Import completed. Created {imported_count} resource(s).')
         final_job = ResourceImportJob.objects.get(pk=job_id)
         update_job(
