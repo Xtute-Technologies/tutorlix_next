@@ -12,6 +12,7 @@ const TYPE_LABELS = {
   certifications: 'Certification',
   appliedSkills: 'Applied Skill',
 };
+const catalogCache = new Map();
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -57,6 +58,29 @@ function normalizeCatalogItems(data, selectedTypes) {
   });
 }
 
+function buildCacheKey(locale, effectiveTypes) {
+  return `${locale}::${effectiveTypes.join(',')}`;
+}
+
+function buildPagedPayload(items, page, pageSize, effectiveTypes, source, stale = false) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+
+  return {
+    items: items.slice(startIndex, startIndex + pageSize),
+    total,
+    page: currentPage,
+    pageSize,
+    totalPages,
+    availableLevels: Array.from(new Set(items.flatMap((item) => item.levels))).sort(),
+    requestedTypes: effectiveTypes,
+    source,
+    stale,
+  };
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const locale = searchParams.get('locale') || 'en-us';
@@ -75,6 +99,7 @@ export async function GET(request) {
           .filter((value) => ALLOWED_TYPES.includes(value));
 
   const effectiveTypes = selectedTypes.length ? selectedTypes : ['learningPaths'];
+  const cacheKey = buildCacheKey(locale, effectiveTypes);
 
   const upstreamUrl = new URL(MICROSOFT_LEARN_CATALOG_URL);
   upstreamUrl.searchParams.set('locale', locale);
@@ -120,23 +145,25 @@ export async function GET(request) {
         return rightDate - leftDate;
       });
 
-    const total = filteredItems.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const currentPage = Math.min(page, totalPages);
-    const startIndex = (currentPage - 1) * pageSize;
-    const items = filteredItems.slice(startIndex, startIndex + pageSize);
-
-    return NextResponse.json({
-      items,
-      total,
-      page: currentPage,
-      pageSize,
-      totalPages,
-      availableLevels: Array.from(new Set(filteredItems.flatMap((item) => item.levels))).sort(),
-      requestedTypes: effectiveTypes,
+    catalogCache.set(cacheKey, {
+      items: filteredItems,
+      cachedAt: new Date().toISOString(),
       source: upstreamUrl.toString(),
     });
+
+    return NextResponse.json(
+      buildPagedPayload(filteredItems, page, pageSize, effectiveTypes, upstreamUrl.toString(), false)
+    );
   } catch (error) {
+    const cachedEntry = catalogCache.get(cacheKey);
+    if (cachedEntry?.items?.length) {
+      return NextResponse.json({
+        ...buildPagedPayload(cachedEntry.items, page, pageSize, effectiveTypes, cachedEntry.source, true),
+        cachedAt: cachedEntry.cachedAt,
+        warning: 'Serving cached Microsoft Learn catalog data because the upstream service is unavailable.',
+      });
+    }
+
     return NextResponse.json(
       {
         error: 'Microsoft Learn catalog is currently unavailable.',

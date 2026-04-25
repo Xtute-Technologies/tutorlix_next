@@ -53,6 +53,8 @@ export default function MicrosoftCoursesPageClient() {
     total: 0,
     totalPages: 1,
     availableLevels: [],
+    stale: false,
+    warning: '',
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,11 +98,13 @@ export default function MicrosoftCoursesPageClient() {
             total: data.total || 0,
             totalPages: data.totalPages || 1,
             availableLevels: Array.isArray(data.availableLevels) ? data.availableLevels : [],
+            stale: !!data.stale,
+            warning: data.warning || '',
           });
         }
       } catch (fetchError) {
         if (!cancelled) {
-          setCatalog({ items: [], total: 0, totalPages: 1, availableLevels: [] });
+          setCatalog({ items: [], total: 0, totalPages: 1, availableLevels: [], stale: false, warning: '' });
           setError(fetchError.message || 'Failed to load Microsoft courses.');
         }
       } finally {
@@ -186,6 +190,12 @@ export default function MicrosoftCoursesPageClient() {
           {loading ? 'Loading Microsoft catalog...' : `${catalog.total} results found`}
         </div>
       </div>
+
+      {!loading && catalog.stale && catalog.warning ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {catalog.warning}
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-slate-200 bg-white">
