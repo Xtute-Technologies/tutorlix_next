@@ -32,10 +32,13 @@ export function normalizeCatalogItems(data, selectedTypes) {
 
     return records.map((item) => ({
       uid: item.uid,
+      slug: item.uid || item.id || item.url || item.title || 'microsoft-course',
       title: item.title || item.display_name || 'Untitled Microsoft Learn item',
       summary: item.summary || item.subtitle || '',
+      subtitle: item.subtitle || '',
       url: item.url || '',
       icon_url: item.icon_url || item.social_image_url || '',
+      social_image_url: item.social_image_url || '',
       duration_in_minutes: item.duration_in_minutes || 0,
       levels: normalizeArray(item.levels),
       roles: normalizeArray(item.roles),
@@ -86,4 +89,16 @@ export function buildPayloadFromFilteredItems(items, page, pageSize, effectiveTy
     stale,
     cachedAt,
   };
+}
+
+export function encodeMicrosoftCourseSlug(value = '') {
+  return encodeURIComponent(value).replace(/%2F/g, '~');
+}
+
+export function decodeMicrosoftCourseSlug(value = '') {
+  return decodeURIComponent(value.replace(/~/g, '%2F'));
+}
+
+export function findMicrosoftCourseBySlug(items, slug) {
+  return items.find((item) => item.slug === slug || item.uid === slug || item.url === slug) || null;
 }

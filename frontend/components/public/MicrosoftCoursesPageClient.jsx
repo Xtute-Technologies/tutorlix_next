@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProfile } from '@/context/ProfileContext';
+import { encodeMicrosoftCourseSlug } from '@/lib/microsoftCatalog';
 import { buildPayloadFromFilteredItems, filterCatalogItems, normalizeCatalogItems, sortCatalogItems } from '@/lib/microsoftCatalog';
 
 const TYPE_OPTIONS = [
@@ -178,7 +179,7 @@ export default function MicrosoftCoursesPageClient() {
             Microsoft Courses
           </h1>
           <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. This page links directly to Microsoft Learn offerings.
+            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. Open each course inside Tutorlix first, then continue to Microsoft Learn from the detail page when needed.
           </p>
           {['college', 'professional'].includes(profileType) ? (
             <p className="text-sm font-medium text-slate-700">
@@ -295,8 +296,8 @@ export default function MicrosoftCoursesPageClient() {
                 </div>
 
                 <Button asChild className="w-full gap-2">
-                  <Link href={item.url} target="_blank" rel="noreferrer">
-                    Open on Microsoft Learn
+                  <Link href={`/microsoft-courses/${encodeMicrosoftCourseSlug(item.slug || item.uid)}`}>
+                    View Details
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </Button>

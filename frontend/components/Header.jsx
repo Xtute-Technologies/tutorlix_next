@@ -66,7 +66,6 @@ export default function Header() {
     { label: "Notes", url: "/notes", visibility: "public" },
     { label: "Forum", url: "/forum", visibility: "public" },
     { label: "Masterclass", url: "/masterclass", visibility: "public" },
-    { label: "Contact", url: "/contact", visibility: "public" },
   ];
 
   const navLinks = useMemo(() => {
@@ -92,8 +91,19 @@ export default function Header() {
       });
     }
 
+    // if (
+    //   (profileType === "college" || profileType === "professional") &&
+    //   !visibleLinks.some((link) => link.url === "/openedx-courses")
+    // ) {
+    //   visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, {
+    //     label: "Open edX Courses",
+    //     url: "/openedx-courses",
+    //     visibility: "public",
+    //   });
+    // }
+
     if (!visibleLinks.some((link) => link.url === "/forum")) {
-      visibleLinks.splice(Math.min(visibleLinks.length, 4), 0, { label: "Forum", url: "/forum", visibility: "public" });
+      visibleLinks.splice(Math.min(visibleLinks.length, 5), 0, { label: "Forum", url: "/forum", visibility: "public" });
     }
     return visibleLinks;
   }, [navigationContent.primary_links, fallbackPrimaryLinks, profileType, user]);

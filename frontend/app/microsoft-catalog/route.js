@@ -5,20 +5,19 @@ import path from 'node:path';
 import {
   buildPayloadFromFilteredItems,
   filterCatalogItems,
-  normalizeCatalogItems,
-  sortCatalogItems,
 } from '@/lib/microsoftCatalog';
+import {
+  buildMicrosoftCacheKey,
+  buildMicrosoftCatalogSource,
+  fetchMicrosoftCatalogSnapshot,
+  readMicrosoftCatalogSnapshotCache,
+  resolveMicrosoftTypes,
+} from '@/lib/microsoftCatalogServer';
 
 export const runtime = 'nodejs';
 
-const MICROSOFT_LEARN_CATALOG_URL = 'https://learn.microsoft.com/api/catalog/';
-const ALLOWED_TYPES = ['modules', 'learningPaths', 'courses', 'certifications', 'appliedSkills'];
 const catalogCache = new Map();
 const CACHE_DIR = path.join(tmpdir(), 'tutorlix-microsoft-catalog-cache');
-
-function buildCacheKey(locale, effectiveTypes) {
-  return `${locale}::${effectiveTypes.join(',')}`;
-}
 
 
 function cacheFilePath(cacheKey) {
@@ -51,58 +50,28 @@ export async function GET(request) {
   const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1);
   const pageSize = Math.min(24, Math.max(1, Number.parseInt(searchParams.get('pageSize') || '12', 10) || 12));
 
-  const selectedTypes =
-    requestedType === 'all'
-      ? ['learningPaths', 'modules', 'courses']
-      : requestedType
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => ALLOWED_TYPES.includes(value));
-
-  const effectiveTypes = selectedTypes.length ? selectedTypes : ['learningPaths'];
-  const cacheKey = buildCacheKey(locale, effectiveTypes);
-
-  const upstreamUrl = new URL(MICROSOFT_LEARN_CATALOG_URL);
-  upstreamUrl.searchParams.set('locale', locale);
-  upstreamUrl.searchParams.set('type', effectiveTypes.join(','));
+  const effectiveTypes = resolveMicrosoftTypes(requestedType);
+  const cacheKey = buildMicrosoftCacheKey(locale, effectiveTypes);
+  const source = buildMicrosoftCatalogSource(locale, effectiveTypes);
 
   try {
-    const response = await fetch(upstreamUrl.toString(), {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Tutorlix Microsoft Catalog Proxy/1.0',
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
+    const snapshot = await fetchMicrosoftCatalogSnapshot({
+      locale,
+      requestedType,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch Microsoft Learn catalog.',
-          upstreamStatus: response.status,
-          upstreamStatusText: response.statusText,
-          upstreamBody: errorText.slice(0, 500),
-          source: upstreamUrl.toString(),
-        },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    const normalizedItems = sortCatalogItems(normalizeCatalogItems(data, effectiveTypes));
-    const cachedAt = new Date().toISOString();
+    const normalizedItems = snapshot.items;
+    const cachedAt = snapshot.cachedAt;
+    const snapshotSource = snapshot.source;
 
     catalogCache.set(cacheKey, {
       items: normalizedItems,
       cachedAt,
-      source: upstreamUrl.toString(),
+      source: snapshotSource,
     });
     await writeCacheSnapshot(cacheKey, {
       items: normalizedItems,
       cachedAt,
-      source: upstreamUrl.toString(),
+      source: snapshotSource,
     });
 
     const filteredItems = filterCatalogItems(normalizedItems, q, level);
@@ -111,13 +80,13 @@ export async function GET(request) {
       page,
       pageSize,
       effectiveTypes,
-      upstreamUrl.toString(),
+      snapshotSource,
       false,
       cachedAt
     ));
   } catch (error) {
     const memoryCache = catalogCache.get(cacheKey);
-    const fileCache = memoryCache?.items?.length ? null : await readCacheSnapshot(cacheKey);
+    const fileCache = memoryCache?.items?.length ? null : ((await readCacheSnapshot(cacheKey)) || (await readMicrosoftCatalogSnapshotCache(cacheKey)));
     const cachedEntry = memoryCache?.items?.length ? memoryCache : fileCache;
 
     if (cachedEntry?.items?.length) {
@@ -135,7 +104,7 @@ export async function GET(request) {
         cachedAt: cachedEntry.cachedAt,
         warning: 'Serving cached Microsoft Learn catalog data because the upstream service is unavailable.',
         refreshError: error instanceof Error ? error.message : 'Unknown fetch error',
-        refreshSource: upstreamUrl.toString(),
+        refreshSource: source,
       });
     }
 
@@ -143,7 +112,7 @@ export async function GET(request) {
       {
         error: 'Microsoft Learn catalog is currently unavailable.',
         details: error instanceof Error ? error.message : 'Unknown fetch error',
-        source: upstreamUrl.toString(),
+        source,
       },
       { status: 500 }
     );
