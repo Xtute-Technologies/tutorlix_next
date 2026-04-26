@@ -10,8 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProfile } from '@/context/ProfileContext';
-import { encodeMicrosoftCourseSlug } from '@/lib/microsoftCatalog';
-import { buildPayloadFromFilteredItems, filterCatalogItems, normalizeCatalogItems, sortCatalogItems } from '@/lib/microsoftCatalog';
 
 const TYPE_OPTIONS = [
   { value: 'learningPaths', label: 'Learning Paths' },
@@ -41,39 +39,6 @@ function formatDate(dateValue) {
   } catch {
     return null;
   }
-}
-
-async function fetchMicrosoftCatalogDirect({ type, page, pageSize, query, level }) {
-  const selectedTypes =
-    type === 'all'
-      ? ['learningPaths', 'modules', 'courses']
-      : type
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean);
-
-  const effectiveTypes = selectedTypes.length ? selectedTypes : ['learningPaths'];
-  const upstreamUrl = new URL('https://learn.microsoft.com/api/catalog/');
-  upstreamUrl.searchParams.set('locale', 'en-us');
-  upstreamUrl.searchParams.set('type', effectiveTypes.join(','));
-
-  const response = await fetch(upstreamUrl.toString(), {
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    throw new Error(`Microsoft direct fetch failed with status ${response.status}`);
-  }
-
-  const data = await response.json();
-  const normalizedItems = sortCatalogItems(normalizeCatalogItems(data, effectiveTypes));
-  const filteredItems = filterCatalogItems(normalizedItems, query.trim().toLowerCase(), level === 'all' ? '' : level.toLowerCase());
-
-  return {
-    ...buildPayloadFromFilteredItems(filteredItems, page, pageSize, effectiveTypes, upstreamUrl.toString(), false, new Date().toISOString()),
-    warning: '',
-    stale: false,
-  };
 }
 
 export default function MicrosoftCoursesPageClient() {
@@ -106,37 +71,25 @@ export default function MicrosoftCoursesPageClient() {
       setError('');
 
       try {
-        let data;
+        const params = new URLSearchParams({
+          type,
+          page: String(page),
+          pageSize: '12',
+        });
 
-        try {
-          data = await fetchMicrosoftCatalogDirect({
-            type,
-            page,
-            pageSize: 12,
-            query: deferredQuery,
-            level,
-          });
-        } catch {
-          const params = new URLSearchParams({
-            type,
-            page: String(page),
-            pageSize: '12',
-          });
+        if (deferredQuery.trim()) {
+          params.set('q', deferredQuery.trim());
+        }
 
-          if (deferredQuery.trim()) {
-            params.set('q', deferredQuery.trim());
-          }
+        if (level !== 'all') {
+          params.set('level', level);
+        }
 
-          if (level !== 'all') {
-            params.set('level', level);
-          }
+        const response = await fetch(`/microsoft-catalog?${params.toString()}`);
+        const data = await response.json();
 
-          const response = await fetch(`/microsoft-catalog?${params.toString()}`);
-          data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data?.error || 'Failed to load Microsoft courses.');
-          }
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load Microsoft courses.');
         }
 
         if (!cancelled) {
