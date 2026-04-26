@@ -32,7 +32,7 @@ export function normalizeCatalogItems(data, selectedTypes) {
 
     return records.map((item) => ({
       uid: item.uid,
-      slug: item.uid || item.id || item.url || item.title || 'microsoft-course',
+      slug: item.url || item.uid || item.id || item.title || 'microsoft-course',
       title: item.title || item.display_name || 'Untitled Microsoft Learn item',
       summary: item.summary || item.subtitle || '',
       subtitle: item.subtitle || '',
@@ -101,4 +101,8 @@ export function decodeMicrosoftCourseSlug(value = '') {
 
 export function findMicrosoftCourseBySlug(items, slug) {
   return items.find((item) => item.slug === slug || item.uid === slug || item.url === slug) || null;
+}
+
+export function isMicrosoftLearnUrl(value = '') {
+  return /^https?:\/\/learn\.microsoft\.com\//i.test(String(value).trim());
 }

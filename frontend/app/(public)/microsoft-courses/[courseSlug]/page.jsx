@@ -1,16 +1,12 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight, BookOpen, Clock3, GraduationCap } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { decodeMicrosoftCourseSlug, encodeMicrosoftCourseSlug, findMicrosoftCourseBySlug } from '@/lib/microsoftCatalog';
+import { decodeMicrosoftCourseSlug, encodeMicrosoftCourseSlug } from '@/lib/microsoftCatalog';
 import {
-  buildMicrosoftCacheKey,
-  fetchMicrosoftCatalogSnapshot,
-  readMicrosoftCatalogSnapshotCache,
-  resolveMicrosoftTypes,
+  resolveMicrosoftCourseDetail,
 } from '@/lib/microsoftCatalogServer';
 
 function formatDuration(durationInMinutes) {
@@ -52,18 +48,12 @@ export async function generateMetadata({ params }) {
   const decodedSlug = decodeMicrosoftCourseSlug(courseSlugParam || '');
 
   try {
-    let snapshot;
-    try {
-      snapshot = await fetchMicrosoftCatalogSnapshot({ requestedType: 'all' });
-    } catch {
-      const cacheKey = buildMicrosoftCacheKey('en-us', resolveMicrosoftTypes('all'));
-      const cachedSnapshot = await readMicrosoftCatalogSnapshotCache(cacheKey);
-      snapshot = cachedSnapshot ? { items: cachedSnapshot.items } : null;
-    }
-    const course = snapshot ? (findMicrosoftCourseBySlug(snapshot.items, decodedSlug) || createFallbackCourse(courseSlugParam || '')) : createFallbackCourse(courseSlugParam || '');
+    const detail = await resolveMicrosoftCourseDetail(decodedSlug, { locale: 'en-us' });
+    const course = detail.course || createFallbackCourse(courseSlugParam || '');
     const title = `${course.title} | Microsoft Courses | Tutorlix`;
     const description = course.summary || course.subtitle || 'Microsoft Learn content available through Tutorlix.';
-    const canonical = `https://tutorlix.com/microsoft-courses/${encodeMicrosoftCourseSlug(course.slug || decodedSlug)}`;
+    const canonicalSlug = course.url || course.slug || decodedSlug;
+    const canonical = `https://tutorlix.com/microsoft-courses/${encodeMicrosoftCourseSlug(canonicalSlug)}`;
 
     return {
       title,
@@ -96,21 +86,8 @@ export default async function MicrosoftCourseDetailPage({ params }) {
   const resolvedParams = await params;
   const courseSlugParam = resolvedParams?.courseSlug;
   const decodedSlug = decodeMicrosoftCourseSlug(courseSlugParam || '');
-
-  let course = null;
-
-  try {
-    const snapshot = await fetchMicrosoftCatalogSnapshot({ requestedType: 'all' });
-    course = findMicrosoftCourseBySlug(snapshot.items, decodedSlug);
-  } catch {
-    const cacheKey = buildMicrosoftCacheKey('en-us', resolveMicrosoftTypes('all'));
-    const cachedSnapshot = await readMicrosoftCatalogSnapshotCache(cacheKey);
-    course = cachedSnapshot ? findMicrosoftCourseBySlug(cachedSnapshot.items || [], decodedSlug) : null;
-  }
-
-  if (!course) {
-    notFound();
-  }
+  const detail = await resolveMicrosoftCourseDetail(decodedSlug, { locale: 'en-us' });
+  const course = detail.course || createFallbackCourse(courseSlugParam || '');
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
@@ -137,6 +114,12 @@ export default async function MicrosoftCourseDetailPage({ params }) {
         </div>
       </div>
 
+      {detail.warning ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {detail.warning}
+        </div>
+      ) : null}
+
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-5 sm:p-6 md:p-8 space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -145,7 +128,7 @@ export default async function MicrosoftCourseDetailPage({ params }) {
                 <Clock3 className="h-4 w-4 text-sky-600" />
                 <span className="text-sm font-semibold">Estimated time</span>
               </div>
-              <p className="mt-2 text-sm text-slate-600">{formatDuration(course.duration_in_minutes) || 'Self-paced'}</p>
+              <p className="mt-2 text-sm text-slate-600">{formatDuration(course.duration_in_minutes) || course.scrapedDurationLabel || 'Self-paced'}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center gap-2 text-slate-900">
@@ -183,6 +166,34 @@ export default async function MicrosoftCourseDetailPage({ params }) {
                   </span>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {course.learningObjectives?.length ? (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-slate-900">Learning Objectives</h2>
+              <ul className="space-y-2 text-slate-700">
+                {course.learningObjectives.map((objective) => (
+                  <li key={`${course.slug}-${objective}`} className="flex gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 rounded-full bg-sky-600" />
+                    <span>{objective}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {course.prerequisites?.length ? (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-slate-900">Prerequisites</h2>
+              <ul className="space-y-2 text-slate-700">
+                {course.prerequisites.map((prerequisite) => (
+                  <li key={`${course.slug}-${prerequisite}`} className="flex gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    <span>{prerequisite}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
 
