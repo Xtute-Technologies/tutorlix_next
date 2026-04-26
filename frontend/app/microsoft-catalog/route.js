@@ -217,6 +217,8 @@ export async function GET(request) {
         ),
         cachedAt: cachedEntry.cachedAt,
         warning: 'Serving cached Microsoft Learn catalog data because the upstream service is unavailable.',
+        refreshError: error instanceof Error ? error.message : 'Unknown fetch error',
+        refreshSource: upstreamUrl.toString(),
       });
     }
 
