@@ -11,6 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProfile } from '@/context/ProfileContext';
 
+function getMicrosoftLearnHref(item) {
+  return item?.url && /^https?:\/\//i.test(item.url) ? item.url : 'https://learn.microsoft.com/';
+}
+
 const TYPE_OPTIONS = [
   { value: 'learningPaths', label: 'Learning Paths' },
   { value: 'modules', label: 'Modules' },
@@ -132,7 +136,7 @@ export default function MicrosoftCoursesPageClient() {
             Microsoft Courses
           </h1>
           <p className="max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            Browse Microsoft Learn catalog content through a dedicated Tutorlix route. Open each course inside Tutorlix first, then continue to Microsoft Learn from the detail page when needed.
+            Browse Microsoft Learn catalog content through Tutorlix and jump straight to the official Microsoft Learn page for each item.
           </p>
           {['college', 'professional'].includes(profileType) ? (
             <p className="text-sm font-medium text-slate-700">
@@ -249,8 +253,8 @@ export default function MicrosoftCoursesPageClient() {
                 </div>
 
                 <Button asChild className="w-full gap-2">
-                  <Link href={`/microsoft-courses/${encodeMicrosoftCourseSlug(item.slug || item.uid)}`}>
-                    View Details
+                  <Link href={getMicrosoftLearnHref(item)} target="_blank" rel="noreferrer">
+                    Open Microsoft Learn
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </Button>

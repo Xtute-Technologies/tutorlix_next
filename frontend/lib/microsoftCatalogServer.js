@@ -112,6 +112,39 @@ export function buildMicrosoftCatalogSource(locale = 'en-us', effectiveTypes = [
   return `https://learn.microsoft.com/api/catalog/?locale=${locale}&type=${effectiveTypes.join(',')}`;
 }
 
+const TRAINING_BROWSE_CONFIG = {
+  learningPaths: {
+    urlBuilder: (locale, query) =>
+      `https://learn.microsoft.com/${locale}/training/browse/?resource_type=learning%20path${query ? `&terms=${encodeURIComponent(query)}` : ''}`,
+    pathNeedle: '/training/paths/',
+    typeLabel: 'Learning Path',
+  },
+  modules: {
+    urlBuilder: (locale, query) =>
+      `https://learn.microsoft.com/${locale}/training/browse/?resource_type=module${query ? `&terms=${encodeURIComponent(query)}` : ''}`,
+    pathNeedle: '/training/modules/',
+    typeLabel: 'Module',
+  },
+  courses: {
+    urlBuilder: (locale, query) =>
+      `https://learn.microsoft.com/${locale}/training/browse/?resource_type=course${query ? `&terms=${encodeURIComponent(query)}` : ''}`,
+    pathNeedle: '/training/courses/',
+    typeLabel: 'Instructor-Led Course',
+  },
+  certifications: {
+    urlBuilder: (locale, query) =>
+      `https://learn.microsoft.com/${locale}/credentials/certifications/${query ? `?terms=${encodeURIComponent(query)}` : ''}`,
+    pathNeedle: '/credentials/certifications/',
+    typeLabel: 'Certification',
+  },
+  appliedSkills: {
+    urlBuilder: (locale, query) =>
+      `https://learn.microsoft.com/${locale}/credentials/applied-skills/${query ? `?terms=${encodeURIComponent(query)}` : ''}`,
+    pathNeedle: '/credentials/applied-skills/',
+    typeLabel: 'Applied Skill',
+  },
+};
+
 function decodeHtmlEntities(value = '') {
   return String(value)
     .replace(/&amp;/g, '&')
@@ -192,6 +225,140 @@ function normalizeMicrosoftLearnUrl(target, locale = 'en-us') {
   }
 
   return '';
+}
+
+function normalizeRelativeMicrosoftLearnUrl(href, locale = 'en-us') {
+  const raw = String(href || '').trim();
+
+  if (!raw) {
+    return '';
+  }
+
+  if (isMicrosoftLearnUrl(raw)) {
+    return raw;
+  }
+
+  if (raw.startsWith('/')) {
+    return `https://learn.microsoft.com${raw.startsWith(`/${locale}/`) ? raw : `/${locale}${raw}`}`;
+  }
+
+  return '';
+}
+
+function extractLevelBadges(snippet) {
+  const levels = ['Beginner', 'Intermediate', 'Advanced'];
+  return levels.filter((level) => new RegExp(`\\b${level}\\b`, 'i').test(snippet));
+}
+
+function extractDurationInMinutes(snippet) {
+  const hourMatch = snippet.match(/(\d+)\s*(?:hour|hours|hr|hrs)\b/i);
+  const minuteMatch = snippet.match(/(\d+)\s*(?:minute|minutes|min)\b/i);
+  const hours = hourMatch ? Number.parseInt(hourMatch[1], 10) : 0;
+  const minutes = minuteMatch ? Number.parseInt(minuteMatch[1], 10) : 0;
+  const totalMinutes = (hours * 60) + minutes;
+  return Number.isFinite(totalMinutes) ? totalMinutes : 0;
+}
+
+function extractSummaryFromSnippet(snippet, title) {
+  const paragraphs = Array.from(snippet.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+    .map((match) => stripHtml(match[1]))
+    .filter(Boolean);
+
+  return paragraphs.find((paragraph) => paragraph !== title) || '';
+}
+
+function scrapeCatalogItemsFromHtml(html, typeKey, locale = 'en-us') {
+  const config = TRAINING_BROWSE_CONFIG[typeKey];
+
+  if (!config) {
+    return [];
+  }
+
+  const anchorPattern = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const items = [];
+  const seen = new Set();
+
+  for (const match of html.matchAll(anchorPattern)) {
+    const href = normalizeRelativeMicrosoftLearnUrl(match[1], locale);
+
+    if (!href || !href.includes(config.pathNeedle) || seen.has(href)) {
+      continue;
+    }
+
+    const title = stripHtml(match[2]).replace(/\s+/g, ' ').trim();
+
+    if (!title || title.length < 8) {
+      continue;
+    }
+
+    const snippet = html.slice(match.index, Math.min(html.length, match.index + 1600));
+    const summary = extractSummaryFromSnippet(snippet, title);
+
+    items.push({
+      uid: href,
+      slug: href,
+      title,
+      summary,
+      subtitle: '',
+      url: href,
+      icon_url: '',
+      social_image_url: '',
+      duration_in_minutes: extractDurationInMinutes(snippet),
+      levels: extractLevelBadges(snippet),
+      roles: [],
+      products: [],
+      subjects: [],
+      last_modified: null,
+      type: typeKey,
+      typeLabel: config.typeLabel,
+      popularity: 0,
+      locale,
+      scraped: true,
+    });
+    seen.add(href);
+  }
+
+  return items;
+}
+
+export async function scrapeMicrosoftCatalogFallback({ locale = 'en-us', requestedType = 'learningPaths', query = '' } = {}) {
+  const effectiveTypes = resolveMicrosoftTypes(requestedType);
+  const scrapeResults = await Promise.all(
+    effectiveTypes.map(async (typeKey) => {
+      const config = TRAINING_BROWSE_CONFIG[typeKey];
+
+      if (!config) {
+        return { items: [], source: '' };
+      }
+
+      const source = config.urlBuilder(locale, query);
+      const response = await fetch(source, {
+        headers: {
+          Accept: 'text/html,application/xhtml+xml',
+          'User-Agent': 'Tutorlix Microsoft Learn Catalog Scraper/1.0',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Microsoft Learn scrape failed with status ${response.status}`);
+      }
+
+      const html = await response.text();
+      return {
+        items: scrapeCatalogItemsFromHtml(html, typeKey, locale),
+        source,
+      };
+    })
+  );
+
+  return {
+    items: sortCatalogItems(scrapeResults.flatMap((entry) => entry.items)),
+    effectiveTypes,
+    source: scrapeResults.map((entry) => entry.source).filter(Boolean).join(', '),
+    cachedAt: new Date().toISOString(),
+  };
 }
 
 export async function scrapeMicrosoftLearnPage(target, { locale = 'en-us' } = {}) {
