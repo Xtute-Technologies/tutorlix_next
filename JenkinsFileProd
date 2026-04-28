@@ -13,6 +13,8 @@ pipeline {
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
         BACKEND_SECRET_NAME = 'backend-prod-env'
         ROLLOUT_TIMEOUT = '600s'
+        INSTAGRAM_BOT_SECRET_NAME = 'instagram-banner-bot-prod-env'
+        INSTAGRAM_BOT_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-instagram-banner-bot-prod:latest"
     }
 
     stages {
@@ -116,7 +118,7 @@ pipeline {
             }
         }
 
-         stage('Instagram Banner Bot Image') {
+        stage('Instagram Banner Bot Image') {
             steps {
                 sh '''
                     echo "🚀 Building Instagram banner bot prod image..."
