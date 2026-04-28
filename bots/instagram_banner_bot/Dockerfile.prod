@@ -1,0 +1,17 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY bots/instagram_banner_bot/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy entire bot folder
+COPY bots/instagram_banner_bot ./bots/instagram_banner_bot
+
+ENV PORT=11000
+EXPOSE 11000
+
+# Run using __main__.py
+CMD ["python", "-m", "bots.instagram_banner_bot"]
