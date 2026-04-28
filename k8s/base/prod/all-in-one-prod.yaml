@@ -230,3 +230,42 @@ spec:
   ports:
     - port: 9100
       targetPort: 9100
+      
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: instagram-banner-bot-prod
+  labels:
+    app: instagram-banner-bot-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: instagram-banner-bot-prod
+  template:
+    metadata:
+      labels:
+        app: instagram-banner-bot-prod
+    spec:
+      containers:
+        - name: instagram-banner-bot-prod
+          image: ankitvashishta7/tutorlix-instagram-banner-bot-prod:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 11000
+          envFrom:
+            - secretRef:
+                name: instagram-banner-bot-prod-env
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: instagram-banner-bot-prod
+spec:
+  selector:
+    app: instagram-banner-bot-prod
+  ports:
+    - port: 11000
+      targetPort: 11000
