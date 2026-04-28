@@ -13,6 +13,20 @@ services:
       - "3000:3000"
     command: npm run start
     environment:
-      - NEXT_PUBLIC_API_URL=https://tutorlix.com/api   # 🔥 FIX
+      - NEXT_PUBLIC_API_URL=https://tutorlix.com/api
     depends_on:
-      - backend-prod
+      - backend
+
+  instagram-banner-bot:
+    build:
+      context: .
+      dockerfile: bots/instagram_banner_bot/Dockerfile.prod
+    container_name: instagram-banner-bot-prod
+    ports:
+      - "11000:11000"
+    command: python bots/instagram_banner_bot/main.py
+    env_file:
+      - bots/instagram_banner_bot/.env.example 
+
+    depends_on:
+      - backend
