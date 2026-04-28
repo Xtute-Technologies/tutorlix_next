@@ -102,7 +102,17 @@ def run_once(config: BotConfig) -> RunResult:
         poll_seconds=config.publish_poll_seconds,
         wait_seconds=config.publish_wait_seconds,
     )
-    result = publisher.publish_image(image_url=image_url, caption=caption)
+    try:
+        result = publisher.publish_image(image_url=image_url, caption=caption)
+    except Exception:
+        LOGGER.exception("Instagram publish failed; keeping bot alive")
+        return RunResult(
+            image_path=image_path,
+            image_url=image_url,
+            caption=caption,
+            media_id=None,
+        )
+
     store.mark_used(content_index, image_path, media_id=result.media_id)
     LOGGER.info("Published Instagram media id=%s from %s", result.media_id, image_url)
     return RunResult(

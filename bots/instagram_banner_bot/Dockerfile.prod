@@ -14,4 +14,4 @@ ENV PORT=11000
 EXPOSE 11000
 
 # Run using __main__.py
-CMD ["python", "-m", "bots.instagram_banner_bot"]
+CMD ["python", "-m", "bots.instagram_banner_bot", "--loop", "--publish"]
