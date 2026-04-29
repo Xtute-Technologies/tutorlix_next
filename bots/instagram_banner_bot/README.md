@@ -33,20 +33,23 @@ OPENAI_IMAGE_ENABLED=true
 OPENAI_IMAGE_MODEL=gpt-image-1
 ```
 
-When `OPENAI_API_KEY` is set, the bot uses OpenAI image generation for the
-banner image. Set `OPENAI_IMAGE_ENABLED=false` to fall back to the local Pillow
-renderer.
+When `OPENAI_API_KEY` is set, `designer.py` uses OpenAI to create a no-text
+visual background, then draws the final banner text locally. Set
+`OPENAI_IMAGE_ENABLED=false` to fall back to the fully local Pillow renderer.
 
 Optional OpenAI image settings:
 
 ```dotenv
 OPENAI_API_BASE_URL=https://api.openai.com/v1
-OPENAI_IMAGE_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
+OPENAI_IMAGE_PROMPT=Create a square no-text IB Maths course background for {brand_name}. Leave room for text overlays.
 OPENAI_IMAGE_SIZE=1024x1024
 OPENAI_IMAGE_QUALITY=medium
 OPENAI_IMAGE_OUTPUT_FORMAT=png
 OPENAI_IMAGE_TIMEOUT_SECONDS=180
 ```
+
+The generated background prompt should ask for no text, letters, logos, or
+watermarks because the readable copy is added by `designer.py`.
 
 `OPENAI_IMAGE_PROMPT` supports `{brand_name}`, `{brand_tagline}`, `{headline}`,
 `{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`, `{content_index}`,

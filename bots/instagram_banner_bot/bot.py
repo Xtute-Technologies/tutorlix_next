@@ -13,7 +13,6 @@ from .config import BotConfig, ConfigError
 from .content import ContentStore
 from .designer import render_banner
 from .instagram import InstagramPublisher
-from .openai_image import OpenAIImageGenerator
 
 
 LOGGER = logging.getLogger("instagram-banner-bot")
@@ -78,35 +77,22 @@ def run_once(config: BotConfig) -> RunResult:
 
     store = ContentStore(config.content_file, config.state_file)
     content_index, post = store.next_post()
-    if config.openai_image_enabled:
-        LOGGER.info(
-            "Generating banner with OpenAI image model %s",
-            config.openai_image_model,
-        )
-        image_path = OpenAIImageGenerator(
-            api_key=config.openai_api_key,
-            base_url=config.openai_api_base_url,
-            model=config.openai_image_model,
-            timeout_seconds=config.openai_image_timeout_seconds,
-            prompt_template=config.openai_image_prompt,
-            size=config.openai_image_size,
-            quality=config.openai_image_quality,
-            output_format=config.openai_image_output_format,
-        ).generate_banner(
-            post,
-            brand_name=config.brand_name,
-            brand_tagline=config.brand_tagline,
-            output_dir=config.output_dir,
-            content_index=content_index,
-        )
-    else:
-        image_path = render_banner(
-            post,
-            brand_name=config.brand_name,
-            brand_tagline=config.brand_tagline,
-            output_dir=config.output_dir,
-            content_index=content_index,
-        )
+    image_path = render_banner(
+        post,
+        brand_name=config.brand_name,
+        brand_tagline=config.brand_tagline,
+        output_dir=config.output_dir,
+        content_index=content_index,
+        openai_image_enabled=config.openai_image_enabled,
+        openai_api_key=config.openai_api_key,
+        openai_api_base_url=config.openai_api_base_url,
+        openai_image_model=config.openai_image_model,
+        openai_image_prompt=config.openai_image_prompt,
+        openai_image_size=config.openai_image_size,
+        openai_image_quality=config.openai_image_quality,
+        openai_image_output_format=config.openai_image_output_format,
+        openai_image_timeout_seconds=config.openai_image_timeout_seconds,
+    )
     apply_logo_overlay(
         image_path,
         logo_url=config.logo_url,

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 import hashlib
+from io import BytesIO
 from pathlib import Path
 import random
 import textwrap
+from typing import Any
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
 except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
     raise RuntimeError(
         "Pillow is required. Install bot dependencies with: "
@@ -15,6 +18,18 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
     ) from exc
 
 from .content import PostSpec
+from .networking import install_ipv4_only_networking
+
+
+install_ipv4_only_networking()
+
+try:
+    import requests
+except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
+    raise RuntimeError(
+        "requests is required. Install bot dependencies with: "
+        "pip install -r bots/instagram_banner_bot/requirements.txt"
+    ) from exc
 
 
 CANVAS_SIZE = (1080, 1080)
@@ -81,16 +96,42 @@ def render_banner(
     brand_tagline: str,
     output_dir: Path,
     content_index: int,
+    openai_image_enabled: bool = False,
+    openai_api_key: str = "",
+    openai_api_base_url: str = "https://api.openai.com/v1",
+    openai_image_model: str = "gpt-image-1",
+    openai_image_prompt: str = "",
+    openai_image_size: str = "1024x1024",
+    openai_image_quality: str = "medium",
+    openai_image_output_format: str = "png",
+    openai_image_timeout_seconds: int = 180,
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     palette = PALETTES[content_index % len(PALETTES)]
     seed = _stable_seed(post.headline, content_index)
     rng = random.Random(seed)
 
-    image = Image.new("RGB", CANVAS_SIZE, palette["background"])
-    draw = ImageDraw.Draw(image)
+    if openai_image_enabled:
+        image = _generate_openai_background(
+            post,
+            brand_name=brand_name,
+            brand_tagline=brand_tagline,
+            api_key=openai_api_key,
+            api_base_url=openai_api_base_url,
+            model=openai_image_model,
+            prompt_template=openai_image_prompt,
+            size=openai_image_size,
+            quality=openai_image_quality,
+            output_format=openai_image_output_format,
+            timeout_seconds=openai_image_timeout_seconds,
+        )
+        _draw_openai_text_panel(image, palette)
+    else:
+        image = Image.new("RGB", CANVAS_SIZE, palette["background"])
+        draw = ImageDraw.Draw(image)
+        _draw_background(draw, palette, rng)
 
-    _draw_background(draw, palette, rng)
+    draw = ImageDraw.Draw(image)
     _draw_brand(draw, brand_name, brand_tagline, palette)
     _draw_main_copy(draw, post, palette)
 
@@ -100,6 +141,149 @@ def render_banner(
     output_path = output_dir / filename
     image.save(output_path, "JPEG", quality=92, optimize=True, progressive=True)
     return output_path
+
+
+class OpenAIBackgroundError(RuntimeError):
+    """Raised when OpenAI cannot produce a background for the banner."""
+
+
+def _generate_openai_background(
+    post: PostSpec,
+    *,
+    brand_name: str,
+    brand_tagline: str,
+    api_key: str,
+    api_base_url: str,
+    model: str,
+    prompt_template: str,
+    size: str,
+    quality: str,
+    output_format: str,
+    timeout_seconds: int,
+) -> Image.Image:
+    if not api_key:
+        raise OpenAIBackgroundError("OPENAI_API_KEY is required")
+    if not model:
+        raise OpenAIBackgroundError("OPENAI_IMAGE_MODEL is required")
+
+    prompt = _build_openai_background_prompt(
+        post,
+        brand_name=brand_name,
+        brand_tagline=brand_tagline,
+        prompt_template=prompt_template,
+    )
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "size": size,
+        "quality": quality,
+        "output_format": output_format,
+        "n": 1,
+    }
+
+    try:
+        response = requests.post(
+            f"{api_base_url.rstrip('/')}/images/generations",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=timeout_seconds,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise OpenAIBackgroundError(f"OpenAI image API request failed: {exc}") from exc
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise OpenAIBackgroundError(
+            f"OpenAI returned non-JSON response {response.status_code}: "
+            f"{response.text[:300]}"
+        ) from exc
+
+    if response.status_code >= 400 or "error" in data:
+        raise OpenAIBackgroundError(f"OpenAI image API error {response.status_code}: {data}")
+
+    image_bytes = _extract_openai_image_bytes(data)
+    with Image.open(BytesIO(image_bytes)) as image:
+        image = image.convert("RGB")
+        return ImageOps.fit(
+            image,
+            CANVAS_SIZE,
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5),
+        )
+
+
+def _build_openai_background_prompt(
+    post: PostSpec,
+    *,
+    brand_name: str,
+    brand_tagline: str,
+    prompt_template: str,
+) -> str:
+    variation_seed = random.randint(100000, 999999)
+    values = {
+        "brand_name": brand_name,
+        "brand_tagline": brand_tagline,
+        "headline": post.headline,
+        "subheadline": post.subheadline,
+        "cta": post.cta,
+        "caption": post.caption,
+        "hashtags": " ".join(post.hashtags),
+        "variation_seed": variation_seed,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+    }
+    if prompt_template:
+        try:
+            return prompt_template.format(**values)
+        except KeyError as exc:
+            raise OpenAIBackgroundError(
+                f"OPENAI_IMAGE_PROMPT has unknown placeholder: {exc}"
+            ) from exc
+
+    return (
+        "Create a square 1:1 premium visual background for an Instagram ad about "
+        "IB Diploma Programme Mathematics courses. Show abstract mathematics, "
+        "graph curves, geometric shapes, calculator-inspired forms, classroom and "
+        "online tutoring energy, modern academic atmosphere, polished education "
+        f"brand style for {brand_name}. Leave the central-left area and top-left "
+        "corner clean enough for text and logo overlays. Do not include any text, "
+        "letters, numbers, formulas, symbols that read as text, logos, watermarks, "
+        "QR codes, contact details, URLs, or signage. Generate only the background "
+        f"artwork. Variation seed: {variation_seed}."
+    )
+
+
+def _extract_openai_image_bytes(data: dict[str, Any]) -> bytes:
+    items = data.get("data")
+    if not isinstance(items, list) or not items:
+        raise OpenAIBackgroundError(f"OpenAI response did not include image data: {data}")
+
+    encoded = items[0].get("b64_json") if isinstance(items[0], dict) else None
+    if not encoded:
+        raise OpenAIBackgroundError(
+            f"OpenAI response did not include b64_json image data: {data}"
+        )
+    return base64.b64decode(encoded)
+
+
+def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None:
+    base = image.convert("RGBA")
+    overlay = Image.new("RGBA", CANVAS_SIZE, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(overlay)
+    draw.rounded_rectangle(
+        (74, 116, 1006, 980),
+        radius=44,
+        fill=(255, 255, 255, 230),
+        outline=(217, 226, 236, 235),
+        width=3,
+    )
+    draw.rectangle((74, 116, 1006, 172), fill=palette["accent"])
+    draw.line((126, 822, 954, 822), fill=(229, 231, 235, 230), width=3)
+    composed = Image.alpha_composite(base, overlay).convert("RGB")
+    image.paste(composed)
 
 
 def _draw_background(draw: ImageDraw.ImageDraw, palette: dict[str, str], rng: random.Random) -> None:
