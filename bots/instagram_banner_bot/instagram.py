@@ -106,14 +106,42 @@ class InstagramPublisher:
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}/{self.version}/{path.lstrip('/')}"
         request_payload = {**payload, "access_token": self.access_token}
-        response = requests.post(url, data=request_payload, timeout=self.timeout_seconds)
-        return self._json_or_raise(response)
+
+        last_error = None
+        for attempt in range(5):
+            try:
+                response = requests.post(
+                    url,
+                    data=request_payload,
+                    timeout=self.timeout_seconds,
+                )
+                return self._json_or_raise(response)
+
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+                time.sleep(2 * (attempt + 1))  # exponential-ish backoff
+
+        raise InstagramPublishError(f"Meta API POST failed after retries: {last_error}")
 
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}/{self.version}/{path.lstrip('/')}"
         request_params = {**params, "access_token": self.access_token}
-        response = requests.get(url, params=request_params, timeout=self.timeout_seconds)
-        return self._json_or_raise(response)
+
+        last_error = None
+        for attempt in range(5):
+            try:
+                response = requests.get(
+                    url,
+                    params=request_params,
+                    timeout=self.timeout_seconds,
+                )
+                return self._json_or_raise(response)
+
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+                time.sleep(2 * (attempt + 1))
+
+        raise InstagramPublishError(f"Meta API GET failed after retries: {last_error}")
 
     @staticmethod
     def _json_or_raise(response: requests.Response) -> dict[str, Any]:
