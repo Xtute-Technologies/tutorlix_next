@@ -248,15 +248,17 @@ def _build_openai_background_prompt(
             ) from exc
 
     return (
-        "Create a square 1:1 premium visual background for an Instagram ad about "
-        "IB Diploma Programme Mathematics courses. Show abstract mathematics, "
-        "graph curves, geometric shapes, calculator-inspired forms, classroom and "
-        "online tutoring energy, modern academic atmosphere, polished education "
-        f"brand style for {brand_name}. Leave the central-left area and top-left "
-        "corner clean enough for text and logo overlays. Do not include any text, "
-        "letters, numbers, formulas, symbols that read as text, logos, watermarks, "
-        "QR codes, contact details, URLs, or signage. Generate only the background "
-        f"artwork. Variation seed: {variation_seed}."
+        "Create a square 1:1 realistic premium Instagram banner background for "
+        "IB Diploma Programme Mathematics courses. Composition: the right side "
+        "shows a realistic happy female student studying at a desk with a notebook "
+        "or laptop, natural confident expression, warm professional education "
+        "setting. The left side must stay simple, subtle, and uncluttered with soft "
+        "depth for a dark text overlay. Background should feel modern, academic, "
+        "clean, and premium, with very subtle maths-course context only as abstract "
+        "shapes or gentle study ambience. Do not include any text, letters, numbers, "
+        "formulas, readable symbols, logos, watermarks, QR codes, contact details, "
+        "URLs, or signage. Generate only the no-text photographic background. "
+        f"Variation seed: {variation_seed}."
     )
 
 
@@ -278,7 +280,7 @@ def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None
     overlay = Image.new("RGBA", CANVAS_SIZE, (255, 255, 255, 0))
     draw = ImageDraw.Draw(overlay)
 
-    panel = (86, 142, 812, 950)
+    panel = (72, 170, 616, 958)
     draw.rounded_rectangle(
         panel,
         radius=46,
@@ -293,12 +295,12 @@ def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None
         width=1,
     )
     draw.rounded_rectangle(
-        (118, 184, 268, 190),
+        (106, 214, 244, 220),
         radius=3,
         fill=(249, 115, 22, 220),
     )
     draw.rounded_rectangle(
-        (116, 822, 742, 824),
+        (106, 790, 576, 792),
         radius=1,
         fill=(255, 255, 255, 42),
     )
@@ -347,12 +349,11 @@ def _draw_brand_on_dark_panel(
     brand_name: str,
     brand_tagline: str,
 ) -> None:
+    del brand_name, brand_tagline
     eyebrow_font = _font(22, bold=True)
     tagline_font = _font(24)
-    draw.text((122, 210), brand_name.upper(), font=eyebrow_font, fill="#f8fafc")
-    draw.text((122, 246), brand_tagline, font=tagline_font, fill="#cbd5e1")
-    draw.rounded_rectangle((574, 206, 746, 250), radius=22, fill="#f97316")
-    draw.text((602, 217), "IB MATHS", font=_font(20, bold=True), fill="#ffffff")
+    draw.text((108, 242), "IB DIPLOMA PROGRAMME", font=eyebrow_font, fill="#f8fafc")
+    draw.text((108, 278), "Maths AA & AI | SL & HL", font=tagline_font, fill="#cbd5e1")
 
 
 def _draw_main_copy(
@@ -405,15 +406,15 @@ def _draw_main_copy_on_dark_panel(
     headline_font, headline_lines = _fit_text(
         draw,
         post.headline,
-        max_width=610,
+        max_width=430,
         max_lines=3,
-        start_size=76,
-        min_size=52,
+        start_size=64,
+        min_size=46,
         bold=True,
     )
-    y = 344
+    y = 370
     for line in headline_lines:
-        draw.text((122, y), line, font=headline_font, fill="#ffffff")
+        draw.text((108, y), line, font=headline_font, fill="#ffffff")
         y += _line_height(headline_font, 1.06)
 
     if post.subheadline:
@@ -421,14 +422,14 @@ def _draw_main_copy_on_dark_panel(
         sub_font, sub_lines = _fit_text(
             draw,
             post.subheadline,
-            max_width=596,
+            max_width=430,
             max_lines=4,
-            start_size=32,
-            min_size=26,
+            start_size=28,
+            min_size=23,
             bold=False,
         )
         for line in sub_lines:
-            draw.text((124, y), line, font=sub_font, fill="#dbe4ef")
+            draw.text((110, y), line, font=sub_font, fill="#dbe4ef")
             y += _line_height(sub_font, 1.25)
 
     _draw_dark_panel_feature_row(draw)
@@ -436,19 +437,20 @@ def _draw_main_copy_on_dark_panel(
     cta = post.cta or "Learn more"
     cta_font = _font(28, bold=True)
     cta_text_width = _text_width(draw, cta, cta_font)
-    cta_width = min(560, max(300, cta_text_width + 74))
-    cta_box = (122, 858, 122 + cta_width, 918)
+    cta_width = min(430, max(286, cta_text_width + 68))
+    cta_box = (108, 826, 108 + cta_width, 884)
     draw.rounded_rectangle(cta_box, radius=30, fill="#f97316")
-    draw.text((cta_box[0] + 36, 872), cta, font=cta_font, fill="#ffffff")
+    draw.text((cta_box[0] + 34, 840), cta, font=cta_font, fill="#ffffff")
+    draw.text((110, 916), "https://tutorlix.com", font=_font(22, bold=True), fill="#cbd5e1")
 
 
 def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:
     font = _font(22, bold=True)
     items = ["AA & AI", "SL & HL", "Exam Practice"]
-    x = 122
+    x = 108
     for item in items:
         text_width = _text_width(draw, item, font)
-        pill = (x, 780, x + text_width + 38, 824)
+        pill = (x, 748, x + text_width + 34, 790)
         draw.rounded_rectangle(
             pill,
             radius=22,
@@ -456,8 +458,8 @@ def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:
             outline="#334155",
             width=1,
         )
-        draw.text((x + 19, 790), item, font=font, fill="#e5e7eb")
-        x = pill[2] + 16
+        draw.text((x + 17, 757), item, font=font, fill="#e5e7eb")
+        x = pill[2] + 12
 
 
 def _fit_text(
