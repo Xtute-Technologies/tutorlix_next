@@ -96,6 +96,12 @@ pipeline {
                         exit 1
                     fi
 
+                    if [ ! -r "$INSTAGRAM_BOT_ENV_FILE" ]; then
+                        echo "❌ Jenkins cannot read Instagram bot env file: $INSTAGRAM_BOT_ENV_FILE"
+                        echo "   Fix file permissions before rerunning this job."
+                        exit 1
+                    fi
+
                     mkdir -p "$INSTAGRAM_BOT_OUTPUT_DIR"
 
                     echo "📥 Pulling latest Instagram banner bot image..."
