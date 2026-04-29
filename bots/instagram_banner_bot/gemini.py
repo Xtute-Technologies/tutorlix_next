@@ -112,9 +112,10 @@ class GeminiImageGenerator:
             f"Call to action: {post.cta or 'Start learning with Tutorlix'}. Make it "
             "look like a polished education brand social post with a modern digital "
             "learning theme, clean composition, strong contrast, and space for the "
-            "main message. Use a different visual concept from previous runs. "
+            "main message. Leave the top-left corner visually calm for the official "
+            "brand logo overlay. Use a different visual concept from previous runs. "
             f"Variation seed: {variation_seed}. Do not include QR codes, fake UI, "
-            "contact details, spelling mistakes, or visible watermarks."
+            "contact details, spelling mistakes, logos, or visible watermarks."
         )
 
     def _request_image(self, prompt: str) -> dict[str, Any]:

@@ -27,6 +27,7 @@ IG_USER_ID=your_instagram_user_id
 IG_ACCESS_TOKEN=your_long_lived_access_token
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/instagram-banners
 BOT_DRY_RUN=false
+BOT_LOGO_URL=https://tutorlix.com/logo.png
 GEMINI_API_KEY=your_gemini_api_key
 ```
 

@@ -65,6 +65,7 @@ def _env_path(name: str, default: Path) -> Path:
 class BotConfig:
     brand_name: str
     brand_tagline: str
+    logo_url: str
     content_file: Path
     output_dir: Path
     state_file: Path
@@ -106,6 +107,10 @@ class BotConfig:
                 "BOT_BRAND_TAGLINE",
                 "Learn smarter. Grow faster.",
             ),
+            logo_url=os.getenv(
+                "BOT_LOGO_URL",
+                "https://tutorlix.com/logo.png",
+            ).strip(),
             content_file=_env_path(
                 "BOT_CONTENT_FILE",
                 Path("bots/instagram_banner_bot/content.json"),

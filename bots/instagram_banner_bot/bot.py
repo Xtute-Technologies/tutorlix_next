@@ -8,6 +8,7 @@ import signal
 import sys
 import time
 
+from .branding import apply_logo_overlay
 from .config import BotConfig, ConfigError
 from .content import ContentStore
 from .designer import render_banner
@@ -103,6 +104,11 @@ def run_once(config: BotConfig) -> RunResult:
             output_dir=config.output_dir,
             content_index=content_index,
         )
+    apply_logo_overlay(
+        image_path,
+        logo_url=config.logo_url,
+        timeout_seconds=config.request_timeout_seconds,
+    )
     image_url = _public_url_for(config, image_path)
     caption = post.instagram_caption()
 
