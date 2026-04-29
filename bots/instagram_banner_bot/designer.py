@@ -282,7 +282,7 @@ def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None
     draw.rounded_rectangle(
         panel,
         radius=46,
-        fill=(5, 10, 20, 112),
+        fill=(5, 10, 20, 179),
         outline=(255, 255, 255, 48),
         width=2,
     )
