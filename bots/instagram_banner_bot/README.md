@@ -28,45 +28,29 @@ IG_ACCESS_TOKEN=your_long_lived_access_token
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/instagram-banners
 BOT_DRY_RUN=false
 BOT_LOGO_URL=https://tutorlix.com/logo.png
-STABLE_DIFFUSION_ENABLED=true
-STABLE_DIFFUSION_API_BASE_URL=http://127.0.0.1:7860
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_IMAGE_ENABLED=true
+OPENAI_IMAGE_MODEL=gpt-image-1
 ```
 
-By default, the bot uses a local Stable Diffusion WebUI API for the banner image.
-Set `STABLE_DIFFUSION_ENABLED=false` to fall back to the local Pillow renderer.
+When `OPENAI_API_KEY` is set, the bot uses OpenAI image generation for the
+banner image. Set `OPENAI_IMAGE_ENABLED=false` to fall back to the local Pillow
+renderer.
 
-The Stable Diffusion WebUI server must expose the API endpoint at
-`/sdapi/v1/txt2img`. With the bot's Docker container running on `--network host`,
-`http://127.0.0.1:7860` points to the VPS host.
-
-Example Stable Diffusion service setup on the VPS:
-
-```bash
-docker run -d \
-  --name stable-diffusion-webui \
-  --restart unless-stopped \
-  -p 7860:7860 \
-  stable-diffusion-webui
-```
-
-Use an image/start command that enables the WebUI API.
-
-Optional Stable Diffusion settings:
+Optional OpenAI image settings:
 
 ```dotenv
-STABLE_DIFFUSION_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
-STABLE_DIFFUSION_NEGATIVE_PROMPT=text, watermark, logo, qr code, low quality
-STABLE_DIFFUSION_STEPS=28
-STABLE_DIFFUSION_CFG_SCALE=7
-STABLE_DIFFUSION_SAMPLER_NAME=DPM++ 2M Karras
-STABLE_DIFFUSION_WIDTH=1024
-STABLE_DIFFUSION_HEIGHT=1024
-STABLE_DIFFUSION_TIMEOUT_SECONDS=180
+OPENAI_API_BASE_URL=https://api.openai.com/v1
+OPENAI_IMAGE_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
+OPENAI_IMAGE_SIZE=1024x1024
+OPENAI_IMAGE_QUALITY=medium
+OPENAI_IMAGE_OUTPUT_FORMAT=png
+OPENAI_IMAGE_TIMEOUT_SECONDS=180
 ```
 
-`STABLE_DIFFUSION_PROMPT` supports `{brand_name}`, `{brand_tagline}`,
-`{headline}`, `{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`,
-`{content_index}`, `{variation_seed}`, and `{date}`.
+`OPENAI_IMAGE_PROMPT` supports `{brand_name}`, `{brand_tagline}`, `{headline}`,
+`{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`, `{content_index}`,
+`{variation_seed}`, and `{date}`.
 
 ## Run
 

@@ -53,16 +53,6 @@ def _env_int(name: str, default: int) -> int:
         raise ConfigError(f"{name} must be an integer") from exc
 
 
-def _env_float(name: str, default: float) -> float:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        return default
-    try:
-        return float(value)
-    except ValueError as exc:
-        raise ConfigError(f"{name} must be a number") from exc
-
-
 def _env_path(name: str, default: Path) -> Path:
     value = os.getenv(name)
     path = Path(value) if value else default
@@ -89,16 +79,15 @@ class BotConfig:
     request_timeout_seconds: int
     publish_poll_seconds: int
     publish_wait_seconds: int
-    stable_diffusion_enabled: bool
-    stable_diffusion_api_base_url: str
-    stable_diffusion_prompt: str
-    stable_diffusion_negative_prompt: str
-    stable_diffusion_steps: int
-    stable_diffusion_cfg_scale: float
-    stable_diffusion_sampler_name: str
-    stable_diffusion_width: int
-    stable_diffusion_height: int
-    stable_diffusion_timeout_seconds: int
+    openai_image_enabled: bool
+    openai_api_key: str
+    openai_api_base_url: str
+    openai_image_model: str
+    openai_image_prompt: str
+    openai_image_size: str
+    openai_image_quality: str
+    openai_image_output_format: str
+    openai_image_timeout_seconds: int
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "BotConfig":
@@ -111,9 +100,10 @@ class BotConfig:
             "BOT_OUTPUT_DIR",
             Path("bots/instagram_banner_bot/output"),
         )
-        stable_diffusion_enabled = _env_optional_bool("STABLE_DIFFUSION_ENABLED")
-        if stable_diffusion_enabled is None:
-            stable_diffusion_enabled = True
+        openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        openai_image_enabled = _env_optional_bool("OPENAI_IMAGE_ENABLED")
+        if openai_image_enabled is None:
+            openai_image_enabled = bool(openai_api_key)
 
         return cls(
             brand_name=os.getenv("BOT_BRAND_NAME", "Tutorlix"),
@@ -144,26 +134,22 @@ class BotConfig:
             request_timeout_seconds=_env_int("BOT_REQUEST_TIMEOUT_SECONDS", 30),
             publish_poll_seconds=_env_int("BOT_PUBLISH_POLL_SECONDS", 5),
             publish_wait_seconds=_env_int("BOT_PUBLISH_WAIT_SECONDS", 60),
-            stable_diffusion_enabled=stable_diffusion_enabled,
-            stable_diffusion_api_base_url=os.getenv(
-                "STABLE_DIFFUSION_API_BASE_URL",
-                "http://127.0.0.1:7860",
+            openai_image_enabled=openai_image_enabled,
+            openai_api_key=openai_api_key,
+            openai_api_base_url=os.getenv(
+                "OPENAI_API_BASE_URL",
+                "https://api.openai.com/v1",
             ).rstrip("/"),
-            stable_diffusion_prompt=os.getenv("STABLE_DIFFUSION_PROMPT", "").strip(),
-            stable_diffusion_negative_prompt=os.getenv(
-                "STABLE_DIFFUSION_NEGATIVE_PROMPT",
-                "",
+            openai_image_model=os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1").strip(),
+            openai_image_prompt=os.getenv("OPENAI_IMAGE_PROMPT", "").strip(),
+            openai_image_size=os.getenv("OPENAI_IMAGE_SIZE", "1024x1024").strip(),
+            openai_image_quality=os.getenv("OPENAI_IMAGE_QUALITY", "medium").strip(),
+            openai_image_output_format=os.getenv(
+                "OPENAI_IMAGE_OUTPUT_FORMAT",
+                "png",
             ).strip(),
-            stable_diffusion_steps=_env_int("STABLE_DIFFUSION_STEPS", 28),
-            stable_diffusion_cfg_scale=_env_float("STABLE_DIFFUSION_CFG_SCALE", 7.0),
-            stable_diffusion_sampler_name=os.getenv(
-                "STABLE_DIFFUSION_SAMPLER_NAME",
-                "DPM++ 2M Karras",
-            ).strip(),
-            stable_diffusion_width=_env_int("STABLE_DIFFUSION_WIDTH", 1024),
-            stable_diffusion_height=_env_int("STABLE_DIFFUSION_HEIGHT", 1024),
-            stable_diffusion_timeout_seconds=_env_int(
-                "STABLE_DIFFUSION_TIMEOUT_SECONDS",
+            openai_image_timeout_seconds=_env_int(
+                "OPENAI_IMAGE_TIMEOUT_SECONDS",
                 180,
             ),
         )
@@ -199,4 +185,6 @@ class BotConfig:
             missing.append("IG_ACCESS_TOKEN")
         if not self.public_media_base_url:
             missing.append("PUBLIC_MEDIA_BASE_URL")
+        if self.openai_image_enabled and not self.openai_api_key:
+            missing.append("OPENAI_API_KEY")
         return missing

@@ -13,7 +13,7 @@ from .config import BotConfig, ConfigError
 from .content import ContentStore
 from .designer import render_banner
 from .instagram import InstagramPublisher
-from .stable_diffusion import StableDiffusionImageGenerator
+from .openai_image import OpenAIImageGenerator
 
 
 LOGGER = logging.getLogger("instagram-banner-bot")
@@ -78,21 +78,20 @@ def run_once(config: BotConfig) -> RunResult:
 
     store = ContentStore(config.content_file, config.state_file)
     content_index, post = store.next_post()
-    if config.stable_diffusion_enabled:
+    if config.openai_image_enabled:
         LOGGER.info(
-            "Generating banner with Stable Diffusion at %s",
-            config.stable_diffusion_api_base_url,
+            "Generating banner with OpenAI image model %s",
+            config.openai_image_model,
         )
-        image_path = StableDiffusionImageGenerator(
-            base_url=config.stable_diffusion_api_base_url,
-            timeout_seconds=config.stable_diffusion_timeout_seconds,
-            prompt_template=config.stable_diffusion_prompt,
-            negative_prompt=config.stable_diffusion_negative_prompt,
-            steps=config.stable_diffusion_steps,
-            cfg_scale=config.stable_diffusion_cfg_scale,
-            sampler_name=config.stable_diffusion_sampler_name,
-            width=config.stable_diffusion_width,
-            height=config.stable_diffusion_height,
+        image_path = OpenAIImageGenerator(
+            api_key=config.openai_api_key,
+            base_url=config.openai_api_base_url,
+            model=config.openai_image_model,
+            timeout_seconds=config.openai_image_timeout_seconds,
+            prompt_template=config.openai_image_prompt,
+            size=config.openai_image_size,
+            quality=config.openai_image_quality,
+            output_format=config.openai_image_output_format,
         ).generate_banner(
             post,
             brand_name=config.brand_name,

@@ -31,33 +31,31 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 from .content import PostSpec
 
 
-class StableDiffusionGenerationError(RuntimeError):
-    """Raised when Stable Diffusion cannot produce an image for the banner."""
+class OpenAIImageGenerationError(RuntimeError):
+    """Raised when OpenAI cannot produce an image for the banner."""
 
 
-class StableDiffusionImageGenerator:
+class OpenAIImageGenerator:
     def __init__(
         self,
         *,
+        api_key: str,
         base_url: str,
+        model: str,
         timeout_seconds: int,
         prompt_template: str = "",
-        negative_prompt: str = "",
-        steps: int = 28,
-        cfg_scale: float = 7.0,
-        sampler_name: str = "DPM++ 2M Karras",
-        width: int = 1024,
-        height: int = 1024,
+        size: str = "1024x1024",
+        quality: str = "medium",
+        output_format: str = "png",
     ):
+        self.api_key = api_key
         self.base_url = base_url.rstrip("/")
+        self.model = model.strip()
         self.timeout_seconds = timeout_seconds
         self.prompt_template = prompt_template.strip()
-        self.negative_prompt = negative_prompt.strip()
-        self.steps = steps
-        self.cfg_scale = cfg_scale
-        self.sampler_name = sampler_name.strip()
-        self.width = width
-        self.height = height
+        self.size = size.strip()
+        self.quality = quality.strip()
+        self.output_format = output_format.strip()
 
     def generate_banner(
         self,
@@ -79,7 +77,7 @@ class StableDiffusionImageGenerator:
         image_bytes = self._extract_image_bytes(response)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{content_index:02d}_{_slugify(post.headline)}_sd.jpg"
+        filename = f"{timestamp}_{content_index:02d}_{_slugify(post.headline)}_openai.jpg"
         output_path = output_dir / filename
         self._save_instagram_jpeg(image_bytes, output_path)
         return output_path
@@ -109,74 +107,82 @@ class StableDiffusionImageGenerator:
             try:
                 return self.prompt_template.format(**values)
             except KeyError as exc:
-                raise StableDiffusionGenerationError(
-                    f"STABLE_DIFFUSION_PROMPT has unknown placeholder: {exc}"
+                raise OpenAIImageGenerationError(
+                    f"OPENAI_IMAGE_PROMPT has unknown placeholder: {exc}"
                 ) from exc
 
         return (
-            f"square 1:1 Instagram education brand poster for {brand_name}, "
-            f"{brand_tagline}, topic: {post.headline}, "
-            f"supporting idea: {post.subheadline or post.caption}, "
-            f"call to action mood: {post.cta or 'Start learning with Tutorlix'}, "
-            "modern online learning visual, premium clean composition, vibrant but "
-            "professional color palette, clear central focal point, polished social "
-            "media campaign artwork, subtle digital classroom elements, top-left "
-            "area kept calm and uncluttered for official logo overlay, no embedded "
-            f"text, no logo, no watermark, variation seed {variation_seed}"
+            f"Create a square 1:1 Instagram education brand poster for {brand_name}. "
+            f"Brand tagline: {brand_tagline}. Topic headline: {post.headline}. "
+            f"Supporting idea: {post.subheadline or post.caption}. "
+            f"CTA mood: {post.cta or 'Start learning with Tutorlix'}. "
+            "Style: premium modern online learning campaign artwork, polished, "
+            "professional, vibrant but clean, strong central visual, subtle digital "
+            "classroom or study elements, not cluttered. Leave the top-left corner "
+            "visually calm for the official logo overlay. Do not include embedded "
+            "text, logos, QR codes, contact details, URLs, spelling, or watermarks. "
+            f"Use a fresh concept. Variation seed: {variation_seed}."
         )
 
     def _request_image(self, prompt: str) -> dict[str, Any]:
-        url = f"{self.base_url}/sdapi/v1/txt2img"
+        if not self.api_key:
+            raise OpenAIImageGenerationError("OPENAI_API_KEY is required")
+        if not self.model:
+            raise OpenAIImageGenerationError("OPENAI_IMAGE_MODEL is required")
+
         payload = {
+            "model": self.model,
             "prompt": prompt,
-            "negative_prompt": self.negative_prompt or DEFAULT_NEGATIVE_PROMPT,
-            "steps": self.steps,
-            "cfg_scale": self.cfg_scale,
-            "sampler_name": self.sampler_name,
-            "width": self.width,
-            "height": self.height,
-            "batch_size": 1,
-            "n_iter": 1,
-            "send_images": True,
-            "save_images": False,
+            "size": self.size,
+            "quality": self.quality,
+            "output_format": self.output_format,
+            "n": 1,
         }
 
         try:
-            response = requests.post(url, json=payload, timeout=self.timeout_seconds)
+            response = requests.post(
+                f"{self.base_url}/images/generations",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=self.timeout_seconds,
+            )
         except requests.exceptions.RequestException as exc:
-            raise StableDiffusionGenerationError(
-                f"Stable Diffusion API request failed at {url}: {exc}"
+            raise OpenAIImageGenerationError(
+                f"OpenAI image API request failed: {exc}"
             ) from exc
 
         try:
             data = response.json()
         except ValueError as exc:
-            raise StableDiffusionGenerationError(
-                f"Stable Diffusion returned non-JSON response {response.status_code}: "
+            raise OpenAIImageGenerationError(
+                f"OpenAI returned non-JSON response {response.status_code}: "
                 f"{response.text[:300]}"
             ) from exc
 
-        if response.status_code >= 400:
-            raise StableDiffusionGenerationError(
-                f"Stable Diffusion API error {response.status_code}: {data}"
+        if response.status_code >= 400 or "error" in data:
+            raise OpenAIImageGenerationError(
+                f"OpenAI image API error {response.status_code}: {data}"
             )
         if not isinstance(data, dict):
-            raise StableDiffusionGenerationError(
-                f"Unexpected Stable Diffusion response: {data}"
-            )
+            raise OpenAIImageGenerationError(f"Unexpected OpenAI response: {data}")
         return data
 
     @staticmethod
     def _extract_image_bytes(data: dict[str, Any]) -> bytes:
-        images = data.get("images")
-        if not isinstance(images, list) or not images:
-            raise StableDiffusionGenerationError(
-                f"Stable Diffusion response did not include images: {data}"
+        items = data.get("data")
+        if not isinstance(items, list) or not items:
+            raise OpenAIImageGenerationError(
+                f"OpenAI response did not include image data: {data}"
             )
 
-        encoded = str(images[0])
-        if "," in encoded:
-            encoded = encoded.split(",", 1)[1]
+        encoded = items[0].get("b64_json") if isinstance(items[0], dict) else None
+        if not encoded:
+            raise OpenAIImageGenerationError(
+                f"OpenAI response did not include b64_json image data: {data}"
+            )
         return base64.b64decode(encoded)
 
     @staticmethod
@@ -190,13 +196,6 @@ class StableDiffusionImageGenerator:
                 centering=(0.5, 0.5),
             )
             canvas.save(output_path, "JPEG", quality=92, optimize=True, progressive=True)
-
-
-DEFAULT_NEGATIVE_PROMPT = (
-    "text, words, letters, logo, watermark, qr code, contact details, phone number, "
-    "email address, url, malformed hands, distorted faces, low quality, blurry, "
-    "pixelated, cluttered layout"
-)
 
 
 def _slugify(value: str) -> str:
