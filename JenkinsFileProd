@@ -102,6 +102,30 @@ pipeline {
                         exit 1
                     fi
 
+                    SD_ENABLED=$(grep -E '^STABLE_DIFFUSION_ENABLED=' "$INSTAGRAM_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    SD_API_BASE_URL=$(grep -E '^STABLE_DIFFUSION_API_BASE_URL=' "$INSTAGRAM_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    SD_ENABLED=${SD_ENABLED:-true}
+                    SD_API_BASE_URL=${SD_API_BASE_URL:-http://127.0.0.1:7860}
+
+                    if [ "$SD_ENABLED" != "false" ]; then
+                        echo "🔍 Checking local Stable Diffusion API at $SD_API_BASE_URL ..."
+                        SD_API_BASE_URL="$SD_API_BASE_URL" python3 - <<'PY'
+import os
+import sys
+import urllib.request
+
+base_url = os.environ["SD_API_BASE_URL"].rstrip("/")
+url = f"{base_url}/sdapi/v1/sd-models"
+try:
+    with urllib.request.urlopen(url, timeout=10) as response:
+        if response.status >= 400:
+            raise RuntimeError(f"HTTP {response.status}")
+except Exception as exc:
+    print(f"Stable Diffusion API is not reachable at {url}: {exc}")
+    sys.exit(1)
+PY
+                    fi
+
                     mkdir -p "$INSTAGRAM_BOT_OUTPUT_DIR"
 
                     echo "📥 Pulling latest Instagram banner bot image..."

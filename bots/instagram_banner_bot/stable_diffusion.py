@@ -31,25 +31,33 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 from .content import PostSpec
 
 
-class GeminiImageGenerationError(RuntimeError):
-    """Raised when Gemini cannot produce an image for the banner."""
+class StableDiffusionGenerationError(RuntimeError):
+    """Raised when Stable Diffusion cannot produce an image for the banner."""
 
 
-class GeminiImageGenerator:
+class StableDiffusionImageGenerator:
     def __init__(
         self,
         *,
-        api_key: str,
         base_url: str,
-        model: str,
         timeout_seconds: int,
         prompt_template: str = "",
+        negative_prompt: str = "",
+        steps: int = 28,
+        cfg_scale: float = 7.0,
+        sampler_name: str = "DPM++ 2M Karras",
+        width: int = 1024,
+        height: int = 1024,
     ):
-        self.api_key = api_key
         self.base_url = base_url.rstrip("/")
-        self.model = model.strip()
         self.timeout_seconds = timeout_seconds
         self.prompt_template = prompt_template.strip()
+        self.negative_prompt = negative_prompt.strip()
+        self.steps = steps
+        self.cfg_scale = cfg_scale
+        self.sampler_name = sampler_name.strip()
+        self.width = width
+        self.height = height
 
     def generate_banner(
         self,
@@ -71,7 +79,7 @@ class GeminiImageGenerator:
         image_bytes = self._extract_image_bytes(response)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{content_index:02d}_{_slugify(post.headline)}_gemini.jpg"
+        filename = f"{timestamp}_{content_index:02d}_{_slugify(post.headline)}_sd.jpg"
         output_path = output_dir / filename
         self._save_instagram_jpeg(image_bytes, output_path)
         return output_path
@@ -101,88 +109,75 @@ class GeminiImageGenerator:
             try:
                 return self.prompt_template.format(**values)
             except KeyError as exc:
-                raise GeminiImageGenerationError(
-                    f"GEMINI_IMAGE_PROMPT has unknown placeholder: {exc}"
+                raise StableDiffusionGenerationError(
+                    f"STABLE_DIFFUSION_PROMPT has unknown placeholder: {exc}"
                 ) from exc
 
         return (
-            f"Create a fresh square 1:1 Instagram image for {brand_name}, an online "
-            f"learning platform. Brand tagline: {brand_tagline}. Campaign headline: "
-            f"{post.headline}. Supporting idea: {post.subheadline or post.caption}. "
-            f"Call to action: {post.cta or 'Start learning with Tutorlix'}. Make it "
-            "look like a polished education brand social post with a modern digital "
-            "learning theme, clean composition, strong contrast, and space for the "
-            "main message. Leave the top-left corner visually calm for the official "
-            "brand logo overlay. Use a different visual concept from previous runs. "
-            f"Variation seed: {variation_seed}. Do not include QR codes, fake UI, "
-            "contact details, spelling mistakes, logos, or visible watermarks."
+            f"square 1:1 Instagram education brand poster for {brand_name}, "
+            f"{brand_tagline}, topic: {post.headline}, "
+            f"supporting idea: {post.subheadline or post.caption}, "
+            f"call to action mood: {post.cta or 'Start learning with Tutorlix'}, "
+            "modern online learning visual, premium clean composition, vibrant but "
+            "professional color palette, clear central focal point, polished social "
+            "media campaign artwork, subtle digital classroom elements, top-left "
+            "area kept calm and uncluttered for official logo overlay, no embedded "
+            f"text, no logo, no watermark, variation seed {variation_seed}"
         )
 
     def _request_image(self, prompt: str) -> dict[str, Any]:
-        if not self.api_key:
-            raise GeminiImageGenerationError("GEMINI_API_KEY is required")
-        if not self.model:
-            raise GeminiImageGenerationError("GEMINI_IMAGE_MODEL is required")
-
-        url = f"{self.base_url}/models/{self.model}:generateContent"
+        url = f"{self.base_url}/sdapi/v1/txt2img"
         payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt,
-                        },
-                    ],
-                },
-            ],
-            "generationConfig": {
-                "imageConfig": {
-                    "aspectRatio": "1:1",
-                },
-            },
+            "prompt": prompt,
+            "negative_prompt": self.negative_prompt or DEFAULT_NEGATIVE_PROMPT,
+            "steps": self.steps,
+            "cfg_scale": self.cfg_scale,
+            "sampler_name": self.sampler_name,
+            "width": self.width,
+            "height": self.height,
+            "batch_size": 1,
+            "n_iter": 1,
+            "send_images": True,
+            "save_images": False,
         }
-        response = requests.post(
-            url,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": self.api_key,
-            },
-            json=payload,
-            timeout=self.timeout_seconds,
-        )
+
+        try:
+            response = requests.post(url, json=payload, timeout=self.timeout_seconds)
+        except requests.exceptions.RequestException as exc:
+            raise StableDiffusionGenerationError(
+                f"Stable Diffusion API request failed at {url}: {exc}"
+            ) from exc
 
         try:
             data = response.json()
         except ValueError as exc:
-            raise GeminiImageGenerationError(
-                f"Gemini returned non-JSON response {response.status_code}: "
+            raise StableDiffusionGenerationError(
+                f"Stable Diffusion returned non-JSON response {response.status_code}: "
                 f"{response.text[:300]}"
             ) from exc
 
-        if response.status_code >= 400 or "error" in data:
-            raise GeminiImageGenerationError(
-                f"Gemini image API error {response.status_code}: {data}"
+        if response.status_code >= 400:
+            raise StableDiffusionGenerationError(
+                f"Stable Diffusion API error {response.status_code}: {data}"
             )
         if not isinstance(data, dict):
-            raise GeminiImageGenerationError(f"Unexpected Gemini response: {data}")
+            raise StableDiffusionGenerationError(
+                f"Unexpected Stable Diffusion response: {data}"
+            )
         return data
 
     @staticmethod
     def _extract_image_bytes(data: dict[str, Any]) -> bytes:
-        text_parts = []
-        for candidate in data.get("candidates", []):
-            content = candidate.get("content", {})
-            for part in content.get("parts", []):
-                inline_data = part.get("inlineData") or part.get("inline_data")
-                if inline_data and inline_data.get("data"):
-                    return base64.b64decode(inline_data["data"])
-                if part.get("text"):
-                    text_parts.append(str(part["text"]))
+        images = data.get("images")
+        if not isinstance(images, list) or not images:
+            raise StableDiffusionGenerationError(
+                f"Stable Diffusion response did not include images: {data}"
+            )
 
-        message = "Gemini response did not include image data"
-        if text_parts:
-            message += f"; text response: {' '.join(text_parts)[:300]}"
-        raise GeminiImageGenerationError(message)
+        encoded = str(images[0])
+        if "," in encoded:
+            encoded = encoded.split(",", 1)[1]
+        return base64.b64decode(encoded)
 
     @staticmethod
     def _save_instagram_jpeg(image_bytes: bytes, output_path: Path) -> None:
@@ -195,6 +190,13 @@ class GeminiImageGenerator:
                 centering=(0.5, 0.5),
             )
             canvas.save(output_path, "JPEG", quality=92, optimize=True, progressive=True)
+
+
+DEFAULT_NEGATIVE_PROMPT = (
+    "text, words, letters, logo, watermark, qr code, contact details, phone number, "
+    "email address, url, malformed hands, distorted faces, low quality, blurry, "
+    "pixelated, cluttered layout"
+)
 
 
 def _slugify(value: str) -> str:

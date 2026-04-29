@@ -28,24 +28,45 @@ IG_ACCESS_TOKEN=your_long_lived_access_token
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/instagram-banners
 BOT_DRY_RUN=false
 BOT_LOGO_URL=https://tutorlix.com/logo.png
-GEMINI_API_KEY=your_gemini_api_key
+STABLE_DIFFUSION_ENABLED=true
+STABLE_DIFFUSION_API_BASE_URL=http://127.0.0.1:7860
 ```
 
-When `GEMINI_API_KEY` is set, the bot uses Gemini image generation for the
-banner image. Without it, the bot falls back to the local Pillow renderer.
+By default, the bot uses a local Stable Diffusion WebUI API for the banner image.
+Set `STABLE_DIFFUSION_ENABLED=false` to fall back to the local Pillow renderer.
 
-Optional Gemini settings:
+The Stable Diffusion WebUI server must expose the API endpoint at
+`/sdapi/v1/txt2img`. With the bot's Docker container running on `--network host`,
+`http://127.0.0.1:7860` points to the VPS host.
+
+Example Stable Diffusion service setup on the VPS:
+
+```bash
+docker run -d \
+  --name stable-diffusion-webui \
+  --restart unless-stopped \
+  -p 7860:7860 \
+  stable-diffusion-webui
+```
+
+Use an image/start command that enables the WebUI API.
+
+Optional Stable Diffusion settings:
 
 ```dotenv
-GEMINI_IMAGE_ENABLED=true
-GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
-GEMINI_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-GEMINI_IMAGE_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
+STABLE_DIFFUSION_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
+STABLE_DIFFUSION_NEGATIVE_PROMPT=text, watermark, logo, qr code, low quality
+STABLE_DIFFUSION_STEPS=28
+STABLE_DIFFUSION_CFG_SCALE=7
+STABLE_DIFFUSION_SAMPLER_NAME=DPM++ 2M Karras
+STABLE_DIFFUSION_WIDTH=1024
+STABLE_DIFFUSION_HEIGHT=1024
+STABLE_DIFFUSION_TIMEOUT_SECONDS=180
 ```
 
-`GEMINI_IMAGE_PROMPT` supports `{brand_name}`, `{brand_tagline}`, `{headline}`,
-`{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`, `{content_index}`,
-`{variation_seed}`, and `{date}`.
+`STABLE_DIFFUSION_PROMPT` supports `{brand_name}`, `{brand_tagline}`,
+`{headline}`, `{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`,
+`{content_index}`, `{variation_seed}`, and `{date}`.
 
 ## Run
 

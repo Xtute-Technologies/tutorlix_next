@@ -12,8 +12,8 @@ from .branding import apply_logo_overlay
 from .config import BotConfig, ConfigError
 from .content import ContentStore
 from .designer import render_banner
-from .gemini import GeminiImageGenerator
 from .instagram import InstagramPublisher
+from .stable_diffusion import StableDiffusionImageGenerator
 
 
 LOGGER = logging.getLogger("instagram-banner-bot")
@@ -78,17 +78,21 @@ def run_once(config: BotConfig) -> RunResult:
 
     store = ContentStore(config.content_file, config.state_file)
     content_index, post = store.next_post()
-    if config.gemini_image_enabled:
+    if config.stable_diffusion_enabled:
         LOGGER.info(
-            "Generating banner with Gemini image model %s",
-            config.gemini_image_model,
+            "Generating banner with Stable Diffusion at %s",
+            config.stable_diffusion_api_base_url,
         )
-        image_path = GeminiImageGenerator(
-            api_key=config.gemini_api_key,
-            base_url=config.gemini_api_base_url,
-            model=config.gemini_image_model,
-            timeout_seconds=config.request_timeout_seconds,
-            prompt_template=config.gemini_image_prompt,
+        image_path = StableDiffusionImageGenerator(
+            base_url=config.stable_diffusion_api_base_url,
+            timeout_seconds=config.stable_diffusion_timeout_seconds,
+            prompt_template=config.stable_diffusion_prompt,
+            negative_prompt=config.stable_diffusion_negative_prompt,
+            steps=config.stable_diffusion_steps,
+            cfg_scale=config.stable_diffusion_cfg_scale,
+            sampler_name=config.stable_diffusion_sampler_name,
+            width=config.stable_diffusion_width,
+            height=config.stable_diffusion_height,
         ).generate_banner(
             post,
             brand_name=config.brand_name,
