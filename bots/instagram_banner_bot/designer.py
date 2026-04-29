@@ -132,8 +132,12 @@ def render_banner(
         _draw_background(draw, palette, rng)
 
     draw = ImageDraw.Draw(image)
-    _draw_brand(draw, brand_name, brand_tagline, palette)
-    _draw_main_copy(draw, post, palette)
+    if openai_image_enabled:
+        _draw_brand_on_dark_panel(draw, brand_name, brand_tagline)
+        _draw_main_copy_on_dark_panel(draw, post)
+    else:
+        _draw_brand(draw, brand_name, brand_tagline, palette)
+        _draw_main_copy(draw, post, palette)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = _slugify(post.headline)[:42] or "banner"
@@ -273,15 +277,31 @@ def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None
     base = image.convert("RGBA")
     overlay = Image.new("RGBA", CANVAS_SIZE, (255, 255, 255, 0))
     draw = ImageDraw.Draw(overlay)
+
+    panel = (86, 142, 812, 950)
     draw.rounded_rectangle(
-        (74, 116, 1006, 980),
-        radius=44,
-        fill=(255, 255, 255, 230),
-        outline=(217, 226, 236, 235),
-        width=3,
+        panel,
+        radius=46,
+        fill=(5, 10, 20, 112),
+        outline=(255, 255, 255, 48),
+        width=2,
     )
-    draw.rectangle((74, 116, 1006, 172), fill=palette["accent"])
-    draw.line((126, 822, 954, 822), fill=(229, 231, 235, 230), width=3)
+    draw.rounded_rectangle(
+        (panel[0] + 2, panel[1] + 2, panel[2] - 2, panel[3] - 2),
+        radius=44,
+        outline=(255, 255, 255, 24),
+        width=1,
+    )
+    draw.rounded_rectangle(
+        (118, 184, 268, 190),
+        radius=3,
+        fill=(249, 115, 22, 220),
+    )
+    draw.rounded_rectangle(
+        (116, 822, 742, 824),
+        radius=1,
+        fill=(255, 255, 255, 42),
+    )
     composed = Image.alpha_composite(base, overlay).convert("RGB")
     image.paste(composed)
 
@@ -320,6 +340,19 @@ def _draw_brand(
     draw.text((126, 252), brand_tagline, font=tagline_font, fill=palette["secondary"])
     draw.rounded_rectangle((800, 198, 952, 246), radius=24, fill=palette["soft"])
     draw.text((830, 207), "DAILY", font=_font(24, bold=True), fill=palette["accent_dark"])
+
+
+def _draw_brand_on_dark_panel(
+    draw: ImageDraw.ImageDraw,
+    brand_name: str,
+    brand_tagline: str,
+) -> None:
+    eyebrow_font = _font(22, bold=True)
+    tagline_font = _font(24)
+    draw.text((122, 210), brand_name.upper(), font=eyebrow_font, fill="#f8fafc")
+    draw.text((122, 246), brand_tagline, font=tagline_font, fill="#cbd5e1")
+    draw.rounded_rectangle((574, 206, 746, 250), radius=22, fill="#f97316")
+    draw.text((602, 217), "IB MATHS", font=_font(20, bold=True), fill="#ffffff")
 
 
 def _draw_main_copy(
@@ -363,6 +396,68 @@ def _draw_main_copy(
     cta_box = (126, 866, 126 + cta_width, 930)
     draw.rounded_rectangle(cta_box, radius=32, fill=palette["accent"])
     draw.text((cta_box[0] + 42, 878), cta, font=cta_font, fill="#ffffff")
+
+
+def _draw_main_copy_on_dark_panel(
+    draw: ImageDraw.ImageDraw,
+    post: PostSpec,
+) -> None:
+    headline_font, headline_lines = _fit_text(
+        draw,
+        post.headline,
+        max_width=610,
+        max_lines=3,
+        start_size=76,
+        min_size=52,
+        bold=True,
+    )
+    y = 344
+    for line in headline_lines:
+        draw.text((122, y), line, font=headline_font, fill="#ffffff")
+        y += _line_height(headline_font, 1.06)
+
+    if post.subheadline:
+        y += 26
+        sub_font, sub_lines = _fit_text(
+            draw,
+            post.subheadline,
+            max_width=596,
+            max_lines=4,
+            start_size=32,
+            min_size=26,
+            bold=False,
+        )
+        for line in sub_lines:
+            draw.text((124, y), line, font=sub_font, fill="#dbe4ef")
+            y += _line_height(sub_font, 1.25)
+
+    _draw_dark_panel_feature_row(draw)
+
+    cta = post.cta or "Learn more"
+    cta_font = _font(28, bold=True)
+    cta_text_width = _text_width(draw, cta, cta_font)
+    cta_width = min(560, max(300, cta_text_width + 74))
+    cta_box = (122, 858, 122 + cta_width, 918)
+    draw.rounded_rectangle(cta_box, radius=30, fill="#f97316")
+    draw.text((cta_box[0] + 36, 872), cta, font=cta_font, fill="#ffffff")
+
+
+def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:
+    font = _font(22, bold=True)
+    items = ["AA & AI", "SL & HL", "Exam Practice"]
+    x = 122
+    for item in items:
+        text_width = _text_width(draw, item, font)
+        pill = (x, 780, x + text_width + 38, 824)
+        draw.rounded_rectangle(
+            pill,
+            radius=22,
+            fill="#111827",
+            outline="#334155",
+            width=1,
+        )
+        draw.text((x + 19, 790), item, font=font, fill="#e5e7eb")
+        x = pill[2] + 16
 
 
 def _fit_text(
