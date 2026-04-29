@@ -11,6 +11,7 @@ import time
 from .config import BotConfig, ConfigError
 from .content import ContentStore
 from .designer import render_banner
+from .gemini import GeminiImageGenerator
 from .instagram import InstagramPublisher
 
 
@@ -76,13 +77,32 @@ def run_once(config: BotConfig) -> RunResult:
 
     store = ContentStore(config.content_file, config.state_file)
     content_index, post = store.next_post()
-    image_path = render_banner(
-        post,
-        brand_name=config.brand_name,
-        brand_tagline=config.brand_tagline,
-        output_dir=config.output_dir,
-        content_index=content_index,
-    )
+    if config.gemini_image_enabled:
+        LOGGER.info(
+            "Generating banner with Gemini image model %s",
+            config.gemini_image_model,
+        )
+        image_path = GeminiImageGenerator(
+            api_key=config.gemini_api_key,
+            base_url=config.gemini_api_base_url,
+            model=config.gemini_image_model,
+            timeout_seconds=config.request_timeout_seconds,
+            prompt_template=config.gemini_image_prompt,
+        ).generate_banner(
+            post,
+            brand_name=config.brand_name,
+            brand_tagline=config.brand_tagline,
+            output_dir=config.output_dir,
+            content_index=content_index,
+        )
+    else:
+        image_path = render_banner(
+            post,
+            brand_name=config.brand_name,
+            brand_tagline=config.brand_tagline,
+            output_dir=config.output_dir,
+            content_index=content_index,
+        )
     image_url = _public_url_for(config, image_path)
     caption = post.instagram_caption()
 

@@ -27,7 +27,24 @@ IG_USER_ID=your_instagram_user_id
 IG_ACCESS_TOKEN=your_long_lived_access_token
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/instagram-banners
 BOT_DRY_RUN=false
+GEMINI_API_KEY=your_gemini_api_key
 ```
+
+When `GEMINI_API_KEY` is set, the bot uses Gemini image generation for the
+banner image. Without it, the bot falls back to the local Pillow renderer.
+
+Optional Gemini settings:
+
+```dotenv
+GEMINI_IMAGE_ENABLED=true
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+GEMINI_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+GEMINI_IMAGE_PROMPT=Create a square Instagram image for {brand_name}: {headline}. {subheadline}
+```
+
+`GEMINI_IMAGE_PROMPT` supports `{brand_name}`, `{brand_tagline}`, `{headline}`,
+`{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`, `{content_index}`,
+`{variation_seed}`, and `{date}`.
 
 ## Run
 
@@ -48,6 +65,23 @@ Run forever, immediately publishing once and then every 2 hours:
 ```bash
 python -m bots.instagram_banner_bot --env-file bots/instagram_banner_bot/.env --loop --publish
 ```
+
+Manual Docker run on the VPS:
+
+```bash
+docker rm -f instagram-banner-bot-prod
+
+docker run -d \
+  --name instagram-banner-bot-prod \
+  --restart unless-stopped \
+  --network host \
+  --env-file /var/www/tutorlix-prod/instagram-bot.env \
+  -v /var/www/tutorlix-prod/instagram-bot-output:/app/bots/instagram_banner_bot/output \
+  ankitvashishta7/tutorlix-instagram-banner-bot-prod:latest
+```
+
+The container starts in `--loop --publish` mode, so it generates and posts once
+immediately, then waits for `BOT_POST_INTERVAL_SECONDS`.
 
 For a cron-based deployment instead of a long-running process:
 

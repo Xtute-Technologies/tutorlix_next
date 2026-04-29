@@ -13,8 +13,6 @@ pipeline {
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
         BACKEND_SECRET_NAME = 'backend-prod-env'
         ROLLOUT_TIMEOUT = '600s'
-        INSTAGRAM_BOT_SECRET_NAME = 'instagram-banner-bot-prod-env'
-        INSTAGRAM_BOT_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-instagram-banner-bot-prod:latest"
     }
 
     stages {
@@ -118,56 +116,6 @@ pipeline {
             }
         }
 
-        stage('Instagram Banner Bot Image') {
-            steps {
-                sh '''
-                    echo "🚀 Building Instagram banner bot prod image..."
-                    docker build \
-                    --network=host \
-                    -f bots/instagram_banner_bot/Dockerfile.prod \
-                    -t $INSTAGRAM_BOT_IMAGE \
-                    .
-
-                    echo "📤 Pushing Instagram banner bot prod image..."
-                    docker push $INSTAGRAM_BOT_IMAGE
-                '''
-            }
-        }
-
-        stage('Sync Instagram Bot Secrets') {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'ig-user-id-prod', variable: 'IG_USER_ID'),
-                    string(credentialsId: 'ig-access-token-prod', variable: 'IG_ACCESS_TOKEN')
-                ]) {
-                    sh '''
-                        set -e
-                        export KUBECONFIG=$HOME/.kube/config
-
-                        echo "🔐 Syncing Instagram banner bot prod secrets..."
-                        kubectl create secret generic "$INSTAGRAM_BOT_SECRET_NAME" \
-                        --from-literal=BOT_BRAND_NAME="Tutorlix" \
-                        --from-literal=BOT_BRAND_TAGLINE="Learn smarter. Grow faster." \
-                        --from-literal=BOT_CONTENT_FILE="bots/instagram_banner_bot/content.json" \
-                        --from-literal=BOT_OUTPUT_DIR="bots/instagram_banner_bot/output" \
-                        --from-literal=BOT_POST_INTERVAL_SECONDS="7200" \
-                        --from-literal=BOT_DRY_RUN="false" \
-                        --from-literal=PUBLIC_MEDIA_BASE_URL="https://tutorlix.com/instagram_banner_bot/output" \
-                        --from-literal=IG_USER_ID="$IG_USER_ID" \
-                        --from-literal=IG_ACCESS_TOKEN="$IG_ACCESS_TOKEN" \
-                        --from-literal=META_GRAPH_API_BASE_URL="https://graph.facebook.com" \
-                        --from-literal=META_GRAPH_API_VERSION="v25.0" \
-                        --from-literal=BOT_REQUEST_TIMEOUT_SECONDS="30" \
-                        --from-literal=BOT_PUBLISH_POLL_SECONDS="5" \
-                        --from-literal=BOT_PUBLISH_WAIT_SECONDS="60" \
-                        --dry-run=client -o yaml | kubectl apply -f -
-
-                        kubectl set env deployment/instagram-banner-bot-prod --from=secret/"$INSTAGRAM_BOT_SECRET_NAME"
-                    '''
-                }
-            }
-        }
-
         stage('Rollout Prod Deployments') {
             steps {
                 sh '''
@@ -176,12 +124,10 @@ pipeline {
                     echo "🔄 Updating deployment images..."
                     kubectl set image deployment/backend-prod backend-prod=$BACKEND_IMAGE
                     kubectl set image deployment/frontend-prod frontend-prod=$FRONTEND_IMAGE
-                    kubectl set image deployment/instagram-banner-bot-prod instagram-banner-bot-prod=$INSTAGRAM_BOT_IMAGE
 
                     echo "🔄 Restarting prod deployments..."
                     kubectl rollout restart deployment/backend-prod
                     kubectl rollout restart deployment/frontend-prod
-                    kubectl rollout restart deployment/instagram-banner-bot-prod
                 '''
             }
         }
@@ -274,23 +220,6 @@ EOF
                                 kubectl get pods -l app=frontend-prod -o wide || true
                                 kubectl describe pods -l app=frontend-prod || true
                                 kubectl logs deployment/frontend-prod -c frontend-prod --tail=200 || true
-                                exit 1
-                            }
-                        '''
-                    }
-                }
-
-                stage('Instagram Banner Bot Rollout') {
-                    steps {
-                        sh '''
-                            export KUBECONFIG=$HOME/.kube/config
-
-                            echo "⏳ Waiting for instagram-banner-bot-prod rollout..."
-                            kubectl rollout status deployment/instagram-banner-bot-prod --timeout="$ROLLOUT_TIMEOUT" || {
-                                kubectl get deployment instagram-banner-bot-prod -o wide || true
-                                kubectl describe deployment instagram-banner-bot-prod || true
-                                kubectl get pods -l app=instagram-banner-bot-prod -o wide || true
-                                kubectl logs deployment/instagram-banner-bot-prod -c instagram-banner-bot-prod --tail=200 || true
                                 exit 1
                             }
                         '''

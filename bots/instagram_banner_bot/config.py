@@ -36,6 +36,13 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_optional_bool(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _env_int(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None or not value.strip():
@@ -71,6 +78,11 @@ class BotConfig:
     request_timeout_seconds: int
     publish_poll_seconds: int
     publish_wait_seconds: int
+    gemini_api_key: str
+    gemini_api_base_url: str
+    gemini_image_model: str
+    gemini_image_prompt: str
+    gemini_image_enabled: bool
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "BotConfig":
@@ -83,6 +95,10 @@ class BotConfig:
             "BOT_OUTPUT_DIR",
             Path("bots/instagram_banner_bot/output"),
         )
+        gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        gemini_image_enabled = _env_optional_bool("GEMINI_IMAGE_ENABLED")
+        if gemini_image_enabled is None:
+            gemini_image_enabled = bool(gemini_api_key)
 
         return cls(
             brand_name=os.getenv("BOT_BRAND_NAME", "Tutorlix"),
@@ -109,6 +125,17 @@ class BotConfig:
             request_timeout_seconds=_env_int("BOT_REQUEST_TIMEOUT_SECONDS", 30),
             publish_poll_seconds=_env_int("BOT_PUBLISH_POLL_SECONDS", 5),
             publish_wait_seconds=_env_int("BOT_PUBLISH_WAIT_SECONDS", 60),
+            gemini_api_key=gemini_api_key,
+            gemini_api_base_url=os.getenv(
+                "GEMINI_API_BASE_URL",
+                "https://generativelanguage.googleapis.com/v1beta",
+            ).rstrip("/"),
+            gemini_image_model=os.getenv(
+                "GEMINI_IMAGE_MODEL",
+                "gemini-2.5-flash-image",
+            ).strip(),
+            gemini_image_prompt=os.getenv("GEMINI_IMAGE_PROMPT", "").strip(),
+            gemini_image_enabled=gemini_image_enabled,
         )
 
     def with_overrides(
@@ -142,4 +169,6 @@ class BotConfig:
             missing.append("IG_ACCESS_TOKEN")
         if not self.public_media_base_url:
             missing.append("PUBLIC_MEDIA_BASE_URL")
+        if self.gemini_image_enabled and not self.gemini_api_key:
+            missing.append("GEMINI_API_KEY")
         return missing
