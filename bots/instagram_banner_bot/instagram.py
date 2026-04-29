@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import socket
 import time
 from typing import Any
+
+import urllib3.util.connection as urllib3_connection
+
+# Force urllib3/requests to use IPv4.
+# This avoids intermittent IPv6 connection refused errors to graph.facebook.com.
+def _force_ipv4() -> socket.AddressFamily:
+    return socket.AF_INET
+
+urllib3_connection.allowed_gai_family = _force_ipv4
 
 try:
     import requests
