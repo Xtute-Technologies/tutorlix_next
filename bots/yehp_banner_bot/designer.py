@@ -471,23 +471,30 @@ def _draw_contact_footer(
 ) -> None:
     footer_font = _font(18, bold=True)
     small_font = _font(15)
+    draw.rounded_rectangle(
+        (96, 890, 592, 952),
+        radius=20,
+        fill=(0, 0, 0, 179),
+        outline=(255, 255, 255, 34),
+        width=1,
+    )
     footer = website_url or "YEHP Herbal Wellness"
-    draw.text((110, 900), footer, font=footer_font, fill="#e5e7eb")
+    draw.text((112, 898), footer, font=footer_font, fill="#e5e7eb")
     if contact_phone:
-        draw.text((110, 925), f"Phone: {contact_phone}", font=small_font, fill="#cbd5e1")
+        draw.text((112, 922), f"Phone: {contact_phone}", font=small_font, fill="#cbd5e1")
     if contact_address:
         address_font, address_lines = _fit_text(
             draw,
             contact_address,
-            max_width=430,
+            max_width=460,
             max_lines=2,
             start_size=15,
             min_size=12,
             bold=False,
         )
-        y = 946
+        y = 941
         for line in address_lines:
-            draw.text((110, y), line, font=address_font, fill="#cbd5e1")
+            draw.text((112, y), line, font=address_font, fill="#cbd5e1")
             y += _line_height(address_font, 1.15)
 
 

@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageChops, ImageDraw
 except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
     raise RuntimeError(
         "Pillow is required. Install bot dependencies with: "
@@ -90,6 +90,28 @@ def _fit_logo(
     max_width: int,
     max_height: int,
 ) -> Image.Image:
-    fitted = logo.copy()
+    fitted = _crop_logo_whitespace(logo)
     fitted.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
     return fitted
+
+
+def _crop_logo_whitespace(logo: Image.Image) -> Image.Image:
+    logo = logo.convert("RGBA")
+    alpha_bbox = logo.getchannel("A").getbbox()
+    if alpha_bbox:
+        logo = logo.crop(alpha_bbox)
+
+    white_background = Image.new("RGBA", logo.size, (255, 255, 255, 255))
+    difference = ImageChops.difference(logo, white_background)
+    difference = difference.convert("L").point(lambda value: 255 if value > 12 else 0)
+    bbox = difference.getbbox()
+    if not bbox:
+        return logo
+
+    left, top, right, bottom = bbox
+    padding = 4
+    left = max(0, left - padding)
+    top = max(0, top - padding)
+    right = min(logo.width, right + padding)
+    bottom = min(logo.height, bottom + padding)
+    return logo.crop((left, top, right, bottom))
