@@ -1,0 +1,17 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY bots/yehp_banner_bot/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy entire bot folder
+COPY bots/yehp_banner_bot ./bots/yehp_banner_bot
+
+ENV PORT=11001
+EXPOSE 11001
+
+# Run using __main__.py
+CMD ["sh", "-c", "python -m bots.yehp_banner_bot --loop --publish & python -m http.server 11001 --directory bots/yehp_banner_bot/output"]

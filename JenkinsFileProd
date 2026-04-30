@@ -12,9 +12,13 @@ pipeline {
         BACKEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-backend-prod:latest"
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
         INSTAGRAM_BOT_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-instagram-banner-bot-prod:latest"
+        YEHP_BOT_IMAGE = "${DOCKER_CREDS_USR}/yehp-banner-bot-prod:latest"
         INSTAGRAM_BOT_CONTAINER = 'instagram-banner-bot-prod'
         INSTAGRAM_BOT_ENV_FILE = '/var/www/tutorlix-prod/instagram-bot.env'
         INSTAGRAM_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/instagram-bot-output'
+        YEHP_BOT_CONTAINER = 'yehp-banner-bot-prod'
+        YEHP_BOT_ENV_FILE = '/var/www/tutorlix-prod/yehp-bot.env'
+        YEHP_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/yehp-bot-output'
         BACKEND_SECRET_NAME = 'backend-prod-env'
         ROLLOUT_TIMEOUT = '600s'
     }
@@ -83,6 +87,22 @@ pipeline {
                         '''
                     }
                 }
+
+                stage('YEHP Banner Bot Image') {
+                    steps {
+                        sh '''
+                            echo "🚀 Building YEHP banner bot prod image..."
+                            docker build \
+                            --network=host \
+                            -f bots/yehp_banner_bot/Dockerfile.prod \
+                            -t $YEHP_BOT_IMAGE \
+                            .
+
+                            echo "📤 Pushing YEHP banner bot prod image..."
+                            docker push $YEHP_BOT_IMAGE
+                        '''
+                    }
+                }
             }
         }
 
@@ -131,6 +151,55 @@ pipeline {
                     docker ps --filter "name=$INSTAGRAM_BOT_CONTAINER"
                     sleep 5
                     docker logs "$INSTAGRAM_BOT_CONTAINER" --tail=80
+                '''
+            }
+        }
+
+        stage('Run YEHP Banner Bot Container') {
+            steps {
+                sh '''
+                    set -e
+
+                    if [ ! -f "$YEHP_BOT_ENV_FILE" ]; then
+                        echo "❌ YEHP bot env file not found: $YEHP_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ ! -r "$YEHP_BOT_ENV_FILE" ]; then
+                        echo "❌ Jenkins cannot read YEHP bot env file: $YEHP_BOT_ENV_FILE"
+                        echo "   Fix file permissions before rerunning this job."
+                        exit 1
+                    fi
+
+                    OPENAI_IMAGE_ENABLED=$(grep -E '^OPENAI_IMAGE_ENABLED=' "$YEHP_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    OPENAI_API_KEY=$(grep -E '^OPENAI_API_KEY=' "$YEHP_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    OPENAI_IMAGE_ENABLED=${OPENAI_IMAGE_ENABLED:-true}
+
+                    if [ "$OPENAI_IMAGE_ENABLED" != "false" ] && [ -z "$OPENAI_API_KEY" ]; then
+                        echo "❌ OPENAI_API_KEY is required in $YEHP_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    mkdir -p "$YEHP_BOT_OUTPUT_DIR"
+
+                    echo "📥 Pulling latest YEHP banner bot image..."
+                    docker pull "$YEHP_BOT_IMAGE"
+
+                    echo "🧹 Removing old YEHP banner bot container..."
+                    docker rm -f "$YEHP_BOT_CONTAINER" || true
+
+                    echo "🚀 Starting YEHP banner bot container..."
+                    docker run -d \
+                      --name "$YEHP_BOT_CONTAINER" \
+                      --restart unless-stopped \
+                      --network host \
+                      --env-file "$YEHP_BOT_ENV_FILE" \
+                      -v "$YEHP_BOT_OUTPUT_DIR:/app/bots/yehp_banner_bot/output" \
+                      "$YEHP_BOT_IMAGE"
+
+                    docker ps --filter "name=$YEHP_BOT_CONTAINER"
+                    sleep 5
+                    docker logs "$YEHP_BOT_CONTAINER" --tail=80
                 '''
             }
         }
