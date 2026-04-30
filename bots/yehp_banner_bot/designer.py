@@ -95,6 +95,8 @@ def render_banner(
     brand_name: str,
     brand_tagline: str,
     website_url: str = "",
+    contact_address: str = "",
+    contact_phone: str = "",
     output_dir: Path,
     content_index: int,
     openai_image_enabled: bool = False,
@@ -135,7 +137,13 @@ def render_banner(
     draw = ImageDraw.Draw(image)
     if openai_image_enabled:
         _draw_brand_on_dark_panel(draw, brand_name, brand_tagline)
-        _draw_main_copy_on_dark_panel(draw, post, website_url=website_url)
+        _draw_main_copy_on_dark_panel(
+            draw,
+            post,
+            website_url=website_url,
+            contact_address=contact_address,
+            contact_phone=contact_phone,
+        )
     else:
         _draw_brand(draw, brand_name, brand_tagline, palette)
         _draw_main_copy(draw, post, palette)
@@ -405,6 +413,8 @@ def _draw_main_copy_on_dark_panel(
     post: PostSpec,
     *,
     website_url: str = "",
+    contact_address: str = "",
+    contact_phone: str = "",
 ) -> None:
     headline_font, headline_lines = _fit_text(
         draw,
@@ -444,8 +454,41 @@ def _draw_main_copy_on_dark_panel(
     cta_box = (108, 826, 108 + cta_width, 884)
     draw.rounded_rectangle(cta_box, radius=30, fill="#f97316")
     draw.text((cta_box[0] + 34, 840), cta, font=cta_font, fill="#ffffff")
+    _draw_contact_footer(
+        draw,
+        website_url=website_url,
+        contact_address=contact_address,
+        contact_phone=contact_phone,
+    )
+
+
+def _draw_contact_footer(
+    draw: ImageDraw.ImageDraw,
+    *,
+    website_url: str,
+    contact_address: str,
+    contact_phone: str,
+) -> None:
+    footer_font = _font(18, bold=True)
+    small_font = _font(15)
     footer = website_url or "YEHP Herbal Wellness"
-    draw.text((110, 916), footer, font=_font(22, bold=True), fill="#cbd5e1")
+    draw.text((110, 900), footer, font=footer_font, fill="#e5e7eb")
+    if contact_phone:
+        draw.text((110, 925), f"Phone: {contact_phone}", font=small_font, fill="#cbd5e1")
+    if contact_address:
+        address_font, address_lines = _fit_text(
+            draw,
+            contact_address,
+            max_width=430,
+            max_lines=2,
+            start_size=15,
+            min_size=12,
+            bold=False,
+        )
+        y = 946
+        for line in address_lines:
+            draw.text((110, y), line, font=address_font, fill="#cbd5e1")
+            y += _line_height(address_font, 1.15)
 
 
 def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:

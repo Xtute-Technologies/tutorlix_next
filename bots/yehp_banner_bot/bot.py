@@ -82,6 +82,8 @@ def run_once(config: BotConfig) -> RunResult:
         brand_name=config.brand_name,
         brand_tagline=config.brand_tagline,
         website_url=config.website_url,
+        contact_address=config.contact_address,
+        contact_phone=config.contact_phone,
         output_dir=config.output_dir,
         content_index=content_index,
         openai_image_enabled=config.openai_image_enabled,

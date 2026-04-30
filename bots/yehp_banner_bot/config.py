@@ -67,6 +67,8 @@ class BotConfig:
     brand_tagline: str
     logo_url: str
     website_url: str
+    contact_address: str
+    contact_phone: str
     content_file: Path
     output_dir: Path
     state_file: Path
@@ -117,6 +119,11 @@ class BotConfig:
                 "",
             ).strip(),
             website_url=os.getenv("BOT_WEBSITE_URL", "").strip(),
+            contact_address=os.getenv(
+                "BOT_CONTACT_ADDRESS",
+                "Shop No. F19-F23, Eldeco Station 1 Mall, Sector 12, Faridabad 121007",
+            ).strip(),
+            contact_phone=os.getenv("BOT_CONTACT_PHONE", "+91-8168654010").strip(),
             content_file=_env_path(
                 "BOT_CONTENT_FILE",
                 Path("bots/yehp_banner_bot/content.json"),
