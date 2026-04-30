@@ -15,6 +15,15 @@ import uuid
 protected_resource_storage = FileSystemStorage(location=settings.BASE_DIR / 'protected_resources')
 
 
+def test_answer_upload_path(instance, filename):
+    stem, dot, extension = filename.rpartition('.')
+    base_name = slugify(stem or filename)[:80] or 'answer'
+    suffix = f".{extension.lower()}" if dot else ''
+    attempt_id = instance.attempt_id or 'new-attempt'
+    question_id = instance.question_id or 'new-question'
+    return f"tests/answers/attempt_{attempt_id}/question_{question_id}/{uuid.uuid4().hex}_{base_name}{suffix}"
+
+
 class Category(models.Model):
     name = models.CharField(max_length=200, unique=True)
     heading = models.CharField(max_length=255, blank=True, null=True)
@@ -724,7 +733,7 @@ class TestAnswer(models.Model):
     subjective_answer = models.TextField(blank=True, null=True)
     code_answer = models.TextField(blank=True, null=True)
     code_language = models.CharField(max_length=50, blank=True, null=True)
-    uploaded_file = models.FileField(upload_to='tests/answers/', blank=True, null=True)
+    uploaded_file = models.FileField(upload_to=test_answer_upload_path, blank=True, null=True)
     awarded_marks = models.DecimalField(max_digits=6, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     review_comment = models.TextField(blank=True, null=True)
     reviewed_at = models.DateTimeField(blank=True, null=True)

@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, Lock, Upload } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Lock, Upload } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { testAttemptAPI } from '@/lib/lmsService';
+import CodeEditor from '@/components/tests/CodeEditor';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -14,6 +15,44 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const TIMER_WARNING_SECONDS = 5 * 60;
+
+function parseDateMs(value) {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function getAttemptTimer(attempt, nowMs) {
+  const startedMs = parseDateMs(attempt?.started_at);
+  if (!startedMs) return null;
+
+  const submittedMs = parseDateMs(attempt?.submitted_at);
+  const lockedMs = attempt?.status === 'locked' ? parseDateMs(attempt?.locked_at) : null;
+  const endMs = submittedMs || lockedMs || nowMs;
+  const elapsedSeconds = Math.max(0, Math.floor((endMs - startedMs) / 1000));
+  const durationSeconds = Math.max(0, Number(attempt?.test_detail?.duration_minutes || 0) * 60);
+  const remainingSeconds = durationSeconds ? Math.max(0, durationSeconds - elapsedSeconds) : null;
+
+  return {
+    elapsedSeconds,
+    remainingSeconds,
+    isOverdue: Boolean(durationSeconds && elapsedSeconds >= durationSeconds),
+    isWarning: remainingSeconds !== null && remainingSeconds <= TIMER_WARNING_SECONDS,
+  };
+}
 
 export default function StudentAttemptPage() {
   const params = useParams();
@@ -24,6 +63,7 @@ export default function StudentAttemptPage() {
   const [loading, setLoading] = useState(true);
   const [locking, setLocking] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const autosaveTimer = useRef(null);
   const lockingRef = useRef(false);
   const lockSuppressionUntilRef = useRef(0);
@@ -67,6 +107,7 @@ export default function StudentAttemptPage() {
   const questions = attempt?.questions || [];
   const currentQuestion = questions[attempt?.current_question_index || 0];
   const currentAnswer = currentQuestion ? draftAnswers[currentQuestion.id] || {} : {};
+  const timerStats = useMemo(() => getAttemptTimer(attempt, nowMs), [attempt, nowMs]);
 
   const persistAnswer = async (question, answerOverride = null, currentQuestionIndexOverride = null) => {
     if (!attempt || !question || attempt.status !== 'in_progress') return;
@@ -86,11 +127,15 @@ export default function StudentAttemptPage() {
     const saved = await testAttemptAPI.saveAnswer(attempt.id, payload);
     setDraftAnswers((prev) => ({
       ...prev,
-      [question.id]: {
-        ...prev[question.id],
-        ...saved,
-        uploaded_file_url: saved.uploaded_file_url || prev[question.id]?.uploaded_file_url || '',
-      },
+      [question.id]: (() => {
+        const nextAnswer = {
+          ...prev[question.id],
+          ...saved,
+          uploaded_file_url: saved.uploaded_file_url || prev[question.id]?.uploaded_file_url || '',
+        };
+        delete nextAnswer.uploaded_file;
+        return nextAnswer;
+      })(),
     }));
   };
 
@@ -164,6 +209,17 @@ export default function StudentAttemptPage() {
     currentAnswer.code_answer,
     currentAnswer.code_language,
   ]);
+
+  useEffect(() => {
+    if (!attempt?.started_at || attempt.status !== 'in_progress') return;
+
+    setNowMs(Date.now());
+    const timerId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [attempt?.started_at, attempt?.status]);
 
   const updateAttemptIndex = (nextIndex) => {
     setAttempt((prev) => ({ ...prev, current_question_index: nextIndex }));
@@ -259,10 +315,14 @@ export default function StudentAttemptPage() {
     }
 
     if (currentQuestion.question_type === 'coding') {
+      const codeLanguage = currentAnswer.code_language || currentQuestion.coding_language || 'python';
+      const hasDraftCode = Object.prototype.hasOwnProperty.call(currentAnswer, 'code_answer');
+      const codeValue = hasDraftCode ? currentAnswer.code_answer || '' : currentQuestion.starter_code || '';
+
       return (
         <div className="space-y-4">
           <Select
-            value={currentAnswer.code_language || currentQuestion.coding_language || 'python'}
+            value={codeLanguage}
             disabled={attempt?.status !== 'in_progress'}
             onValueChange={(value) => setAnswerValue(currentQuestion.id, { code_language: value })}
           >
@@ -275,22 +335,34 @@ export default function StudentAttemptPage() {
               ))}
             </SelectContent>
           </Select>
+          <CodeEditor
+            height={520}
+            language={codeLanguage}
+            readOnly={attempt?.status !== 'in_progress'}
+            title={`question-${(attempt.current_question_index || 0) + 1}`}
+            value={codeValue}
+            onChange={(value) => setAnswerValue(currentQuestion.id, { code_answer: value })}
+          />
           <Textarea
-            rows={16}
-            value={currentAnswer.code_answer || currentQuestion.starter_code || ''}
+            className="sr-only"
+            value={codeValue}
             readOnly={attempt?.status !== 'in_progress'}
             onChange={(event) => setAnswerValue(currentQuestion.id, { code_answer: event.target.value })}
-            placeholder="Write your code here..."
-            className="font-mono"
+            aria-label="Code answer"
           />
         </div>
       );
     }
 
     if (currentQuestion.question_type === 'file_upload') {
+      const pendingFileName = currentAnswer.uploaded_file instanceof File ? currentAnswer.uploaded_file.name : '';
+
       return (
         <div className="space-y-4">
           <Input
+            key={`file-upload-${currentQuestion.id}`}
+            id={`file-upload-${currentQuestion.id}`}
+            name={`file-upload-${currentQuestion.id}`}
             type="file"
             disabled={attempt?.status !== 'in_progress'}
             onClick={() => suppressLockTemporarily()}
@@ -308,10 +380,13 @@ export default function StudentAttemptPage() {
               }
             }}
           />
+          {pendingFileName && (
+            <p className="text-xs text-gray-500">Selected for this question: {pendingFileName}</p>
+          )}
           {currentAnswer.uploaded_file_url && (
             <a href={currentAnswer.uploaded_file_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline inline-flex items-center gap-2">
               <Upload className="h-4 w-4" />
-              View uploaded file
+              View this question&apos;s uploaded file
             </a>
           )}
           {currentQuestion.allowed_file_types && (
@@ -346,7 +421,7 @@ export default function StudentAttemptPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <Link href="/student/scores" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900">
             <ArrowLeft className="h-4 w-4" />
@@ -358,6 +433,38 @@ export default function StudentAttemptPage() {
             <span className="text-sm text-gray-500">{attempt.test_detail?.product_name}</span>
           </div>
         </div>
+        {timerStats && (
+          <Card
+            className={`w-full p-4 lg:w-[300px] ${
+              timerStats.isOverdue
+                ? 'border-red-200 bg-red-50'
+                : timerStats.isWarning
+                  ? 'border-amber-200 bg-amber-50'
+                  : 'border-blue-100 bg-blue-50'
+            }`}
+          >
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Clock className="h-4 w-4" />
+              Test Timer
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-gray-500">
+                  {attempt.status === 'in_progress' ? 'Remaining' : 'Remaining at close'}
+                </div>
+                <div className={`mt-1 text-2xl font-semibold ${timerStats.isOverdue ? 'text-red-700' : 'text-gray-950'}`}>
+                  {timerStats.remainingSeconds === null ? '-' : formatDuration(timerStats.remainingSeconds)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Elapsed</div>
+                <div className="mt-1 text-2xl font-semibold text-gray-950">
+                  {formatDuration(timerStats.elapsedSeconds)}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
       {message.text && (

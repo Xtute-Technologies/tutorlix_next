@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink, FileText, Lock, Unlock } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { testAttemptAPI, testQuestionAPI } from '@/lib/lmsService';
+import CodeEditor from '@/components/tests/CodeEditor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -344,16 +345,24 @@ export default function TestAttemptReviewPage({ role }) {
                   {questionDetail?.starter_code && (
                     <div className="space-y-2">
                       <div className="text-sm font-medium text-gray-900">Starter code</div>
-                      <pre className="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">
-                        <code>{questionDetail.starter_code}</code>
-                      </pre>
+                      <CodeEditor
+                        height={260}
+                        language={answer?.code_language || question.coding_language || 'python'}
+                        readOnly
+                        title={`starter-q${index + 1}`}
+                        value={questionDetail.starter_code}
+                      />
                     </div>
                   )}
                   <div className="space-y-2">
                     <div className="text-sm font-medium text-gray-900">Submitted code</div>
-                    <pre className="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">
-                      <code>{answer?.code_answer || 'No code submitted.'}</code>
-                    </pre>
+                    <CodeEditor
+                      height={320}
+                      language={answer?.code_language || question.coding_language || 'python'}
+                      readOnly
+                      title={`submitted-q${index + 1}`}
+                      value={answer?.code_answer || 'No code submitted.'}
+                    />
                   </div>
                 </div>
               )}
