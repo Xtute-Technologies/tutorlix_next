@@ -79,11 +79,19 @@ def run_loop(config: BotConfig) -> None:
 def _run_scheduled_loop(config: BotConfig) -> None:
     timezone = _schedule_timezone(config)
     LOGGER.info(
-        "Starting Instagram banner bot; schedule=%s timezone=%s dry_run=%s",
+        "Starting Instagram banner bot; schedule=%s timezone=%s run_on_start=%s dry_run=%s",
         ",".join(config.post_schedule_times),
         config.schedule_timezone,
+        config.run_on_start,
         config.dry_run,
     )
+
+    if config.run_on_start and not STOP_REQUESTED:
+        LOGGER.info("Running startup publish before scheduled loop")
+        try:
+            run_once(config)
+        except Exception:
+            LOGGER.exception("Startup bot run failed")
 
     while not STOP_REQUESTED:
         now = datetime.now(timezone)

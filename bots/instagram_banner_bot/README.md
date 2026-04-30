@@ -37,6 +37,7 @@ BOT_REEL_SHARE_TO_FEED=true
 BOT_REEL_AUDIO_FILE=bots/instagram_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3
 BOT_POST_SCHEDULE_TIMES=11:00,17:00
 BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
+BOT_RUN_ON_START=true
 ```
 
 When `OPENAI_API_KEY` is set, `designer.py` uses OpenAI to create a no-text
@@ -82,17 +83,19 @@ image post again.
 
 ## Scheduled Posting
 
-In loop mode, the bot waits for the next configured posting time instead of
-posting immediately on container start.
+In loop mode, the bot posts once immediately on container start by default, then
+waits for the next configured posting time.
 
 ```dotenv
 BOT_POST_SCHEDULE_TIMES=11:00,17:00
 BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
+BOT_RUN_ON_START=true
 ```
 
 Times can be written as 24-hour values (`11:00,17:00`) or 12-hour values
 (`11:00 AM,5:00 PM`). Set `BOT_POST_SCHEDULE_TIMES=` to fall back to
-`BOT_POST_INTERVAL_SECONDS`.
+`BOT_POST_INTERVAL_SECONDS`. Set `BOT_RUN_ON_START=false` if you do not want
+the immediate startup post.
 
 ## Run
 
@@ -128,9 +131,9 @@ docker run -d \
   ankitvashishta7/tutorlix-instagram-banner-bot-prod:latest
 ```
 
-The container starts in `--loop --publish` mode, so it waits until the next
-configured schedule time. With the default schedule, it posts at 11:00 AM and
-5:00 PM in `BOT_SCHEDULE_TIMEZONE`.
+The container starts in `--loop --publish` mode, so it posts one Reel
+immediately when the Docker container starts, then continues posting at 11:00 AM
+and 5:00 PM in `BOT_SCHEDULE_TIMEZONE`.
 
 For a cron-based deployment instead of a long-running process:
 

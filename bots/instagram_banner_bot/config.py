@@ -129,6 +129,7 @@ class BotConfig:
     reel_audio_file: Path
     post_schedule_times: tuple[str, ...]
     schedule_timezone: str
+    run_on_start: bool
     interval_seconds: int
     dry_run: bool
     request_timeout_seconds: int
@@ -201,6 +202,7 @@ class BotConfig:
             ),
             schedule_timezone=os.getenv("BOT_SCHEDULE_TIMEZONE", "Asia/Kolkata").strip()
             or "Asia/Kolkata",
+            run_on_start=_env_bool("BOT_RUN_ON_START", True),
             interval_seconds=_env_int("BOT_POST_INTERVAL_SECONDS", 7200),
             dry_run=_env_bool("BOT_DRY_RUN", True),
             request_timeout_seconds=_env_int("BOT_REQUEST_TIMEOUT_SECONDS", 30),
