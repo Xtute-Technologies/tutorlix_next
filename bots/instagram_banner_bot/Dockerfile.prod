@@ -2,6 +2,11 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Install ffmpeg for Reel MP4 videos and tzdata for scheduled posting timezones.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 COPY bots/instagram_banner_bot/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \

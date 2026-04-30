@@ -53,6 +53,55 @@ def _env_int(name: str, default: int) -> int:
         raise ConfigError(f"{name} must be an integer") from exc
 
 
+def _env_schedule_times(name: str, default: str) -> tuple[str, ...]:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        raw_value = default
+    raw_value = raw_value.strip()
+    if not raw_value:
+        return ()
+
+    schedule_times = []
+    for item in raw_value.replace(";", ",").split(","):
+        value = item.strip()
+        if not value:
+            continue
+        schedule_times.append(_normalize_schedule_time(value, name))
+
+    return tuple(dict.fromkeys(schedule_times))
+
+
+def _normalize_schedule_time(value: str, env_name: str) -> str:
+    normalized = value.strip().lower().replace(".", "")
+    meridiem = ""
+    if normalized.endswith("am") or normalized.endswith("pm"):
+        meridiem = normalized[-2:]
+        normalized = normalized[:-2].strip()
+
+    parts = normalized.split(":")
+    if len(parts) not in {1, 2}:
+        raise ConfigError(f"{env_name} entries must use HH:MM, e.g. 11:00,17:00")
+
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) == 2 else 0
+    except ValueError as exc:
+        raise ConfigError(f"{env_name} entries must use numeric times") from exc
+
+    if meridiem:
+        if hour < 1 or hour > 12:
+            raise ConfigError(f"{env_name} 12-hour entries must use hours 1-12")
+        if meridiem == "am":
+            hour = 0 if hour == 12 else hour
+        else:
+            hour = 12 if hour == 12 else hour + 12
+
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        raise ConfigError(f"{env_name} entries must be valid 24-hour times")
+
+    return f"{hour:02d}:{minute:02d}"
+
+
 def _env_path(name: str, default: Path) -> Path:
     value = os.getenv(name)
     path = Path(value) if value else default
@@ -74,6 +123,12 @@ class BotConfig:
     ig_access_token: str
     graph_api_base_url: str
     graph_api_version: str
+    publish_media_type: str
+    reel_duration_seconds: int
+    reel_share_to_feed: bool
+    reel_audio_file: Path
+    post_schedule_times: tuple[str, ...]
+    schedule_timezone: str
     interval_seconds: int
     dry_run: bool
     request_timeout_seconds: int
@@ -105,6 +160,10 @@ class BotConfig:
         if openai_image_enabled is None:
             openai_image_enabled = bool(openai_api_key)
 
+        publish_media_type = os.getenv("BOT_PUBLISH_MEDIA_TYPE", "reel").strip().lower()
+        if publish_media_type not in {"image", "reel"}:
+            raise ConfigError("BOT_PUBLISH_MEDIA_TYPE must be either image or reel")
+
         return cls(
             brand_name=os.getenv("BOT_BRAND_NAME", "Tutorlix"),
             brand_tagline=os.getenv(
@@ -129,11 +188,24 @@ class BotConfig:
                 "https://graph.facebook.com",
             ).rstrip("/"),
             graph_api_version=os.getenv("META_GRAPH_API_VERSION", "v25.0").strip("/"),
+            publish_media_type=publish_media_type,
+            reel_duration_seconds=_env_int("BOT_REEL_DURATION_SECONDS", 8),
+            reel_share_to_feed=_env_bool("BOT_REEL_SHARE_TO_FEED", True),
+            reel_audio_file=_env_path(
+                "BOT_REEL_AUDIO_FILE",
+                Path("bots/instagram_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3"),
+            ),
+            post_schedule_times=_env_schedule_times(
+                "BOT_POST_SCHEDULE_TIMES",
+                "11:00,17:00",
+            ),
+            schedule_timezone=os.getenv("BOT_SCHEDULE_TIMEZONE", "Asia/Kolkata").strip()
+            or "Asia/Kolkata",
             interval_seconds=_env_int("BOT_POST_INTERVAL_SECONDS", 7200),
             dry_run=_env_bool("BOT_DRY_RUN", True),
             request_timeout_seconds=_env_int("BOT_REQUEST_TIMEOUT_SECONDS", 30),
             publish_poll_seconds=_env_int("BOT_PUBLISH_POLL_SECONDS", 5),
-            publish_wait_seconds=_env_int("BOT_PUBLISH_WAIT_SECONDS", 60),
+            publish_wait_seconds=_env_int("BOT_PUBLISH_WAIT_SECONDS", 180),
             openai_image_enabled=openai_image_enabled,
             openai_api_key=openai_api_key,
             openai_api_base_url=os.getenv(

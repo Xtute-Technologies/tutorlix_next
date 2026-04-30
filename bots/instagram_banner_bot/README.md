@@ -1,12 +1,12 @@
 # Instagram Banner Bot
 
-This bot creates a branded square JPEG banner, builds an Instagram caption, and can publish it through the Instagram content publishing API every 2 hours.
+This bot creates a branded square JPEG banner, builds an Instagram caption, converts the banner into a short MP4 Reel by default, and can publish it through the Instagram content publishing API at 11:00 AM and 5:00 PM.
 
 The bot is standalone and does not depend on the Django or Next.js runtime.
 
 ## Important Instagram Requirement
 
-Instagram's publishing API does not upload the local image file directly. The generated JPEG must be reachable by Meta from a public HTTPS URL. Serve or upload `bots/instagram_banner_bot/output/` from a public static host, CDN, S3 bucket, or web server, then set `PUBLIC_MEDIA_BASE_URL` to that public directory.
+Instagram's publishing API does not upload the local media file directly. The generated MP4 Reel, or JPEG if `BOT_PUBLISH_MEDIA_TYPE=image`, must be reachable by Meta from a public HTTPS URL. Serve or upload `bots/instagram_banner_bot/output/` from a public static host, CDN, S3 bucket, or web server, then set `PUBLIC_MEDIA_BASE_URL` to that public directory.
 
 The Instagram account must be eligible for API publishing, and the access token must include the current Meta permissions for Instagram content publishing.
 
@@ -31,6 +31,12 @@ BOT_LOGO_URL=https://tutorlix.com/logo.png
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_IMAGE_ENABLED=true
 OPENAI_IMAGE_MODEL=gpt-image-1
+BOT_PUBLISH_MEDIA_TYPE=reel
+BOT_REEL_DURATION_SECONDS=8
+BOT_REEL_SHARE_TO_FEED=true
+BOT_REEL_AUDIO_FILE=bots/instagram_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3
+BOT_POST_SCHEDULE_TIMES=11:00,17:00
+BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
 ```
 
 When `OPENAI_API_KEY` is set, `designer.py` uses OpenAI to create a no-text
@@ -55,6 +61,39 @@ watermarks because the readable copy is added by `designer.py`.
 `{subheadline}`, `{cta}`, `{caption}`, `{hashtags}`, `{content_index}`,
 `{variation_seed}`, and `{date}`.
 
+## Reel Publishing
+
+By default, the bot publishes a Reel. It first creates the normal square banner
+image, then uses `ffmpeg` to produce a 1080x1920 MP4 with the banner centered on
+a blurred background.
+
+Relevant settings:
+
+```dotenv
+BOT_PUBLISH_MEDIA_TYPE=reel
+BOT_REEL_DURATION_SECONDS=8
+BOT_REEL_SHARE_TO_FEED=true
+BOT_REEL_AUDIO_FILE=bots/instagram_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3
+BOT_PUBLISH_WAIT_SECONDS=180
+```
+
+Set `BOT_PUBLISH_MEDIA_TYPE=image` if you need to publish the JPEG as a normal
+image post again.
+
+## Scheduled Posting
+
+In loop mode, the bot waits for the next configured posting time instead of
+posting immediately on container start.
+
+```dotenv
+BOT_POST_SCHEDULE_TIMES=11:00,17:00
+BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
+```
+
+Times can be written as 24-hour values (`11:00,17:00`) or 12-hour values
+(`11:00 AM,5:00 PM`). Set `BOT_POST_SCHEDULE_TIMES=` to fall back to
+`BOT_POST_INTERVAL_SECONDS`.
+
 ## Run
 
 Generate one banner without publishing:
@@ -69,7 +108,7 @@ Publish one banner:
 python -m bots.instagram_banner_bot --env-file bots/instagram_banner_bot/.env --once --publish
 ```
 
-Run forever, immediately publishing once and then every 2 hours:
+Run forever and publish at the configured schedule times:
 
 ```bash
 python -m bots.instagram_banner_bot --env-file bots/instagram_banner_bot/.env --loop --publish
@@ -89,8 +128,9 @@ docker run -d \
   ankitvashishta7/tutorlix-instagram-banner-bot-prod:latest
 ```
 
-The container starts in `--loop --publish` mode, so it generates and posts once
-immediately, then waits for `BOT_POST_INTERVAL_SECONDS`.
+The container starts in `--loop --publish` mode, so it waits until the next
+configured schedule time. With the default schedule, it posts at 11:00 AM and
+5:00 PM in `BOT_SCHEDULE_TIMEZONE`.
 
 For a cron-based deployment instead of a long-running process:
 
@@ -118,7 +158,7 @@ Each item supports:
 
 The bot calls Meta's Graph API in two steps:
 
-1. `POST /{ig-user-id}/media` with `image_url` and `caption`.
+1. `POST /{ig-user-id}/media` with `media_type=REELS`, `video_url`, `caption`, and `share_to_feed` when publishing a Reel. For image mode, it sends `image_url` and `caption`.
 2. `POST /{ig-user-id}/media_publish` with the returned container id.
 
 Relevant Meta docs:
