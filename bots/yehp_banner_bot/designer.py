@@ -33,6 +33,8 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 
 
 CANVAS_SIZE = (1080, 1080)
+FOOTER_TOP = 932
+OPENAI_TEXT_PANEL = (72, 170, 616, 912)
 
 PALETTES = [
     {
@@ -45,16 +47,16 @@ PALETTES = [
         "soft": "#dbeafe",
     },
     {
-        "background": "#f7fee7",
+        "background": "#f5faff",
         "panel": "#ffffff",
         "primary": "#1f2933",
         "secondary": "#52606d",
         "accent": "#0f766e",
         "accent_dark": "#115e59",
-        "soft": "#ccfbf1",
+        "soft": "#dbeafe",
     },
     {
-        "background": "#fff7ed",
+        "background": "#f1f8ff",
         "panel": "#ffffff",
         "primary": "#1f2937",
         "secondary": "#4b5563",
@@ -63,13 +65,13 @@ PALETTES = [
         "soft": "#dbeafe",
     },
     {
-        "background": "#fdf2f8",
+        "background": "#f7fbff",
         "panel": "#ffffff",
         "primary": "#111827",
         "secondary": "#4b5563",
         "accent": "#7c3aed",
         "accent_dark": "#6d28d9",
-        "soft": "#ede9fe",
+        "soft": "#e0f2fe",
     },
 ]
 
@@ -137,16 +139,17 @@ def render_banner(
     draw = ImageDraw.Draw(image)
     if openai_image_enabled:
         _draw_brand_on_dark_panel(draw, brand_name, brand_tagline)
-        _draw_main_copy_on_dark_panel(
-            draw,
-            post,
-            website_url=website_url,
-            contact_address=contact_address,
-            contact_phone=contact_phone,
-        )
+        _draw_main_copy_on_dark_panel(draw, post)
     else:
         _draw_brand(draw, brand_name, brand_tagline, palette)
         _draw_main_copy(draw, post, palette)
+
+    _draw_contact_footer(
+        image,
+        website_url=website_url,
+        contact_address=contact_address,
+        contact_phone=contact_phone,
+    )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = _slugify(post.headline)[:42] or "banner"
@@ -260,11 +263,13 @@ def _build_openai_background_prompt(
         "Create a square 1:1 realistic premium Instagram banner background for a "
         "doctor-guided herbal wellness clinic. Composition: the right side shows a "
         "realistic elegant female doctor in a clean white coat, warm confident "
-        "smile, professional and trustworthy presence, subtle herbal clinic setting "
-        "with soft green natural accents. The left side must stay simple, subtle, "
-        "and uncluttered with soft depth for a dark text overlay; make the text area "
-        "more visually important than the image area. Background should feel clean, "
-        "premium, calming, and medical-wellness oriented. Do not include any text, "
+        "smile, professional and trustworthy presence. Keep the overall background "
+        "subtle white or very pale clinical blue with soft daylight, minimal texture, "
+        "and only faint herbal hints if needed; avoid green-heavy or busy scenery. "
+        "The left side must stay simple, subtle, and uncluttered with soft depth for "
+        "a dark text overlay; make the text area more visually important than the "
+        "image area. Background should feel clean, premium, calming, and "
+        "medical-wellness oriented. Do not include any text, "
         "letters, numbers, formulas, readable symbols, logos, watermarks, QR codes, "
         "contact details, URLs, or signage. Generate only the no-text photographic "
         "background. "
@@ -290,7 +295,8 @@ def _draw_openai_text_panel(image: Image.Image, palette: dict[str, str]) -> None
     overlay = Image.new("RGBA", CANVAS_SIZE, (255, 255, 255, 0))
     draw = ImageDraw.Draw(overlay)
 
-    panel = (72, 170, 616, 958)
+    draw.rectangle((0, 0, CANVAS_SIZE[0], CANVAS_SIZE[1]), fill=(247, 251, 255, 18))
+    panel = OPENAI_TEXT_PANEL
     draw.rounded_rectangle(
         panel,
         radius=46,
@@ -411,10 +417,6 @@ def _draw_main_copy(
 def _draw_main_copy_on_dark_panel(
     draw: ImageDraw.ImageDraw,
     post: PostSpec,
-    *,
-    website_url: str = "",
-    contact_address: str = "",
-    contact_phone: str = "",
 ) -> None:
     headline_font, headline_lines = _fit_text(
         draw,
@@ -454,48 +456,71 @@ def _draw_main_copy_on_dark_panel(
     cta_box = (108, 826, 108 + cta_width, 884)
     draw.rounded_rectangle(cta_box, radius=30, fill="#f97316")
     draw.text((cta_box[0] + 34, 840), cta, font=cta_font, fill="#ffffff")
-    _draw_contact_footer(
-        draw,
-        website_url=website_url,
-        contact_address=contact_address,
-        contact_phone=contact_phone,
-    )
 
 
 def _draw_contact_footer(
-    draw: ImageDraw.ImageDraw,
+    image: Image.Image,
     *,
     website_url: str,
     contact_address: str,
     contact_phone: str,
 ) -> None:
-    footer_font = _font(18, bold=True)
-    small_font = _font(15)
-    draw.rounded_rectangle(
-        (96, 890, 592, 952),
-        radius=20,
-        fill=(0, 0, 0, 179),
-        outline=(255, 255, 255, 34),
-        width=1,
-    )
-    footer = website_url or "YEHP Herbal Wellness"
-    draw.text((112, 898), footer, font=footer_font, fill="#e5e7eb")
+    base = image.convert("RGBA")
+    overlay = Image.new("RGBA", CANVAS_SIZE, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    footer_box = (0, FOOTER_TOP, CANVAS_SIZE[0], CANVAS_SIZE[1])
+    draw.rectangle(footer_box, fill=(0, 0, 0, 179))
+    draw.line((0, FOOTER_TOP, CANVAS_SIZE[0], FOOTER_TOP), fill=(255, 255, 255, 42), width=2)
+
+    max_width = CANVAS_SIZE[0] - 96
+    title = website_url or "YEHP Herbal Wellness"
+    title_parts = [title]
     if contact_phone:
-        draw.text((112, 922), f"Phone: {contact_phone}", font=small_font, fill="#cbd5e1")
+        title_parts.append(f"Phone: {contact_phone}")
+    title_text = " | ".join(title_parts)
+
+    title_font, title_lines = _fit_text(
+        draw,
+        title_text,
+        max_width=max_width,
+        max_lines=1,
+        start_size=23,
+        min_size=16,
+        bold=True,
+    )
+    address_font, address_lines = _fit_text(
+        draw,
+        contact_address,
+        max_width=max_width,
+        max_lines=2,
+        start_size=22,
+        min_size=15,
+        bold=False,
+    )
+
+    title_line_height = _line_height(title_font, 1.15)
+    address_line_height = _line_height(address_font, 1.16)
+    gap = 8 if contact_address else 0
+    total_height = (
+        len(title_lines) * title_line_height
+        + gap
+        + len(address_lines) * address_line_height
+    )
+    y = FOOTER_TOP + max(14, ((CANVAS_SIZE[1] - FOOTER_TOP) - total_height) // 2)
+
+    for line in title_lines:
+        _draw_centered_text(draw, line, title_font, y, fill="#f8fafc", max_width=max_width)
+        y += title_line_height
+
     if contact_address:
-        address_font, address_lines = _fit_text(
-            draw,
-            contact_address,
-            max_width=460,
-            max_lines=2,
-            start_size=15,
-            min_size=12,
-            bold=False,
-        )
-        y = 941
+        y += gap
         for line in address_lines:
-            draw.text((112, y), line, font=address_font, fill="#cbd5e1")
-            y += _line_height(address_font, 1.15)
+            _draw_centered_text(draw, line, address_font, y, fill="#dbe4ef", max_width=max_width)
+            y += address_line_height
+
+    composed = Image.alpha_composite(base, overlay).convert("RGB")
+    image.paste(composed)
 
 
 def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:
@@ -514,6 +539,20 @@ def _draw_dark_panel_feature_row(draw: ImageDraw.ImageDraw) -> None:
         )
         draw.text((x + 15, 758), item, font=font, fill="#e5e7eb")
         x = pill[2] + 10
+
+
+def _draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+    y: int,
+    *,
+    fill: str,
+    max_width: int,
+) -> None:
+    text_width = _text_width(draw, text, font)
+    x = (CANVAS_SIZE[0] - text_width) // 2
+    draw.text((x, y), text, font=font, fill=fill)
 
 
 def _fit_text(
