@@ -1,8 +1,9 @@
 # YEHP Banner Bot
 
 This bot creates branded square JPEG banners for YEHP herbal wellness topics,
+converts them into Instagram Reel MP4 videos with the bundled background sound,
 builds Instagram captions, and can publish through Instagram's content publishing
-API every 6 hours.
+API at 12:00 PM and 6:00 PM.
 
 The bot randomly chooses one configured topic on each run:
 
@@ -17,8 +18,8 @@ quality risks.
 
 ## Important Instagram Requirement
 
-Instagram's publishing API does not upload the local image file directly. The
-generated JPEG must be reachable by Meta from a public HTTPS URL. Serve or
+Instagram's publishing API does not upload the local video file directly. The
+generated MP4 Reel must be reachable by Meta from a public HTTPS URL. Serve or
 upload `bots/yehp_banner_bot/output/` from a public static host, CDN, S3 bucket,
 or web server, then set `PUBLIC_MEDIA_BASE_URL` to that public directory.
 
@@ -42,7 +43,11 @@ BOT_WEBSITE_URL=https://your-website.example
 BOT_CONTACT_ADDRESS=Shop No. F19-F23, Eldeco Station 1 Mall, Sector 12, Faridabad 121007
 BOT_CONTACT_PHONE=+91-8168654010
 BOT_DRY_RUN=false
-BOT_POST_INTERVAL_SECONDS=21600
+BOT_POST_SCHEDULE_TIMES=12:00,18:00
+BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
+BOT_RUN_ON_START=false
+BOT_PUBLISH_MEDIA_TYPE=reel
+BOT_REEL_AUDIO_FILE=bots/yehp_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/yehp-banners
 
 IG_USER_ID=your_instagram_user_id
@@ -70,19 +75,21 @@ OPENAI_IMAGE_TIMEOUT_SECONDS=180
 
 ## Run
 
-Generate one banner without publishing:
+Generate one Reel without publishing:
 
 ```bash
 python -m bots.yehp_banner_bot --env-file bots/yehp_banner_bot/.env --once --dry-run
 ```
 
-Publish one banner:
+Publish one Reel:
 
 ```bash
 python -m bots.yehp_banner_bot --env-file bots/yehp_banner_bot/.env --once --publish
 ```
 
-Run forever, immediately publishing once and then every 6 hours:
+Run forever on the fixed schedule. By default it waits until the next 12:00 PM
+or 6:00 PM Asia/Kolkata slot and does not publish immediately on container
+start:
 
 ```bash
 python -m bots.yehp_banner_bot --env-file bots/yehp_banner_bot/.env --loop --publish
@@ -98,12 +105,13 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   --env-file /var/www/tutorlix-prod/yehp-bot.env \
-  -v /var/www/tutorlix-prod/yehp-bot-output:/app/bots/yehp_banner_bot/output \
+  -v /var/www/tutorlix-prod/yehpbot-output:/app/bots/yehp_banner_bot/output \
   ankitvashishta7/yehp-banner-bot-prod:latest
 ```
 
-The container starts in `--loop --publish` mode, so it generates and posts once
-immediately, then waits for `BOT_POST_INTERVAL_SECONDS`.
+The container starts in `--loop --publish` mode. With the default schedule it
+posts at `12:00` and `18:00` in `BOT_SCHEDULE_TIMEZONE`. The interval setting is
+only used if `BOT_POST_SCHEDULE_TIMES` is empty.
 
 ## Edit Banner Content
 
@@ -123,5 +131,5 @@ Update `bots/yehp_banner_bot/content.json`. Each item supports:
 
 The bot calls Meta's Graph API in two steps:
 
-1. `POST /{ig-user-id}/media` with `image_url` and `caption`.
+1. `POST /{ig-user-id}/media` with `media_type=REELS`, `video_url`, and `caption`.
 2. `POST /{ig-user-id}/media_publish` with the returned container id.

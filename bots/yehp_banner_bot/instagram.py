@@ -54,6 +54,22 @@ class InstagramPublisher:
         media_id = self._publish_container(container_id)
         return PublishResult(container_id=container_id, media_id=media_id)
 
+    def publish_reel(
+        self,
+        *,
+        video_url: str,
+        caption: str,
+        share_to_feed: bool,
+    ) -> PublishResult:
+        container_id = self._create_reel_container(
+            video_url=video_url,
+            caption=caption,
+            share_to_feed=share_to_feed,
+        )
+        self._wait_for_container(container_id)
+        media_id = self._publish_container(container_id)
+        return PublishResult(container_id=container_id, media_id=media_id)
+
     def _create_image_container(self, *, image_url: str, caption: str) -> str:
         payload = {
             "image_url": image_url,
@@ -63,6 +79,25 @@ class InstagramPublisher:
         container_id = str(data.get("id", "")).strip()
         if not container_id:
             raise InstagramPublishError(f"Media container response did not include id: {data}")
+        return container_id
+
+    def _create_reel_container(
+        self,
+        *,
+        video_url: str,
+        caption: str,
+        share_to_feed: bool,
+    ) -> str:
+        payload = {
+            "media_type": "REELS",
+            "video_url": video_url,
+            "caption": caption,
+            "share_to_feed": "true" if share_to_feed else "false",
+        }
+        data = self._post(f"{self.ig_user_id}/media", payload)
+        container_id = str(data.get("id", "")).strip()
+        if not container_id:
+            raise InstagramPublishError(f"Reel container response did not include id: {data}")
         return container_id
 
     def _publish_container(self, container_id: str) -> str:
