@@ -5,7 +5,8 @@ from .models import (
     StudentSpecificClass, CourseSpecificClass, Recording,
     Attendance, TestScore, Expense, ContactFormMessage,
     SellerExpense, TeacherExpense, Masterclass,
-    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob
+    QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob,
+    MicrosoftCourse
 )
 
 
@@ -49,6 +50,15 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('is_active',)
         }),
     )
+
+
+@admin.register(MicrosoftCourse)
+class MicrosoftCourseAdmin(admin.ModelAdmin):
+    list_display = ['title', 'course_type', 'locale', 'popularity', 'last_modified', 'synced_at', 'is_active']
+    list_filter = ['course_type', 'locale', 'is_active', 'scraped']
+    search_fields = ['title', 'uid', 'url', 'summary']
+    readonly_fields = ['source_key_hash', 'raw_payload', 'created_at', 'updated_at']
+    ordering = ['-synced_at', 'title']
 
 
 @admin.register(ProductImage)

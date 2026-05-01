@@ -183,6 +183,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+MICROSOFT_CATALOG_SYNC_TOKEN = os.getenv('MICROSOFT_CATALOG_SYNC_TOKEN', '').strip()
+
 
 DEFAULT_RENDERER_CLASSES = (
     'rest_framework.renderers.JSONRenderer',

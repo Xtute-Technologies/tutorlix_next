@@ -14,6 +14,38 @@ const MICROSOFT_LEARN_CATALOG_URL = 'https://learn.microsoft.com/api/catalog/';
 const ALLOWED_TYPES = ['modules', 'learningPaths', 'courses', 'certifications', 'appliedSkills'];
 const CACHE_DIR = path.join(tmpdir(), 'tutorlix-microsoft-catalog-cache');
 const MICROSOFT_DETAIL_TYPES = ['learningPaths', 'modules', 'courses', 'certifications', 'appliedSkills'];
+const DEFAULT_BACKEND_API_BASE = 'http://localhost:8000';
+const MICROSOFT_CATALOG_SYNC_BATCH_SIZE = 250;
+
+function resolveBackendApiBase(origin = '') {
+  const configuredBase =
+    process.env.MICROSOFT_CATALOG_BACKEND_URL ||
+    process.env.SITEMAP_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    DEFAULT_BACKEND_API_BASE;
+
+  if (/^https?:\/\//i.test(configuredBase)) {
+    return configuredBase.replace(/\/+$/, '');
+  }
+
+  if (origin && /^https?:\/\//i.test(origin)) {
+    return new URL(configuredBase, origin).toString().replace(/\/+$/, '');
+  }
+
+  return DEFAULT_BACKEND_API_BASE;
+}
+
+function buildBackendApiUrl(pathname, params = {}, origin = '') {
+  const url = new URL(pathname, `${resolveBackendApiBase(origin)}/`);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+
+  return url.toString();
+}
 
 export function resolveMicrosoftTypes(requestedType = 'learningPaths') {
   const selectedTypes =
@@ -55,6 +87,117 @@ export async function fetchMicrosoftCatalogSnapshot({ locale = 'en-us', requeste
     source: upstreamUrl.toString(),
     cachedAt: new Date().toISOString(),
   };
+}
+
+export async function fetchStoredMicrosoftCatalogSnapshot({
+  locale = 'en-us',
+  requestedType = 'learningPaths',
+  q = '',
+  level = '',
+  page = 1,
+  pageSize = 12,
+  origin = '',
+} = {}) {
+  const effectiveTypes = resolveMicrosoftTypes(requestedType);
+  const storedCatalogUrl = buildBackendApiUrl('/api/lms/microsoft-courses/', {
+    locale,
+    type: requestedType,
+    q,
+    level,
+    page,
+    pageSize,
+  }, origin);
+
+  try {
+    const response = await fetch(storedCatalogUrl, {
+      headers: {
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (!Number.isFinite(Number(data?.storedCount)) || Number(data.storedCount) <= 0) {
+      return null;
+    }
+
+    return {
+      ...data,
+      effectiveTypes,
+      source: data.source || 'tutorlix-database:microsoft-courses',
+      stale: true,
+      stored: true,
+      cachedAt: data.cachedAt || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function persistMicrosoftCatalogSnapshot({
+  items = [],
+  locale = 'en-us',
+  source = '',
+  cachedAt = null,
+  scraped = false,
+  origin = '',
+} = {}) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return null;
+  }
+
+  const syncUrl = buildBackendApiUrl('/api/lms/microsoft-courses/sync-snapshot/', {}, origin);
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+
+  if (process.env.MICROSOFT_CATALOG_SYNC_TOKEN) {
+    headers['X-Microsoft-Catalog-Sync-Token'] = process.env.MICROSOFT_CATALOG_SYNC_TOKEN;
+  }
+
+  const summary = {
+    created: 0,
+    updated: 0,
+    total: 0,
+  };
+
+  try {
+    for (let index = 0; index < items.length; index += MICROSOFT_CATALOG_SYNC_BATCH_SIZE) {
+      const batch = items.slice(index, index + MICROSOFT_CATALOG_SYNC_BATCH_SIZE);
+      const response = await fetch(syncUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          items: batch,
+          locale,
+          source,
+          cachedAt,
+          scraped,
+        }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        return summary.total > 0 ? summary : null;
+      }
+
+      const result = await response.json();
+      summary.created += Number(result?.created || 0);
+      summary.updated += Number(result?.updated || 0);
+      summary.total += Number(result?.total || 0);
+    }
+
+    return summary;
+  } catch {
+    return summary.total > 0 ? summary : null;
+  }
 }
 
 export async function fetchMicrosoftCatalogItemByUid(uid, { locale = 'en-us' } = {}) {

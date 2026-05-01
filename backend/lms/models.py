@@ -931,6 +931,55 @@ class ProductLead(models.Model):
         ordering = ['-created_at']
 
 
+class MicrosoftCourse(models.Model):
+    """
+    Cached Microsoft Learn catalog item used when the upstream catalog API is unavailable.
+    """
+    uid = models.CharField(max_length=512, blank=True, db_index=True)
+    source_key = models.TextField(blank=True)
+    source_key_hash = models.CharField(max_length=64, unique=True)
+    slug = models.TextField(blank=True)
+    title = models.CharField(max_length=500)
+    summary = models.TextField(blank=True)
+    subtitle = models.TextField(blank=True)
+    url = models.URLField(max_length=1000, blank=True)
+    icon_url = models.URLField(max_length=1000, blank=True)
+    social_image_url = models.URLField(max_length=1000, blank=True)
+    duration_in_minutes = models.PositiveIntegerField(default=0)
+    levels = models.JSONField(default=list, blank=True)
+    roles = models.JSONField(default=list, blank=True)
+    products = models.JSONField(default=list, blank=True)
+    subjects = models.JSONField(default=list, blank=True)
+    learning_objectives = models.JSONField(default=list, blank=True)
+    prerequisites = models.JSONField(default=list, blank=True)
+    last_modified = models.DateTimeField(blank=True, null=True)
+    course_type = models.CharField(max_length=40, db_index=True)
+    type_label = models.CharField(max_length=120, blank=True)
+    popularity = models.FloatField(default=0)
+    locale = models.CharField(max_length=20, default='en-us', db_index=True)
+    source_url = models.URLField(max_length=1000, blank=True)
+    scraped = models.BooleanField(default=False)
+    scraped_duration_label = models.CharField(max_length=120, blank=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    synced_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Microsoft Course'
+        verbose_name_plural = 'Microsoft Courses'
+        ordering = ['-popularity', '-last_modified', 'title']
+        indexes = [
+            models.Index(fields=['locale', 'course_type'], name='lms_ms_course_locale_type_idx'),
+            models.Index(fields=['is_active', 'synced_at'], name='lms_ms_course_active_sync_idx'),
+            models.Index(fields=['popularity', 'last_modified'], name='lms_ms_course_rank_idx'),
+        ]
+
+
 class Resource(models.Model):
     RESOURCE_TYPE_CHOICES = [
         ('pdf', 'PDF'),

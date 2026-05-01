@@ -11,3 +11,4 @@ from .forum_views import *
 from .notification_views import *
 from .test_views import *
 from .resource_views import *
+from .microsoft_views import *

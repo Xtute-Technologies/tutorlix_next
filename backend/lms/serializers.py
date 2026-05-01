@@ -8,7 +8,7 @@ from .models import (
     Recording, Attendance, TestScore, Test, TestQuestion, TestAttempt, TestAnswer,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
     QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob, Resource, ApprovedResourceDomain, ResourceImportJob,
-    ForumPost, ForumPostLike, ForumComment, ForumNotification,
+    ForumPost, ForumPostLike, ForumComment, ForumNotification, MicrosoftCourse,
 )
 from django.utils.text import slugify
 
@@ -1459,6 +1459,66 @@ class ProductLeadCreateSerializer(serializers.ModelSerializer):
     def validate_phone(self, value):
         # Basic phone validation if needed
         return value
+
+
+class MicrosoftCourseSerializer(serializers.ModelSerializer):
+    type = serializers.CharField(source='course_type', required=False, allow_blank=True)
+    typeLabel = serializers.CharField(source='type_label', required=False, allow_blank=True)
+    learningObjectives = serializers.JSONField(source='learning_objectives', required=False)
+
+    class Meta:
+        model = MicrosoftCourse
+        fields = [
+            'id',
+            'uid',
+            'slug',
+            'title',
+            'summary',
+            'subtitle',
+            'url',
+            'icon_url',
+            'social_image_url',
+            'duration_in_minutes',
+            'levels',
+            'roles',
+            'products',
+            'subjects',
+            'last_modified',
+            'type',
+            'typeLabel',
+            'popularity',
+            'locale',
+            'learningObjectives',
+            'prerequisites',
+            'source_url',
+            'scraped',
+            'scraped_duration_label',
+            'raw_payload',
+            'is_active',
+            'synced_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'synced_at', 'created_at', 'updated_at']
+
+    def validate_levels(self, value):
+        return self._validate_string_list(value, 'levels')
+
+    def validate_roles(self, value):
+        return self._validate_string_list(value, 'roles')
+
+    def validate_products(self, value):
+        return self._validate_string_list(value, 'products')
+
+    def validate_subjects(self, value):
+        return self._validate_string_list(value, 'subjects')
+
+    def _validate_string_list(self, value, field_name):
+        if value in (None, ''):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError(f'{field_name} must be a list.')
+        return [str(item).strip() for item in value if str(item).strip()]
 
 
 class ResourceSerializer(serializers.ModelSerializer):

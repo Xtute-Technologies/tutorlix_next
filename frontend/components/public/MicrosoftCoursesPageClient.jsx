@@ -45,6 +45,39 @@ function formatDate(dateValue) {
   }
 }
 
+function buildClientCacheKey({ type, query, level, page }) {
+  return [
+    'tutorlix-microsoft-catalog',
+    type,
+    query.trim().toLowerCase(),
+    level,
+    page,
+  ].join('::');
+}
+
+function readCachedCatalog(cacheKey) {
+  try {
+    const cached = window.localStorage.getItem(cacheKey);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCatalog(cacheKey, catalog) {
+  try {
+    window.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        ...catalog,
+        cachedAt: new Date().toISOString(),
+      })
+    );
+  } catch {
+    // Ignore browser storage failures.
+  }
+}
+
 export default function MicrosoftCoursesPageClient() {
   const { profileType } = useProfile();
   const [query, setQuery] = useState('');
@@ -73,6 +106,12 @@ export default function MicrosoftCoursesPageClient() {
     const loadCatalog = async () => {
       setLoading(true);
       setError('');
+      const cacheKey = buildClientCacheKey({
+        type,
+        query: deferredQuery,
+        level,
+        page,
+      });
 
       try {
         const params = new URLSearchParams({
@@ -97,19 +136,33 @@ export default function MicrosoftCoursesPageClient() {
         }
 
         if (!cancelled) {
-          setCatalog({
+          const nextCatalog = {
             items: Array.isArray(data.items) ? data.items : [],
             total: data.total || 0,
             totalPages: data.totalPages || 1,
             availableLevels: Array.isArray(data.availableLevels) ? data.availableLevels : [],
             stale: !!data.stale,
             warning: data.warning || '',
-          });
+          };
+          setCatalog(nextCatalog);
+          if (nextCatalog.items.length > 0) {
+            writeCachedCatalog(cacheKey, nextCatalog);
+          }
         }
       } catch (fetchError) {
         if (!cancelled) {
-          setCatalog({ items: [], total: 0, totalPages: 1, availableLevels: [], stale: false, warning: '' });
-          setError(fetchError.message || 'Failed to load Microsoft courses.');
+          const cachedCatalog = readCachedCatalog(cacheKey);
+          if (cachedCatalog?.items?.length) {
+            setCatalog({
+              ...cachedCatalog,
+              stale: true,
+              warning: 'Showing previously loaded Microsoft Learn data because the live catalog is unavailable.',
+            });
+            setError('');
+          } else {
+            setCatalog({ items: [], total: 0, totalPages: 1, availableLevels: [], stale: false, warning: '' });
+            setError(fetchError.message || 'Failed to load Microsoft courses.');
+          }
         }
       } finally {
         if (!cancelled) {

@@ -34,6 +34,7 @@ router.register(r'forum-notifications', views.ForumNotificationViewSet, basename
 router.register(r'resources', views.ResourceViewSet, basename='resource')
 router.register(r'approved-resource-domains', views.ApprovedResourceDomainViewSet, basename='approved-resource-domain')
 router.register(r'resource-import-jobs', views.ResourceImportJobViewSet, basename='resource-import-job')
+router.register(r'microsoft-courses', views.MicrosoftCourseViewSet, basename='microsoft-course')
 
 # 🎬 VIDEO RENDERING (ADMIN ONLY)
 router.register(r'videos', views.VideoViewSet, basename='video')

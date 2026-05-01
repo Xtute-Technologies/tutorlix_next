@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -11,6 +11,8 @@ import {
   buildMicrosoftCacheKey,
   buildMicrosoftCatalogSource,
   fetchMicrosoftCatalogSnapshot,
+  fetchStoredMicrosoftCatalogSnapshot,
+  persistMicrosoftCatalogSnapshot,
   readMicrosoftCatalogSnapshotCache,
   resolveMicrosoftTypes,
   scrapeMicrosoftCatalogFallback,
@@ -42,8 +44,76 @@ async function readCacheSnapshot(cacheKey) {
   }
 }
 
+function cacheEntryHasUsableItems(entry, effectiveTypes) {
+  return Array.isArray(entry?.items)
+    && entry.items.some((item) => !item?.type || effectiveTypes.includes(item.type));
+}
+
+function filterCacheEntryForTypes(entry, effectiveTypes) {
+  if (!entry?.items?.length) {
+    return entry;
+  }
+
+  return {
+    ...entry,
+    items: entry.items.filter((item) => !item?.type || effectiveTypes.includes(item.type)),
+  };
+}
+
+function cacheKeyMatchesLocale(cacheKey, locale) {
+  return String(cacheKey || '').split('::')[0] === locale;
+}
+
+async function readAnyCacheSnapshot(locale, effectiveTypes) {
+  for (const [key, entry] of catalogCache.entries()) {
+    if (cacheKeyMatchesLocale(key, locale) && cacheEntryHasUsableItems(entry, effectiveTypes)) {
+      return filterCacheEntryForTypes(entry, effectiveTypes);
+    }
+  }
+
+  try {
+    const filenames = await readdir(CACHE_DIR);
+    for (const filename of filenames) {
+      if (!filename.endsWith('.json')) continue;
+
+      try {
+        const cacheKey = decodeURIComponent(filename.slice(0, -5));
+        if (!cacheKeyMatchesLocale(cacheKey, locale)) continue;
+
+        const raw = await readFile(path.join(CACHE_DIR, filename), 'utf8');
+        const entry = JSON.parse(raw);
+        if (cacheEntryHasUsableItems(entry, effectiveTypes)) {
+          return filterCacheEntryForTypes(entry, effectiveTypes);
+        }
+      } catch {
+        // Ignore corrupt cache files and keep looking for a usable snapshot.
+      }
+    }
+  } catch {
+    // Cache directory may not exist yet.
+  }
+
+  return null;
+}
+
+async function getCachedFallbackEntry(cacheKey, locale, effectiveTypes) {
+  const memoryCache = catalogCache.get(cacheKey);
+  const fileCache = memoryCache?.items?.length
+    ? null
+    : ((await readCacheSnapshot(cacheKey)) || (await readMicrosoftCatalogSnapshotCache(cacheKey)));
+  const exactEntry = memoryCache?.items?.length ? memoryCache : fileCache;
+
+  if (cacheEntryHasUsableItems(exactEntry, effectiveTypes)) {
+    return filterCacheEntryForTypes(exactEntry, effectiveTypes);
+  }
+
+  return readAnyCacheSnapshot(locale, effectiveTypes);
+}
+
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { searchParams } = requestUrl;
+  const requestOrigin = requestUrl.origin;
   const locale = searchParams.get('locale') || 'en-us';
   const requestedType = searchParams.get('type') || 'learningPaths';
   const q = (searchParams.get('q') || '').trim().toLowerCase();
@@ -73,6 +143,14 @@ export async function GET(request) {
       source: snapshotSource,
       scraped: false,
     });
+    await persistMicrosoftCatalogSnapshot({
+      items: normalizedItems,
+      locale,
+      source: snapshotSource,
+      cachedAt,
+      scraped: false,
+      origin: requestOrigin,
+    });
 
     const filteredItems = filterCatalogItems(normalizedItems, q, level);
     return NextResponse.json(
@@ -87,11 +165,27 @@ export async function GET(request) {
       )
     );
   } catch (apiError) {
-    const memoryCache = catalogCache.get(cacheKey);
-    const fileCache = memoryCache?.items?.length
-      ? null
-      : ((await readCacheSnapshot(cacheKey)) || (await readMicrosoftCatalogSnapshotCache(cacheKey)));
-    const cachedEntry = memoryCache?.items?.length ? memoryCache : fileCache;
+    const storedEntry = await fetchStoredMicrosoftCatalogSnapshot({
+      locale,
+      requestedType,
+      q,
+      level,
+      page,
+      pageSize,
+      origin: requestOrigin,
+    });
+
+    if (storedEntry) {
+      return NextResponse.json({
+        ...storedEntry,
+        stale: true,
+        warning: 'Serving stored Microsoft Learn catalog data because the upstream service is unavailable.',
+        refreshError: apiError instanceof Error ? apiError.message : 'Unknown fetch error',
+        refreshSource: source,
+      });
+    }
+
+    const cachedEntry = await getCachedFallbackEntry(cacheKey, locale, effectiveTypes);
 
     if (cachedEntry?.items?.length) {
       const filteredItems = filterCatalogItems(cachedEntry.items, q, level);
@@ -136,6 +230,14 @@ export async function GET(request) {
           cachedAt: scrapedSnapshot.cachedAt,
           source: scrapedSnapshot.source,
           scraped: true,
+        });
+        await persistMicrosoftCatalogSnapshot({
+          items: scrapedSnapshot.items,
+          locale,
+          source: scrapedSnapshot.source,
+          cachedAt: scrapedSnapshot.cachedAt,
+          scraped: true,
+          origin: requestOrigin,
         });
       }
 
