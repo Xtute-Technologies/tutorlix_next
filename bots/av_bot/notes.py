@@ -231,8 +231,7 @@ def build_linkedin_text(note: NoteItem) -> str:
         body = _truncate(body, 700)
 
     parts = [
-        "A practical professional learning note from Tutorlix:",
-        note.title,
+        "Hi Linkedin family is curated a note on " + note.title,
     ]
     if body:
         parts.append(body)
