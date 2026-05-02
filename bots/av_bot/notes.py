@@ -362,8 +362,8 @@ def create_note_banner(
     muted = (71, 85, 105)
 
     eyebrow_font = _font(30, bold=True)
-    title_font = _font(64, bold=True)
-    description_font = _font(30)
+    title_font = _font(30, bold=True)
+    description_font = _font(24)
     label_font = _font(28, bold=True)
 
     draw.rectangle((0, 0, width, height), fill=(247, 250, 255))
@@ -387,12 +387,12 @@ def create_note_banner(
         note.title.strip(),
         font=title_font,
         max_width=670,
-        max_lines=4,
+        max_lines=6,
     )
     y = 256
     for line in wrapped_title:
         draw.text((105, y), line, fill=dark, font=title_font)
-        y += 74
+        y += 38
 
     summary = note.description or note.content_excerpt
     if summary:
@@ -405,7 +405,7 @@ def create_note_banner(
         summary_y = min(y + 18, 448)
         for line in wrapped_summary:
             draw.text((105, summary_y), line, fill=muted, font=description_font)
-            summary_y += 40
+            summary_y += 32
 
     draw.text(
         (105, height - 95),
