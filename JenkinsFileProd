@@ -6,16 +6,33 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    parameters {
+        choice(
+            name: 'BUILD_TARGET',
+            choices: [
+                'backend_frontend',
+                'instagram_banner_bot',
+                'linkedin_banner_bot',
+                'yehp_banner_bot'
+            ],
+            description: 'Choose which production build/deploy path to run.'
+        )
+    }
+
     environment {
         DOCKER_CREDS = credentials('dockerhub')
         KUBE_CONFIG = credentials('kubeconfig')
         BACKEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-backend-prod:latest"
         FRONTEND_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-frontend-prod:latest"
         INSTAGRAM_BOT_IMAGE = "${DOCKER_CREDS_USR}/tutorlix-instagram-banner-bot-prod:latest"
+        LINKEDIN_BOT_IMAGE = "${DOCKER_CREDS_USR}/linkedin-banner-bot-prod:latest"
         YEHP_BOT_IMAGE = "${DOCKER_CREDS_USR}/yehp-banner-bot-prod:latest"
         INSTAGRAM_BOT_CONTAINER = 'instagram-banner-bot-prod'
         INSTAGRAM_BOT_ENV_FILE = '/var/www/tutorlix-prod/instagram-bot.env'
         INSTAGRAM_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/instagram-bot-output'
+        LINKEDIN_BOT_CONTAINER = 'linkedin-banner-bot-prod'
+        LINKEDIN_BOT_ENV_FILE = '/var/www/tutorlix-prod/linkedin-bot.env'
+        LINKEDIN_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/linkedin-bot-output'
         YEHP_BOT_CONTAINER = 'yehp-banner-bot-prod'
         YEHP_BOT_ENV_FILE = '/var/www/tutorlix-prod/yehp-bot.env'
         YEHP_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/yehp-bot-output'
@@ -38,11 +55,21 @@ pipeline {
             }
         }
 
-        stage('Build And Push Images') {
+        stage('Selected Target') {
+            steps {
+                echo "Selected production build target: ${params.BUILD_TARGET}"
+            }
+        }
+
+        stage('Build And Push Backend + Frontend Images') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             parallel {
                 stage('Backend Image') {
                     steps {
                         sh '''
+                            set -e
                             echo "🚀 Building backend prod image..."
                             docker build \
                             --network=host \
@@ -59,6 +86,7 @@ pipeline {
                 stage('Frontend Image') {
                     steps {
                         sh '''
+                            set -e
                             echo "🚀 Building frontend prod image..."
                             docker build \
                             --network=host \
@@ -71,42 +99,73 @@ pipeline {
                         '''
                     }
                 }
+            }
+        }
 
-                stage('Instagram Banner Bot Image') {
-                    steps {
-                        sh '''
-                            echo "🚀 Building Instagram banner bot prod image..."
-                            docker build \
-                            --network=host \
-                            -f bots/instagram_banner_bot/Dockerfile.prod \
-                            -t $INSTAGRAM_BOT_IMAGE \
-                            .
+        stage('Build And Push Instagram Banner Bot Image') {
+            when {
+                expression { params.BUILD_TARGET == 'instagram_banner_bot' }
+            }
+            steps {
+                sh '''
+                    set -e
+                    echo "🚀 Building Instagram banner bot prod image..."
+                    docker build \
+                    --network=host \
+                    -f bots/instagram_banner_bot/Dockerfile.prod \
+                    -t $INSTAGRAM_BOT_IMAGE \
+                    .
 
-                            echo "📤 Pushing Instagram banner bot prod image..."
-                            docker push $INSTAGRAM_BOT_IMAGE
-                        '''
-                    }
-                }
+                    echo "📤 Pushing Instagram banner bot prod image..."
+                    docker push $INSTAGRAM_BOT_IMAGE
+                '''
+            }
+        }
 
-                stage('YEHP Banner Bot Image') {
-                    steps {
-                        sh '''
-                            echo "🚀 Building YEHP banner bot prod image..."
-                            docker build \
-                            --network=host \
-                            -f bots/yehp_banner_bot/Dockerfile.prod \
-                            -t $YEHP_BOT_IMAGE \
-                            .
+        stage('Build And Push LinkedIn Banner Bot Image') {
+            when {
+                expression { params.BUILD_TARGET == 'linkedin_banner_bot' }
+            }
+            steps {
+                sh '''
+                    set -e
+                    echo "🚀 Building LinkedIn banner bot prod image..."
+                    docker build \
+                    --network=host \
+                    -f bots/linkedin_banner_bot/Dockerfile.prod \
+                    -t $LINKEDIN_BOT_IMAGE \
+                    .
 
-                            echo "📤 Pushing YEHP banner bot prod image..."
-                            docker push $YEHP_BOT_IMAGE
-                        '''
-                    }
-                }
+                    echo "📤 Pushing LinkedIn banner bot prod image..."
+                    docker push $LINKEDIN_BOT_IMAGE
+                '''
+            }
+        }
+
+        stage('Build And Push YEHP Banner Bot Image') {
+            when {
+                expression { params.BUILD_TARGET == 'yehp_banner_bot' }
+            }
+            steps {
+                sh '''
+                    set -e
+                    echo "🚀 Building YEHP banner bot prod image..."
+                    docker build \
+                    --network=host \
+                    -f bots/yehp_banner_bot/Dockerfile.prod \
+                    -t $YEHP_BOT_IMAGE \
+                    .
+
+                    echo "📤 Pushing YEHP banner bot prod image..."
+                    docker push $YEHP_BOT_IMAGE
+                '''
             }
         }
 
         stage('Run Instagram Banner Bot Container') {
+            when {
+                expression { params.BUILD_TARGET == 'instagram_banner_bot' }
+            }
             steps {
                 sh '''
                     set -e
@@ -155,7 +214,82 @@ pipeline {
             }
         }
 
+        stage('Run LinkedIn Banner Bot Container') {
+            when {
+                expression { params.BUILD_TARGET == 'linkedin_banner_bot' }
+            }
+            steps {
+                sh '''
+                    set -e
+
+                    if [ ! -f "$LINKEDIN_BOT_ENV_FILE" ]; then
+                        echo "❌ LinkedIn bot env file not found: $LINKEDIN_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ ! -r "$LINKEDIN_BOT_ENV_FILE" ]; then
+                        echo "❌ Jenkins cannot read LinkedIn bot env file: $LINKEDIN_BOT_ENV_FILE"
+                        echo "   Fix file permissions before rerunning this job."
+                        exit 1
+                    fi
+
+                    OPENAI_IMAGE_ENABLED=$(grep -E '^OPENAI_IMAGE_ENABLED=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    OPENAI_API_KEY=$(grep -E '^OPENAI_API_KEY=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    OPENAI_IMAGE_ENABLED=${OPENAI_IMAGE_ENABLED:-false}
+
+                    if [ "$OPENAI_IMAGE_ENABLED" != "false" ] && [ -z "$OPENAI_API_KEY" ]; then
+                        echo "❌ OPENAI_API_KEY is required in $LINKEDIN_BOT_ENV_FILE when OPENAI_IMAGE_ENABLED is true"
+                        exit 1
+                    fi
+
+                    BUFFER_API_KEY=$(grep -E '^BUFFER_API_KEY=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    BUFFER_ACCESS_TOKEN=$(grep -E '^BUFFER_ACCESS_TOKEN=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    BUFFER_CHANNEL_IDS=$(grep -E '^BUFFER_CHANNEL_IDS=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    PUBLIC_MEDIA_BASE_URL=$(grep -E '^PUBLIC_MEDIA_BASE_URL=' "$LINKEDIN_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+
+                    if [ -z "$BUFFER_API_KEY" ] && [ -z "$BUFFER_ACCESS_TOKEN" ]; then
+                        echo "❌ BUFFER_API_KEY is required in $LINKEDIN_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ -z "$BUFFER_CHANNEL_IDS" ]; then
+                        echo "❌ BUFFER_CHANNEL_IDS is required in $LINKEDIN_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ -z "$PUBLIC_MEDIA_BASE_URL" ]; then
+                        echo "❌ PUBLIC_MEDIA_BASE_URL is required in $LINKEDIN_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    mkdir -p "$LINKEDIN_BOT_OUTPUT_DIR"
+
+                    echo "📥 Pulling latest LinkedIn banner bot image..."
+                    docker pull "$LINKEDIN_BOT_IMAGE"
+
+                    echo "🧹 Removing old LinkedIn banner bot container..."
+                    docker rm -f "$LINKEDIN_BOT_CONTAINER" || true
+
+                    echo "🚀 Starting LinkedIn banner bot container..."
+                    docker run -d \
+                      --name "$LINKEDIN_BOT_CONTAINER" \
+                      --restart unless-stopped \
+                      --network host \
+                      --env-file "$LINKEDIN_BOT_ENV_FILE" \
+                      -v "$LINKEDIN_BOT_OUTPUT_DIR:/app/bots/linkedin_banner_bot/output" \
+                      "$LINKEDIN_BOT_IMAGE"
+
+                    docker ps --filter "name=$LINKEDIN_BOT_CONTAINER"
+                    sleep 5
+                    docker logs "$LINKEDIN_BOT_CONTAINER" --tail=80
+                '''
+            }
+        }
+
         stage('Run YEHP Banner Bot Container') {
+            when {
+                expression { params.BUILD_TARGET == 'yehp_banner_bot' }
+            }
             steps {
                 sh '''
                     set -e
@@ -205,6 +339,9 @@ pipeline {
         }
 
         stage('Setup Kubeconfig') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                     sh '''
@@ -216,6 +353,9 @@ pipeline {
         }
 
         stage('Apply Kubernetes') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             steps {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config
@@ -227,6 +367,9 @@ pipeline {
         }
 
         stage('Sync Backend Secrets') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             steps {
                 withCredentials([
                     string(credentialsId: 'razorpay-secret-id-prod', variable: 'RAZORPAY_SECRET_ID'),
@@ -255,6 +398,9 @@ pipeline {
         }
 
         stage('Rollout Prod Deployments') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             steps {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config
@@ -271,6 +417,9 @@ pipeline {
         }
 
         stage('Verify Deployments And Migrate') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             parallel {
                 stage('Backend Rollout And Migrate') {
                     steps {
@@ -367,6 +516,9 @@ EOF
         }
 
         stage('Health Check') {
+            when {
+                expression { params.BUILD_TARGET == 'backend_frontend' }
+            }
             steps {
                 sh '''
                     export KUBECONFIG=$HOME/.kube/config

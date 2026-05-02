@@ -1,0 +1,19 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install tzdata for scheduled posting timezones.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY bots/linkedin_banner_bot/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY bots/linkedin_banner_bot ./bots/linkedin_banner_bot
+
+ENV PORT=11002
+EXPOSE 11002
+
+CMD ["sh", "-c", "python -m bots.linkedin_banner_bot --loop --publish & python -m http.server 11002 --directory bots/linkedin_banner_bot/output"]
