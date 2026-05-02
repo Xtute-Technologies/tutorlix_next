@@ -29,6 +29,8 @@ STOP_REQUESTED = False
 class RunResult:
     note: NoteItem
     text: str
+    banner_path: Path
+    banner_url: str
     buffer_post_ids: tuple[str, ...]
 
 
@@ -137,14 +139,28 @@ def run_once(config: BotConfig) -> RunResult:
     note = state.choose_random_note(notes)
     note = client.fetch_detail(note)
     text = build_linkedin_text(note)
-    banner_path = create_note_banner(note, config.output_dir / "banners")
+    banner_path = create_note_banner(
+        note,
+        config.output_dir / "banners",
+        logo_url=config.logo_url,
+        timeout_seconds=config.request_timeout_seconds,
+    )
+    banner_url = _public_url_for(config, banner_path)
 
     if config.dry_run:
         LOGGER.info("Dry run selected note: %s", note.title)
         LOGGER.info("Dry run note URL: %s", note.url)
+        LOGGER.info("Dry run generated banner: %s", banner_path)
+        LOGGER.info("Dry run banner URL: %s", banner_url or "(set PUBLIC_MEDIA_BASE_URL)")
         LOGGER.info("Dry run LinkedIn text: %s", text.replace("\n", " / "))
-        state.mark_posted(note, dry_run=True)
-        return RunResult(note=note, text=text, buffer_post_ids=())
+        state.mark_posted(note, banner_path=banner_path, banner_url=banner_url, dry_run=True)
+        return RunResult(
+            note=note,
+            text=text,
+            banner_path=banner_path,
+            banner_url=banner_url,
+            buffer_post_ids=(),
+        )
 
     publisher = BufferPublisher(
         api_key=config.buffer_api_key,
@@ -155,22 +171,50 @@ def run_once(config: BotConfig) -> RunResult:
         timeout_seconds=config.request_timeout_seconds,
     )
     try:
-        results = publisher.publish_media_posts(
+        results = publisher.publish_image_posts(
             text=text,
-            media_paths=(banner_path,),
+            image_url=banner_url,
         )
     except Exception:
         LOGGER.exception("Buffer publish failed; keeping bot alive")
-        return RunResult(note=note, text=text, buffer_post_ids=())
+        return RunResult(
+            note=note,
+            text=text,
+            banner_path=banner_path,
+            banner_url=banner_url,
+            buffer_post_ids=(),
+        )
 
     post_ids = tuple(result.post_id for result in results)
-    state.mark_posted(note, buffer_post_ids=post_ids)
+    state.mark_posted(
+        note,
+        banner_path=banner_path,
+        banner_url=banner_url,
+        buffer_post_ids=post_ids,
+    )
     LOGGER.info(
-        "Published professional note to LinkedIn through Buffer post_ids=%s note_url=%s",
+        "Published professional note to LinkedIn through Buffer post_ids=%s note_url=%s banner_url=%s",
         ",".join(post_ids),
         note.url,
+        banner_url,
     )
-    return RunResult(note=note, text=text, buffer_post_ids=post_ids)
+    return RunResult(
+        note=note,
+        text=text,
+        banner_path=banner_path,
+        banner_url=banner_url,
+        buffer_post_ids=post_ids,
+    )
+
+
+def _public_url_for(config: BotConfig, image_path: Path) -> str:
+    if not config.public_media_base_url:
+        return ""
+    try:
+        relative_path = image_path.relative_to(config.output_dir)
+    except ValueError:
+        relative_path = Path(image_path.name)
+    return f"{config.public_media_base_url.rstrip('/')}/{relative_path.as_posix()}"
 
 
 def _schedule_timezone(config: BotConfig) -> ZoneInfo:

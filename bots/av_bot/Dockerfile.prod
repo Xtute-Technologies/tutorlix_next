@@ -2,9 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install tzdata for scheduled posting timezones.
+# Install tzdata for scheduled posting timezones and DejaVu fonts for banners.
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY bots/av_bot/requirements.txt ./requirements.txt
@@ -13,4 +13,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY bots/av_bot ./bots/av_bot
 
-CMD ["python", "-m", "bots.av_bot", "--loop", "--publish"]
+ENV PORT=11003
+EXPOSE 11003
+
+CMD ["sh", "-c", "python -m bots.av_bot --loop --publish & python -m http.server 11003 --directory bots/av_bot/output"]

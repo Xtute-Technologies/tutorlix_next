@@ -33,8 +33,8 @@ class BufferPostResult:
     raw: dict[str, Any]
 
 
-CREATE_TEXT_POST_MUTATION = """
-mutation CreateAvLinkedInPost($input: CreatePostInput!) {
+CREATE_IMAGE_POST_MUTATION = """
+mutation CreateAvLinkedInImagePost($input: CreatePostInput!) {
   createPost(input: $input) {
     __typename
     ... on PostActionSuccess {
@@ -44,6 +44,10 @@ mutation CreateAvLinkedInPost($input: CreatePostInput!) {
         dueAt
         status
         channelId
+        assets {
+          id
+          mimeType
+        }
       }
     }
     ... on MutationError {
@@ -72,21 +76,46 @@ class BufferPublisher:
         self.scheduling_type = scheduling_type
         self.timeout_seconds = timeout_seconds
 
-    def publish_text_posts(self, *, text: str) -> tuple[BufferPostResult, ...]:
+    def publish_image_posts(
+        self,
+        *,
+        image_url: str,
+        text: str,
+    ) -> tuple[BufferPostResult, ...]:
+        self._preflight_image_url(image_url)
         results = []
         for channel_id in self.channel_ids:
-            results.append(self.publish_text_post(channel_id=channel_id, text=text))
+            results.append(
+                self.publish_image_post(
+                    channel_id=channel_id,
+                    image_url=image_url,
+                    text=text,
+                )
+            )
         return tuple(results)
 
-    def publish_text_post(self, *, channel_id: str, text: str) -> BufferPostResult:
+    def publish_image_post(
+        self,
+        *,
+        channel_id: str,
+        image_url: str,
+        text: str,
+    ) -> BufferPostResult:
         payload = {
             "text": text,
             "channelId": channel_id,
             "schedulingType": self.scheduling_type,
             "mode": self.post_mode,
             "source": "tutorlix-av-bot",
+            "assets": {
+                "images": [
+                    {
+                        "url": image_url,
+                    }
+                ],
+            },
         }
-        data = self._graphql(CREATE_TEXT_POST_MUTATION, {"input": payload})
+        data = self._graphql(CREATE_IMAGE_POST_MUTATION, {"input": payload})
         result = data.get("createPost")
         if not isinstance(result, dict):
             raise BufferPublishError(f"Unexpected Buffer createPost response: {data}")
@@ -109,6 +138,43 @@ class BufferPublisher:
 
         LOGGER.info("Created Buffer post id=%s channel_id=%s", post_id, channel_id)
         return BufferPostResult(channel_id=channel_id, post_id=post_id, raw=result)
+
+    def _preflight_image_url(self, image_url: str) -> None:
+        if not image_url:
+            raise BufferPublishError("Missing public banner image URL")
+
+        LOGGER.info("Preflight public banner image URL for Buffer: %s", image_url)
+        try:
+            response = requests.head(
+                image_url,
+                allow_redirects=True,
+                timeout=self.timeout_seconds,
+                headers={"User-Agent": "BufferBot/1.0"},
+            )
+            if response.status_code == 405:
+                response = requests.get(
+                    image_url,
+                    stream=True,
+                    timeout=self.timeout_seconds,
+                    headers={"User-Agent": "BufferBot/1.0"},
+                )
+        except requests.exceptions.RequestException as exc:
+            raise BufferPublishError(
+                f"Public banner image URL is not reachable from the bot: {exc}"
+            ) from exc
+
+        content_type = response.headers.get("Content-Type", "")
+        content_length = response.headers.get("Content-Length", "")
+        LOGGER.info(
+            "Public banner image URL preflight status=%s content_type=%s content_length=%s",
+            response.status_code,
+            content_type or "(missing)",
+            content_length or "(missing)",
+        )
+        if response.status_code >= 400:
+            raise BufferPublishError(
+                f"Public banner image URL returned HTTP {response.status_code}"
+            )
 
     def _graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         payload = {

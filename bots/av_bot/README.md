@@ -1,8 +1,8 @@
 # AV Bot
 
-`av_bot` picks a random published Tutorlix note for the `professional` profile type and posts it to LinkedIn through Buffer.
+`av_bot` picks a random published Tutorlix note for the `professional` profile type, creates a banner with the note title and Tutorlix logo, and posts it to LinkedIn through Buffer.
 
-It does not create media. The LinkedIn post contains the note title, description or excerpt, the Tutorlix note URL, and hashtags.
+Buffer needs the generated banner as a public HTTPS image URL, so serve or proxy `bots/av_bot/output/` and set `PUBLIC_MEDIA_BASE_URL`.
 
 ## Setup
 
@@ -19,10 +19,12 @@ Edit `bots/av_bot/.env` and set:
 ```dotenv
 BUFFER_API_KEY=your_buffer_api_key
 BUFFER_CHANNEL_IDS=your_linkedin_buffer_channel_id
+PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/av-bot-output
 BOT_DRY_RUN=false
 TUTORLIX_API_BASE_URL=https://tutorlix.com
 TUTORLIX_SITE_BASE_URL=https://tutorlix.com
 BOT_PROFILE_TYPE=professional
+BOT_LOGO_URL=https://tutorlix.com/logo.png
 ```
 
 `BUFFER_CHANNEL_IDS` must be the Buffer channel id for the LinkedIn profile or page, not the LinkedIn page id.
@@ -71,4 +73,4 @@ The bot calls:
 /api/notes/public/browse/?profile_type=professional
 ```
 
-It keeps recent selections in `output/state.json` so repeated scheduled runs avoid the same note until the recent history is exhausted.
+It keeps recent selections in `output/state.json` so repeated scheduled runs avoid the same note until the recent history is exhausted. Generated banners are written under `output/banners/`.

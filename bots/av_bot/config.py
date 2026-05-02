@@ -136,6 +136,8 @@ def _buffer_post_mode() -> str:
 class BotConfig:
     output_dir: Path
     state_file: Path
+    public_media_base_url: str
+    logo_url: str
     tutorlix_api_base_url: str
     tutorlix_site_base_url: str
     profile_type: str
@@ -166,6 +168,11 @@ class BotConfig:
         return cls(
             output_dir=output_dir,
             state_file=_env_path("BOT_STATE_FILE", output_dir / "state.json"),
+            public_media_base_url=os.getenv("PUBLIC_MEDIA_BASE_URL", "").strip(),
+            logo_url=os.getenv(
+                "BOT_LOGO_URL",
+                "https://tutorlix.com/logo.png",
+            ).strip(),
             tutorlix_api_base_url=os.getenv(
                 "TUTORLIX_API_BASE_URL",
                 "https://tutorlix.com",
@@ -229,4 +236,6 @@ class BotConfig:
             missing.append("BUFFER_API_KEY")
         if not self.buffer_channel_ids:
             missing.append("BUFFER_CHANNEL_IDS")
+        if not self.public_media_base_url:
+            missing.append("PUBLIC_MEDIA_BASE_URL")
         return missing

@@ -333,6 +333,7 @@ pipeline {
                     BUFFER_API_KEY=$(grep -E '^BUFFER_API_KEY=' "$AV_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
                     BUFFER_ACCESS_TOKEN=$(grep -E '^BUFFER_ACCESS_TOKEN=' "$AV_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
                     BUFFER_CHANNEL_IDS=$(grep -E '^BUFFER_CHANNEL_IDS=' "$AV_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    PUBLIC_MEDIA_BASE_URL=$(grep -E '^PUBLIC_MEDIA_BASE_URL=' "$AV_BOT_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
 
                     if [ -z "$BUFFER_API_KEY" ] && [ -z "$BUFFER_ACCESS_TOKEN" ]; then
                         echo "❌ BUFFER_API_KEY is required in $AV_BOT_ENV_FILE"
@@ -341,6 +342,11 @@ pipeline {
 
                     if [ -z "$BUFFER_CHANNEL_IDS" ]; then
                         echo "❌ BUFFER_CHANNEL_IDS is required in $AV_BOT_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ -z "$PUBLIC_MEDIA_BASE_URL" ]; then
+                        echo "❌ PUBLIC_MEDIA_BASE_URL is required in $AV_BOT_ENV_FILE"
                         exit 1
                     fi
 

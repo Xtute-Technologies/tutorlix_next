@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import logging
+from io import BytesIO
 from pathlib import Path
 import random
 import re
@@ -10,9 +11,14 @@ from typing import Any
 from urllib.parse import urljoin
 
 from .networking import install_ipv4_only_networking
-import textwrap
 
-from PIL import Image, ImageDraw, ImageFont
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
+    raise RuntimeError(
+        "Pillow is required. Install bot dependencies with: "
+        "pip install -r bots/av_bot/requirements.txt"
+    ) from exc
 
 install_ipv4_only_networking()
 
@@ -26,6 +32,20 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 
 
 LOGGER = logging.getLogger("av-bot")
+FONT_CANDIDATES = {
+    "regular": [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    ],
+    "bold": [
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+    ],
+}
 
 
 class NoteFetchError(RuntimeError):
@@ -196,6 +216,8 @@ class NoteStateStore:
         self,
         note: NoteItem,
         *,
+        banner_path: Path | None = None,
+        banner_url: str = "",
         buffer_post_ids: tuple[str, ...] = (),
         dry_run: bool = False,
     ) -> None:
@@ -208,6 +230,8 @@ class NoteStateStore:
                 "slug": note.slug,
                 "title": note.title,
                 "url": note.url,
+                "banner": str(banner_path) if banner_path else "",
+                "banner_url": banner_url,
                 "buffer_post_ids": list(buffer_post_ids),
                 "dry_run": dry_run,
             }
@@ -318,47 +342,145 @@ def _truncate(value: str, limit: int) -> str:
         return value
     return value[: limit - 3].rstrip() + "..."
 
-def create_note_banner(note: NoteItem, output_dir: Path) -> Path:
+def create_note_banner(
+    note: NoteItem,
+    output_dir: Path,
+    *,
+    logo_url: str,
+    timeout_seconds: int,
+) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     width, height = 1200, 630
-    image = Image.new("RGB", (width, height), (245, 248, 255))
+    image = Image.new("RGB", (width, height), (247, 250, 255))
     draw = ImageDraw.Draw(image)
 
-    primary = (24, 48, 120)
-    accent = (69, 108, 255)
-    dark = (24, 28, 40)
+    primary = (15, 37, 82)
+    accent = (37, 99, 235)
+    accent_soft = (219, 234, 254)
+    dark = (15, 23, 42)
+    muted = (71, 85, 105)
 
-    try:
-        logo_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
-        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 64)
-        label_font = ImageFont.truetype("DejaVuSans.ttf", 28)
-    except OSError:
-        logo_font = ImageFont.load_default()
-        title_font = ImageFont.load_default()
-        label_font = ImageFont.load_default()
+    eyebrow_font = _font(30, bold=True)
+    title_font = _font(64, bold=True)
+    description_font = _font(30)
+    label_font = _font(28, bold=True)
 
-    draw.rectangle((0, 0, width, 120), fill=primary)
-    draw.text((60, 35), "Tutorlix", fill="white", font=logo_font)
+    draw.rectangle((0, 0, width, height), fill=(247, 250, 255))
+    draw.rounded_rectangle((760, -70, 1310, 700), radius=90, fill=primary)
+    draw.ellipse((865, 70, 1215, 420), fill=(30, 64, 175))
+    draw.ellipse((955, 190, 1160, 395), fill=accent)
+    draw.rounded_rectangle((70, 65, 1130, 565), radius=36, fill=(255, 255, 255))
+    draw.rounded_rectangle((70, 65, 1130, 565), radius=36, outline=(219, 234, 254), width=3)
 
-    draw.rounded_rectangle((60, 175, 165, 187), radius=8, fill=accent)
+    logo = _download_logo(logo_url, timeout_seconds=timeout_seconds)
+    if logo:
+        logo.thumbnail((210, 78), Image.Resampling.LANCZOS)
+        image.paste(logo, (105, 96), logo)
+    else:
+        draw.text((105, 100), "Tutorlix", fill=primary, font=label_font)
 
-    wrapped_title = textwrap.wrap(note.title.strip(), width=28)
-    y = 230
+    draw.rounded_rectangle((105, 196, 256, 232), radius=18, fill=accent_soft)
+    draw.text((124, 200), "NOTE", fill=accent, font=eyebrow_font)
 
-    for line in wrapped_title[:4]:
-        draw.text((60, y), line, fill=dark, font=title_font)
-        y += 78
+    wrapped_title = _wrap_text_to_width(
+        note.title.strip(),
+        font=title_font,
+        max_width=670,
+        max_lines=4,
+    )
+    y = 256
+    for line in wrapped_title:
+        draw.text((105, y), line, fill=dark, font=title_font)
+        y += 74
+
+    summary = note.description or note.content_excerpt
+    if summary:
+        wrapped_summary = _wrap_text_to_width(
+            _truncate(summary, 190),
+            font=description_font,
+            max_width=650,
+            max_lines=2,
+        )
+        summary_y = min(y + 18, 448)
+        for line in wrapped_summary:
+            draw.text((105, summary_y), line, fill=muted, font=description_font)
+            summary_y += 40
 
     draw.text(
-        (60, height - 80),
+        (105, height - 95),
         "Professional Learning Note",
-        fill=primary,
+        fill=accent,
         font=label_font,
     )
+    draw.text((805, 488), "tutorlix.com", fill=(219, 234, 254), font=label_font)
 
     safe_name = re.sub(r"[^a-zA-Z0-9]+", "-", note.slug or note.title).strip("-").lower()
     banner_path = output_dir / f"{safe_name[:80]}-banner.jpg"
 
     image.save(banner_path, format="JPEG", quality=92)
     return banner_path
+
+
+def _download_logo(logo_url: str, *, timeout_seconds: int) -> Image.Image | None:
+    if not logo_url:
+        return None
+    try:
+        response = requests.get(logo_url, timeout=timeout_seconds)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content)).convert("RGBA")
+    except Exception as exc:
+        LOGGER.warning("Could not load Tutorlix logo from %s: %s", logo_url, exc)
+        return None
+
+
+def _font(size: int, bold: bool = False) -> ImageFont.ImageFont:
+    key = "bold" if bold else "regular"
+    for candidate in FONT_CANDIDATES[key]:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _wrap_text_to_width(
+    value: str,
+    *,
+    font: ImageFont.ImageFont,
+    max_width: int,
+    max_lines: int,
+) -> list[str]:
+    words = value.split()
+    lines: list[str] = []
+    current: list[str] = []
+
+    for word in words:
+        candidate = " ".join([*current, word]).strip()
+        if _text_width(candidate, font) <= max_width:
+            current.append(word)
+            continue
+        if current:
+            lines.append(" ".join(current))
+        current = [word]
+        if len(lines) >= max_lines:
+            break
+
+    if current and len(lines) < max_lines:
+        lines.append(" ".join(current))
+
+    if len(lines) == max_lines and len(" ".join(lines)) < len(value):
+        lines[-1] = _truncate_to_width(lines[-1] + "...", font=font, max_width=max_width)
+    return lines or [value[:60]]
+
+
+def _truncate_to_width(value: str, *, font: ImageFont.ImageFont, max_width: int) -> str:
+    text = value
+    while text and _text_width(text, font) > max_width:
+        text = text[:-4].rstrip() + "..."
+    return text
+
+
+def _text_width(value: str, font: ImageFont.ImageFont) -> int:
+    bbox = font.getbbox(value)
+    return bbox[2] - bbox[0]
