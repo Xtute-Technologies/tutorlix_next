@@ -262,8 +262,13 @@ def _build_openai_background_prompt(
     return (
         "Create a square 1:1 realistic premium Instagram banner background for a "
         "doctor-guided herbal wellness clinic. Composition: the right side shows a "
-        "realistic elegant female doctor in a clean white coat, warm confident "
-        "smile, professional and trustworthy presence. Keep the overall background "
+        f"realistic, premium medical-wellness visual directly related to: {post.headline}. "
+        "Use disease-relevant but non-graphic imagery such as liver or kidney wellness "
+        "concepts, herbal treatment elements, anatomical silhouettes, diagnostic-care "
+        "motifs, medicinal herbs, soft clinical props, or symbolic healing visuals. "
+        "The image must feel professional, trustworthy, and clinic-appropriate. "
+        "Do not show disturbing symptoms, blood, surgery, organs in a graphic way, "
+        "or frightening medical scenes. Keep the overall background "
         "subtle white or very pale clinical blue with soft daylight, minimal texture, "
         "and only faint herbal hints if needed; avoid green-heavy or busy scenery. "
         "The left side must stay simple, subtle, and uncluttered with soft depth for "
@@ -275,7 +280,6 @@ def _build_openai_background_prompt(
         "background. "
         f"Variation seed: {variation_seed}."
     )
-
 
 def _extract_openai_image_bytes(data: dict[str, Any]) -> bytes:
     items = data.get("data")

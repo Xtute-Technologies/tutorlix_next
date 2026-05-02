@@ -1,30 +1,290 @@
 [
   {
-    "headline": "Herbal Weight Management",
-    "subheadline": "Doctor-guided herbal wellness plans for healthy weight goals.",
-    "cta": "Book a consultation",
-    "caption": "Explore doctor-guided herbal wellness support for weight management. Individual results vary; consult a qualified healthcare professional before starting any herbal plan.",
-    "hashtags": ["#YEHP", "#HerbalWellness", "#WeightManagement", "#HolisticHealth"]
+    "headline": "Herbal Treatment for Chronic Kidney Disease Support",
+    "subheadline": "Clinic-guided herbal therapies designed to support CKD management.",
+    "cta": "Book consultation",
+    "caption": "Chronic Kidney Disease requires long-term medical care. Our clinic offers herbal treatment support alongside doctor supervision.",
+    "hashtags": [
+      "#YEHP",
+      "#CKD",
+      "#HerbalTreatment",
+      "#KidneyCare"
+    ]
   },
   {
-    "headline": "Kidney Wellness Support",
-    "subheadline": "Herbal care conversations for kidney-related concerns under guidance.",
-    "cta": "Talk to our doctor",
-    "caption": "Kidney-related symptoms need proper medical evaluation. YEHP offers consultation-led herbal wellness support that should not replace urgent or specialist medical care.",
-    "hashtags": ["#YEHP", "#KidneyWellness", "#HerbalCare", "#DoctorGuided"]
+    "headline": "Herbal Treatment for Acute Kidney Injury Care",
+    "subheadline": "Support recovery with expert-led herbal consultation.",
+    "cta": "Consult now",
+    "caption": "AKI can be serious and needs urgent care. Herbal treatment is supportive under clinical guidance.",
+    "hashtags": [
+      "#YEHP",
+      "#AKI",
+      "#KidneyHealth",
+      "#HerbalClinic"
+    ]
   },
   {
-    "headline": "High Fever Care Guidance",
-    "subheadline": "Doctor-led herbal wellness support with timely medical attention.",
-    "cta": "Get guided care",
-    "caption": "High fever can need urgent medical attention. Seek timely care and use herbal wellness support only with qualified guidance.",
-    "hashtags": ["#YEHP", "#FeverCare", "#HerbalWellness", "#HealthGuidance"]
+    "headline": "Herbal Treatment for Kidney Stones Relief Support",
+    "subheadline": "Target stone-related discomfort with guided herbal care.",
+    "cta": "Get expert advice",
+    "caption": "Kidney stones require diagnosis and sometimes procedures. Our clinic provides herbal support alongside treatment.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyStones",
+      "#HerbalCare",
+      "#Wellness"
+    ]
   },
   {
-    "headline": "Herbal Skin Wellness",
-    "subheadline": "Gentle consultation-led support for common skin wellness concerns.",
-    "cta": "Book your visit",
-    "caption": "Skin concerns can have many causes. YEHP offers doctor-guided herbal wellness conversations and encourages proper diagnosis for persistent or severe symptoms.",
-    "hashtags": ["#YEHP", "#SkinWellness", "#HerbalCare", "#HealthySkin"]
+    "headline": "Herbal Treatment for Glomerulonephritis Care",
+    "subheadline": "Clinic-based herbal support for kidney inflammation concerns.",
+    "cta": "Talk to doctor",
+    "caption": "Inflammatory kidney conditions need medical supervision. Herbal care is complementary.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyInflammation",
+      "#HerbalSupport",
+      "#DoctorGuided"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Nephrotic Syndrome Support",
+    "subheadline": "Guided herbal therapies to support protein-loss conditions.",
+    "cta": "Start consultation",
+    "caption": "Nephrotic syndrome requires proper diagnosis and monitoring. Herbal support should be supervised.",
+    "hashtags": [
+      "#YEHP",
+      "#NephroticSyndrome",
+      "#KidneyCare",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Polycystic Kidney Disease",
+    "subheadline": "Personalized herbal care discussions for PKD management.",
+    "cta": "Consult specialist",
+    "caption": "PKD is genetic and needs long-term care. Herbal support is offered under clinical guidance.",
+    "hashtags": [
+      "#YEHP",
+      "#PKD",
+      "#KidneyHealth",
+      "#HerbalWellness"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for UTI & Kidney Protection",
+    "subheadline": "Prevent complications with clinic-guided herbal care.",
+    "cta": "Get checked",
+    "caption": "UTIs can affect kidneys if untreated. Seek medical advice early.",
+    "hashtags": [
+      "#YEHP",
+      "#UTI",
+      "#KidneyCare",
+      "#HerbalSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Pyelonephritis Support",
+    "subheadline": "Expert-led herbal care alongside infection treatment.",
+    "cta": "Consult now",
+    "caption": "Kidney infections require immediate medical attention. Herbal care is supportive.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyInfection",
+      "#HerbalCare",
+      "#HealthFirst"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Hydronephrosis Care",
+    "subheadline": "Support kidney swelling concerns with guided herbal therapy.",
+    "cta": "Talk today",
+    "caption": "Urine blockage conditions need diagnosis and monitoring.",
+    "hashtags": [
+      "#YEHP",
+      "#Hydronephrosis",
+      "#KidneyHealth",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Hepatitis Support",
+    "subheadline": "Clinic-based herbal therapies for viral liver conditions.",
+    "cta": "Book consultation",
+    "caption": "Hepatitis types require proper medical care. Herbal support complements treatment.",
+    "hashtags": [
+      "#YEHP",
+      "#Hepatitis",
+      "#LiverCare",
+      "#HerbalTreatment"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Fatty Liver Management",
+    "subheadline": "Support NAFLD & AFLD with guided herbal care plans.",
+    "cta": "Start now",
+    "caption": "Fatty liver conditions improve with lifestyle and medical guidance.",
+    "hashtags": [
+      "#YEHP",
+      "#FattyLiver",
+      "#LiverHealth",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Liver Cirrhosis Support",
+    "subheadline": "Specialized herbal wellness under clinical supervision.",
+    "cta": "Consult doctor",
+    "caption": "Cirrhosis is serious and needs ongoing care. Herbal support is adjunct only.",
+    "hashtags": [
+      "#YEHP",
+      "#Cirrhosis",
+      "#LiverSupport",
+      "#MedicalCare"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Liver Cancer Care Support",
+    "subheadline": "Complementary herbal care alongside oncology treatment.",
+    "cta": "Talk to specialist",
+    "caption": "Cancer treatment must be guided by oncologists. Herbal care is supportive only.",
+    "hashtags": [
+      "#YEHP",
+      "#LiverCancer",
+      "#OncologyCare",
+      "#HerbalSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Liver Failure Support",
+    "subheadline": "Critical care supported with expert herbal consultation.",
+    "cta": "Seek care",
+    "caption": "Liver failure is life-threatening. Immediate medical care is essential.",
+    "hashtags": [
+      "#YEHP",
+      "#LiverFailure",
+      "#EmergencyCare",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Jaundice Care",
+    "subheadline": "Support liver recovery with guided herbal therapies.",
+    "cta": "Get checked",
+    "caption": "Jaundice indicates underlying issues. Diagnosis is essential.",
+    "hashtags": [
+      "#YEHP",
+      "#Jaundice",
+      "#LiverHealth",
+      "#HerbalCare"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Hemochromatosis Support",
+    "subheadline": "Manage iron overload with expert-led herbal care.",
+    "cta": "Consult now",
+    "caption": "Iron overload can damage organs. Medical monitoring is required.",
+    "hashtags": [
+      "#YEHP",
+      "#Hemochromatosis",
+      "#LiverCare",
+      "#HealthSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Wilson’s Disease Support",
+    "subheadline": "Clinic-guided care for copper imbalance conditions.",
+    "cta": "Talk to expert",
+    "caption": "Wilson’s disease requires lifelong treatment and monitoring.",
+    "hashtags": [
+      "#YEHP",
+      "#WilsonsDisease",
+      "#LiverHealth",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Liver Abscess Care",
+    "subheadline": "Support infection recovery with herbal consultation.",
+    "cta": "Get help",
+    "caption": "Liver abscess is a serious infection requiring urgent treatment.",
+    "hashtags": [
+      "#YEHP",
+      "#LiverAbscess",
+      "#InfectionCare",
+      "#MedicalSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Diabetic Kidney Protection",
+    "subheadline": "Prevent kidney damage with clinic-led herbal support.",
+    "cta": "Consult today",
+    "caption": "Diabetes can impact kidney health over time.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyCare",
+      "#Diabetes",
+      "#HerbalTreatment"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Alcohol-Related Liver Damage",
+    "subheadline": "Support liver recovery with guided herbal therapies.",
+    "cta": "Start care",
+    "caption": "Alcohol-related damage requires lifestyle changes and medical care.",
+    "hashtags": [
+      "#YEHP",
+      "#LiverDamage",
+      "#AlcoholImpact",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Recurrent UTI Support",
+    "subheadline": "Strengthen urinary health with herbal care.",
+    "cta": "Talk now",
+    "caption": "Recurring infections should be properly evaluated.",
+    "hashtags": [
+      "#YEHP",
+      "#UTI",
+      "#KidneyCare",
+      "#HealthSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Early Kidney Disease Care",
+    "subheadline": "Detect and manage early-stage kidney concerns.",
+    "cta": "Get checked",
+    "caption": "Early detection improves outcomes significantly.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyDisease",
+      "#EarlyCare",
+      "#HerbalClinic"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Liver Enzyme Imbalance",
+    "subheadline": "Support abnormal reports with guided herbal care.",
+    "cta": "Consult expert",
+    "caption": "Elevated enzymes need diagnosis and monitoring.",
+    "hashtags": [
+      "#YEHP",
+      "#LiverEnzymes",
+      "#HealthCheck",
+      "#HerbalSupport"
+    ]
+  },
+  {
+    "headline": "Herbal Treatment for Kidney Pain Support",
+    "subheadline": "Address discomfort with expert-led herbal care.",
+    "cta": "Get help",
+    "caption": "Kidney pain should never be ignored—seek medical advice.",
+    "hashtags": [
+      "#YEHP",
+      "#KidneyPain",
+      "#HealthAlert",
+      "#HerbalClinic"
+    ]
   }
 ]
