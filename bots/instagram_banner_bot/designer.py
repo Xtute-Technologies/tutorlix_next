@@ -248,17 +248,25 @@ def _build_openai_background_prompt(
             ) from exc
 
     return (
-        "Create a square 1:1 realistic premium Instagram banner background for "
-        "IB Diploma Programme Mathematics courses. Composition: the right side "
-        "shows a realistic happy female student studying at a desk with a notebook "
-        "or laptop, natural confident expression, warm professional education "
-        "setting. The left side must stay simple, subtle, and uncluttered with soft "
-        "depth for a dark text overlay. Background should feel modern, academic, "
-        "clean, and premium, with very subtle maths-course context only as abstract "
-        "shapes or gentle study ambience. Do not include any text, letters, numbers, "
-        "formulas, readable symbols, logos, watermarks, QR codes, contact details, "
-        "URLs, or signage. Generate only the no-text photographic background. "
-        f"Variation seed: {variation_seed}."
+        return (
+            "Create a square 1:1 realistic premium Instagram banner background for "
+            "an online tutoring agency offering 1:1 live classes with recordings. "
+            "Composition: the right side shows a realistic premium education visual "
+            f"directly related to this course topic: {values['headline']}. "
+            "Use topic-relevant, non-text visuals such as a student learning online, "
+            "a tutor on a video call, a laptop-based study setup, maths problem-solving "
+            "ambience, coding workspace, AI learning concept, exam-prep desk, or subject-specific "
+            "study materials depending on the headline. The visual must match the headline theme "
+            "and feel modern, academic, professional, and trustworthy. "
+            "Avoid random generic student images if they do not clearly connect to the headline. "
+            "The left side must stay simple, subtle, and uncluttered with soft depth for "
+            "a dark text overlay. Background should feel clean, premium, online-learning oriented, "
+            "with subtle subject context only through abstract shapes, screens, notebooks, "
+            "or learning ambience. Do not include any text, letters, numbers, formulas, "
+            "readable symbols, logos, watermarks, QR codes, contact details, URLs, or signage. "
+            "Generate only the no-text photographic background. "
+            f"Variation seed: {variation_seed}."
+        )
     )
 
 

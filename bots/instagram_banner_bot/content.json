@@ -1,23 +1,338 @@
 [
   {
-    "headline": "Maths IB/DP Courses",
-    "subheadline": "AA & AI, SL and HL support with clear lessons and exam-focused practice.",
+    "headline": "IB AA HL Maths – 1:1 Live Classes",
+    "subheadline": "Personal tutoring with recordings for every session.",
     "cta": "Book a free demo",
-    "caption": "Build confidence in IB Diploma Programme Mathematics with structured tutoring, concept clarity, and exam-style practice for AA and AI, SL and HL.",
-    "hashtags": ["#Tutorlix", "#IBMath", "#IBDP", "#MathTutoring"]
+    "caption": "Master IB AA HL Maths with one-on-one live classes, personalised guidance, and access to class recordings anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IBAAHL",
+      "#OneToOne",
+      "#OnlineTutoring"
+    ]
   },
   {
-    "headline": "Master IB Maths",
-    "subheadline": "Personal guidance for functions, calculus, statistics, and exam strategy.",
-    "cta": "Start your IB prep",
-    "caption": "IB Maths becomes easier with the right structure. Learn every topic step by step, practise past-paper style questions, and prepare with a focused plan.",
-    "hashtags": ["#Tutorlix", "#IBMathematics", "#IBStudents", "#ExamPrep"]
+    "headline": "IB AA SL Maths – Learn 1:1",
+    "subheadline": "Live sessions + recordings for consistent revision.",
+    "cta": "Start learning",
+    "caption": "Improve IB AA SL performance with personalised teaching, doubt solving, and recorded classes for revision.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IBAASL",
+      "#IBMath",
+      "#LiveClasses"
+    ]
   },
   {
-    "headline": "IB DP Maths Support",
-    "subheadline": "Topic-wise classes, doubt solving, and guided revision for stronger scores.",
-    "cta": "Learn with Tutorlix",
-    "caption": "From foundations to final revision, Tutorlix helps IB DP Maths students stay consistent, practise smarter, and improve exam readiness.",
-    "hashtags": ["#Tutorlix", "#IBDP", "#IBMathTutor", "#OnlineLearning"]
+    "headline": "IGCSE Maths 1:1 Coaching",
+    "subheadline": "Focused learning with recorded lessons.",
+    "cta": "Book demo",
+    "caption": "Get individual attention in IGCSE Maths with structured lessons and recordings to revise anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IGCSEMaths",
+      "#OneToOne",
+      "#ExamPrep"
+    ]
+  },
+  {
+    "headline": "AS Level Maths – Personal Tutoring",
+    "subheadline": "Live 1:1 classes with concept clarity and recordings.",
+    "cta": "Join now",
+    "caption": "Build strong foundations in AS Maths with personalised sessions and access to recorded lessons.",
+    "hashtags": [
+      "#Tutorlix",
+      "#ASLevelMaths",
+      "#OnlineLearning",
+      "#Students"
+    ]
+  },
+  {
+    "headline": "A Level Maths – 1:1 Live Support",
+    "subheadline": "Advanced concepts made simple with recordings.",
+    "cta": "Start prep",
+    "caption": "Learn A Level Maths with expert tutors, one-on-one sessions, and revision-ready recordings.",
+    "hashtags": [
+      "#Tutorlix",
+      "#ALevelMaths",
+      "#OneToOne",
+      "#ExamReady"
+    ]
+  },
+  {
+    "headline": "IB MYP Maths – Personal Guidance",
+    "subheadline": "Live classes tailored to your learning pace.",
+    "cta": "Book today",
+    "caption": "Strengthen your IB MYP Maths with individual attention and recorded lessons for revision.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IBMYP",
+      "#MathsHelp",
+      "#LiveTutoring"
+    ]
+  },
+  {
+    "headline": "Full Stack Development – 1:1 Learning",
+    "subheadline": "Python-based live classes with project recordings.",
+    "cta": "Enroll now",
+    "caption": "Learn full stack development with personalised mentoring and access to all session recordings.",
+    "hashtags": [
+      "#Tutorlix",
+      "#FullStack",
+      "#Python",
+      "#Coding"
+    ]
+  },
+  {
+    "headline": "Python Coding – Learn Live 1:1",
+    "subheadline": "Interactive sessions with recorded lessons.",
+    "cta": "Start coding",
+    "caption": "Build coding skills with one-on-one Python sessions and recordings for practice anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Python",
+      "#Coding",
+      "#OneToOne"
+    ]
+  },
+  {
+    "headline": "Backend Development with Python",
+    "subheadline": "1:1 live classes + recorded project walkthroughs.",
+    "cta": "Join program",
+    "caption": "Master backend systems with personalised mentoring and revisit lessons through recordings.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Backend",
+      "#PythonDev",
+      "#Developers"
+    ]
+  },
+  {
+    "headline": "Frontend + Backend – 1:1 Training",
+    "subheadline": "Complete full stack learning with recordings.",
+    "cta": "Start now",
+    "caption": "Learn frontend and backend step by step with one-on-one support and recorded sessions.",
+    "hashtags": [
+      "#Tutorlix",
+      "#WebDevelopment",
+      "#FullStack",
+      "#LiveClasses"
+    ]
+  },
+  {
+    "headline": "Generative AI – Learn 1:1",
+    "subheadline": "Live sessions with recordings for practice.",
+    "cta": "Explore AI",
+    "caption": "Understand Generative AI concepts with personalised classes and recorded lessons for revision.",
+    "hashtags": [
+      "#Tutorlix",
+      "#GenerativeAI",
+      "#AI",
+      "#FutureSkills"
+    ]
+  },
+  {
+    "headline": "AI App Development – Personal Mentoring",
+    "subheadline": "1:1 live coding with recorded sessions.",
+    "cta": "Start building",
+    "caption": "Build AI-powered apps with expert guidance and revisit sessions anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#AIApps",
+      "#Coding",
+      "#Innovation"
+    ]
+  },
+  {
+    "headline": "Prompt Engineering – 1:1 Coaching",
+    "subheadline": "Learn prompts with live practice and recordings.",
+    "cta": "Learn now",
+    "caption": "Master prompt engineering with personalised sessions and recorded learning.",
+    "hashtags": [
+      "#Tutorlix",
+      "#PromptEngineering",
+      "#AI",
+      "#Skills"
+    ]
+  },
+  {
+    "headline": "IB Maths – Doubt Solving 1:1",
+    "subheadline": "Live sessions with recordings for revision.",
+    "cta": "Book session",
+    "caption": "Clear doubts instantly and revisit explanations anytime with recorded classes.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IBMath",
+      "#DoubtSolving",
+      "#Students"
+    ]
+  },
+  {
+    "headline": "IGCSE Maths – Concept Clarity",
+    "subheadline": "1:1 live lessons + recordings for revision.",
+    "cta": "Start learning",
+    "caption": "Strengthen basics and revise anytime with recorded sessions.",
+    "hashtags": [
+      "#Tutorlix",
+      "#IGCSE",
+      "#MathsHelp",
+      "#OnlineLearning"
+    ]
+  },
+  {
+    "headline": "AS Maths – Exam Ready",
+    "subheadline": "Personal guidance with recorded lessons.",
+    "cta": "Join now",
+    "caption": "Prepare for exams with structured sessions and revision-ready recordings.",
+    "hashtags": [
+      "#Tutorlix",
+      "#ASLevel",
+      "#ExamPrep",
+      "#OneToOne"
+    ]
+  },
+  {
+    "headline": "A Level Maths – Past Paper Practice",
+    "subheadline": "1:1 sessions with recorded solutions.",
+    "cta": "Start prep",
+    "caption": "Solve past papers with expert guidance and revisit explanations anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#ALevel",
+      "#ExamPractice",
+      "#Maths"
+    ]
+  },
+  {
+    "headline": "Full Stack Projects – 1:1 Mentorship",
+    "subheadline": "Live coding sessions with recordings.",
+    "cta": "Build now",
+    "caption": "Work on real projects with personal mentoring and recorded walkthroughs.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Projects",
+      "#FullStack",
+      "#Developers"
+    ]
+  },
+  {
+    "headline": "Python Projects – Learn by Doing",
+    "subheadline": "1:1 coding with recorded sessions.",
+    "cta": "Start coding",
+    "caption": "Build real applications and revisit lessons anytime.",
+    "hashtags": [
+      "#Tutorlix",
+      "#PythonProjects",
+      "#Coding",
+      "#Learning"
+    ]
+  },
+  {
+    "headline": "AI Tools – Learn Live",
+    "subheadline": "1:1 guidance with recorded sessions.",
+    "cta": "Explore now",
+    "caption": "Learn how to use AI tools effectively with personalised support.",
+    "hashtags": [
+      "#Tutorlix",
+      "#AITools",
+      "#Students",
+      "#Future"
+    ]
+  },
+  {
+    "headline": "Maths Made Personal – 1:1 Classes",
+    "subheadline": "Learn at your pace with recorded sessions.",
+    "cta": "Book demo",
+    "caption": "Get personalised Maths support and revise anytime with recordings.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Maths",
+      "#OneToOne",
+      "#Learning"
+    ]
+  },
+  {
+    "headline": "Online Tutoring That Adapts to You",
+    "subheadline": "1:1 live classes with recordings included.",
+    "cta": "Start now",
+    "caption": "Flexible learning with personalised attention and recorded lessons.",
+    "hashtags": [
+      "#Tutorlix",
+      "#OnlineTutoring",
+      "#Students",
+      "#FlexibleLearning"
+    ]
+  },
+  {
+    "headline": "Learn Smarter with 1:1 Classes",
+    "subheadline": "Live sessions + recordings for better retention.",
+    "cta": "Join today",
+    "caption": "Personalised learning designed for better results.",
+    "hashtags": [
+      "#Tutorlix",
+      "#SmartLearning",
+      "#OneToOne",
+      "#Education"
+    ]
+  },
+  {
+    "headline": "Your Personal Tutor Online",
+    "subheadline": "1:1 classes with recordings for revision.",
+    "cta": "Book now",
+    "caption": "Experience personalised learning with expert tutors.",
+    "hashtags": [
+      "#Tutorlix",
+      "#PersonalTutor",
+      "#OnlineLearning",
+      "#Students"
+    ]
+  },
+  {
+    "headline": "Study Anytime with Recordings",
+    "subheadline": "Never miss a concept again.",
+    "cta": "Start learning",
+    "caption": "Access all your class recordings anytime for revision.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Recordings",
+      "#StudySmart",
+      "#Learning"
+    ]
+  },
+  {
+    "headline": "From Doubts to Clarity – 1:1",
+    "subheadline": "Live support with recorded sessions.",
+    "cta": "Get started",
+    "caption": "Clear concepts faster with personal attention.",
+    "hashtags": [
+      "#Tutorlix",
+      "#DoubtSolving",
+      "#MathsHelp",
+      "#Students"
+    ]
+  },
+  {
+    "headline": "Coding + AI – 1:1 Mentorship",
+    "subheadline": "Live classes with recordings for practice.",
+    "cta": "Join now",
+    "caption": "Learn future skills with expert mentors.",
+    "hashtags": [
+      "#Tutorlix",
+      "#CodingAI",
+      "#FutureSkills",
+      "#Developers"
+    ]
+  },
+  {
+    "headline": "Build Skills That Matter",
+    "subheadline": "1:1 live learning with recordings included.",
+    "cta": "Start today",
+    "caption": "Gain confidence with personalised learning.",
+    "hashtags": [
+      "#Tutorlix",
+      "#Skills",
+      "#Learning",
+      "#Students"
+    ]
   }
 ]
