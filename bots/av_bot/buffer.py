@@ -20,6 +20,8 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 
 
 LOGGER = logging.getLogger("av-bot")
+CREATE_POST_ATTEMPTS = 4
+CREATE_POST_RETRY_SECONDS = (30, 60, 120)
 
 
 class BufferPublishError(RuntimeError):
@@ -95,6 +97,40 @@ class BufferPublisher:
         return tuple(results)
 
     def publish_image_post(
+        self,
+        *,
+        channel_id: str,
+        image_url: str,
+        text: str,
+    ) -> BufferPostResult:
+        last_error = None
+        for attempt in range(1, CREATE_POST_ATTEMPTS + 1):
+            try:
+                return self._publish_image_post_once(
+                    channel_id=channel_id,
+                    image_url=image_url,
+                    text=text,
+                )
+            except BufferPublishError as exc:
+                last_error = exc
+                if attempt >= CREATE_POST_ATTEMPTS or not _is_transient_create_error(exc):
+                    raise
+
+                sleep_seconds = CREATE_POST_RETRY_SECONDS[
+                    min(attempt - 1, len(CREATE_POST_RETRY_SECONDS) - 1)
+                ]
+                LOGGER.warning(
+                    "Buffer image post create attempt %s/%s failed with transient error: %s; retrying in %ss",
+                    attempt,
+                    CREATE_POST_ATTEMPTS,
+                    exc,
+                    sleep_seconds,
+                )
+                time.sleep(sleep_seconds)
+
+        raise BufferPublishError(f"Buffer image post failed after retries: {last_error}")
+
+    def _publish_image_post_once(
         self,
         *,
         channel_id: str,
@@ -224,3 +260,19 @@ class BufferPublisher:
         if not isinstance(data, dict):
             raise BufferPublishError(f"Buffer response did not include data: {payload}")
         return data
+
+
+def _is_transient_create_error(exc: BufferPublishError) -> bool:
+    message = str(exc).casefold()
+    transient_fragments = (
+        "unexpectederror",
+        "service unavailable",
+        "failed to fetch image dimensions",
+        "temporarily unavailable",
+        "timeout",
+        "timed out",
+        "502",
+        "503",
+        "504",
+    )
+    return any(fragment in message for fragment in transient_fragments)
