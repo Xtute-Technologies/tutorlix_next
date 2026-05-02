@@ -211,7 +211,7 @@ class BotConfig:
             ),
             schedule_timezone=os.getenv("BOT_SCHEDULE_TIMEZONE", "Asia/Kolkata").strip()
             or "Asia/Kolkata",
-            run_on_start=_env_bool("BOT_RUN_ON_START", False),
+            run_on_start=_env_bool("BOT_RUN_ON_START", True),
             interval_seconds=_env_int("BOT_POST_INTERVAL_SECONDS", 21600),
             dry_run=_env_bool("BOT_DRY_RUN", True),
             request_timeout_seconds=_env_int("BOT_REQUEST_TIMEOUT_SECONDS", 30),

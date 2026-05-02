@@ -45,7 +45,7 @@ BOT_CONTACT_PHONE=+91-8168654010
 BOT_DRY_RUN=false
 BOT_POST_SCHEDULE_TIMES=12:00,18:00
 BOT_SCHEDULE_TIMEZONE=Asia/Kolkata
-BOT_RUN_ON_START=false
+BOT_RUN_ON_START=true
 BOT_PUBLISH_MEDIA_TYPE=reel
 BOT_REEL_AUDIO_FILE=bots/yehp_banner_bot/bombinsound-trending-instagram-reels-music-499599.mp3
 PUBLIC_MEDIA_BASE_URL=https://your-public-host.example/yehp-banners
@@ -87,9 +87,8 @@ Publish one Reel:
 python -m bots.yehp_banner_bot --env-file bots/yehp_banner_bot/.env --once --publish
 ```
 
-Run forever on the fixed schedule. By default it waits until the next 12:00 PM
-or 6:00 PM Asia/Kolkata slot and does not publish immediately on container
-start:
+Run forever on the fixed schedule. By default it posts once immediately on
+startup, then waits until the next 12:00 PM or 6:00 PM Asia/Kolkata slot:
 
 ```bash
 python -m bots.yehp_banner_bot --env-file bots/yehp_banner_bot/.env --loop --publish
@@ -105,13 +104,15 @@ docker run -d \
   --restart unless-stopped \
   --network host \
   --env-file /var/www/tutorlix-prod/yehp-bot.env \
+  -e BOT_RUN_ON_START=true \
   -v /var/www/tutorlix-prod/yehpbot-output:/app/bots/yehp_banner_bot/output \
   ankitvashishta7/yehp-banner-bot-prod:latest
 ```
 
 The container starts in `--loop --publish` mode. With the default schedule it
-posts at `12:00` and `18:00` in `BOT_SCHEDULE_TIMEZONE`. The interval setting is
-only used if `BOT_POST_SCHEDULE_TIMES` is empty.
+posts once when the Docker container starts, then posts at `12:00` and `18:00`
+in `BOT_SCHEDULE_TIMEZONE`. The interval setting is only used if
+`BOT_POST_SCHEDULE_TIMES` is empty.
 
 ## Edit Banner Content
 

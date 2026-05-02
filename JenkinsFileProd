@@ -416,6 +416,7 @@ pipeline {
                       --restart unless-stopped \
                       --network host \
                       --env-file "$YEHP_BOT_ENV_FILE" \
+                      -e BOT_RUN_ON_START=true \
                       -v "$YEHP_BOT_OUTPUT_DIR:/app/bots/yehp_banner_bot/output" \
                       "$YEHP_BOT_IMAGE"
 
