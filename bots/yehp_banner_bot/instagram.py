@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import time
 from typing import Any
 
@@ -20,6 +21,11 @@ except ImportError as exc:  # pragma: no cover - exercised by runtime setup.
 
 class InstagramPublishError(RuntimeError):
     """Raised when Meta rejects or cannot complete an Instagram publish call."""
+
+
+LOGGER = logging.getLogger("yehp-banner-bot")
+REEL_UPLOAD_ATTEMPTS = 3
+REEL_UPLOAD_RETRY_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -49,12 +55,51 @@ class InstagramPublisher:
         self.wait_seconds = max(0, wait_seconds)
 
     def publish_image(self, *, image_url: str, caption: str) -> PublishResult:
+        self._preflight_media_url(image_url, media_kind="image")
         container_id = self._create_image_container(image_url=image_url, caption=caption)
         self._wait_for_container(container_id)
         media_id = self._publish_container(container_id)
         return PublishResult(container_id=container_id, media_id=media_id)
 
     def publish_reel(
+        self,
+        *,
+        video_url: str,
+        caption: str,
+        share_to_feed: bool,
+    ) -> PublishResult:
+        self._preflight_media_url(video_url, media_kind="video")
+        last_error = None
+        for attempt in range(1, REEL_UPLOAD_ATTEMPTS + 1):
+            if attempt > 1:
+                LOGGER.info(
+                    "Retrying Instagram Reel upload attempt %s/%s after %ss",
+                    attempt,
+                    REEL_UPLOAD_ATTEMPTS,
+                    REEL_UPLOAD_RETRY_SECONDS,
+                )
+                time.sleep(REEL_UPLOAD_RETRY_SECONDS)
+
+            try:
+                return self._publish_reel_once(
+                    video_url=video_url,
+                    caption=caption,
+                    share_to_feed=share_to_feed,
+                )
+            except InstagramPublishError as exc:
+                last_error = exc
+                LOGGER.warning(
+                    "Instagram Reel upload attempt %s/%s failed: %s",
+                    attempt,
+                    REEL_UPLOAD_ATTEMPTS,
+                    exc,
+                )
+
+        raise InstagramPublishError(
+            f"Instagram Reel upload failed after {REEL_UPLOAD_ATTEMPTS} attempts: {last_error}"
+        )
+
+    def _publish_reel_once(
         self,
         *,
         video_url: str,
@@ -79,6 +124,7 @@ class InstagramPublisher:
         container_id = str(data.get("id", "")).strip()
         if not container_id:
             raise InstagramPublishError(f"Media container response did not include id: {data}")
+        LOGGER.info("Created Instagram image container id=%s", container_id)
         return container_id
 
     def _create_reel_container(
@@ -98,6 +144,7 @@ class InstagramPublisher:
         container_id = str(data.get("id", "")).strip()
         if not container_id:
             raise InstagramPublishError(f"Reel container response did not include id: {data}")
+        LOGGER.info("Created Instagram Reel container id=%s", container_id)
         return container_id
 
     def _publish_container(self, container_id: str) -> str:
@@ -124,14 +171,54 @@ class InstagramPublisher:
             )
             status_code = str(status.get("status_code", "")).upper()
             if not status_code or status_code == "FINISHED":
+                LOGGER.info("Instagram media container %s is ready", container_id)
                 return
             if status_code in {"ERROR", "EXPIRED"}:
                 raise InstagramPublishError(f"Media container failed: {status}")
+            LOGGER.info("Instagram media container %s status=%s", container_id, status)
             time.sleep(self.poll_seconds)
 
         raise InstagramPublishError(
             f"Media container {container_id} was not ready after {self.wait_seconds}s"
         )
+
+    def _preflight_media_url(self, media_url: str, *, media_kind: str) -> None:
+        if not media_url:
+            raise InstagramPublishError(f"Missing public {media_kind} URL")
+
+        LOGGER.info("Preflight public %s URL for Meta: %s", media_kind, media_url)
+        try:
+            response = requests.head(
+                media_url,
+                allow_redirects=True,
+                timeout=self.timeout_seconds,
+                headers={"User-Agent": "facebookexternalhit/1.1"},
+            )
+            if response.status_code == 405:
+                response = requests.get(
+                    media_url,
+                    stream=True,
+                    timeout=self.timeout_seconds,
+                    headers={"User-Agent": "facebookexternalhit/1.1"},
+                )
+        except requests.exceptions.RequestException as exc:
+            raise InstagramPublishError(
+                f"Public {media_kind} URL is not reachable from the bot: {exc}"
+            ) from exc
+
+        content_type = response.headers.get("Content-Type", "")
+        content_length = response.headers.get("Content-Length", "")
+        LOGGER.info(
+            "Public %s URL preflight status=%s content_type=%s content_length=%s",
+            media_kind,
+            response.status_code,
+            content_type or "(missing)",
+            content_length or "(missing)",
+        )
+        if response.status_code >= 400:
+            raise InstagramPublishError(
+                f"Public {media_kind} URL returned HTTP {response.status_code}"
+            )
 
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}/{self.version}/{path.lstrip('/')}"

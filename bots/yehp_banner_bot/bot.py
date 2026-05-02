@@ -185,6 +185,12 @@ def run_once(config: BotConfig) -> RunResult:
             audio_path=config.reel_audio_file,
         )
         video_url = _public_url_for(config, video_path)
+        LOGGER.info(
+            "Generated Reel video path=%s size=%s bytes url=%s",
+            video_path,
+            video_path.stat().st_size,
+            video_url or "(set PUBLIC_MEDIA_BASE_URL)",
+        )
 
     if config.dry_run:
         LOGGER.info("Dry run generated banner: %s", image_path)
