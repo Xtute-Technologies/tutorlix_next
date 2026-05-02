@@ -10,7 +10,9 @@ from typing import Any
 from urllib.parse import urljoin
 
 from .networking import install_ipv4_only_networking
+import textwrap
 
+from PIL import Image, ImageDraw, ImageFont
 
 install_ipv4_only_networking()
 
@@ -315,3 +317,48 @@ def _truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
+
+def create_note_banner(note: NoteItem, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    width, height = 1200, 630
+    image = Image.new("RGB", (width, height), (245, 248, 255))
+    draw = ImageDraw.Draw(image)
+
+    primary = (24, 48, 120)
+    accent = (69, 108, 255)
+    dark = (24, 28, 40)
+
+    try:
+        logo_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
+        title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 64)
+        label_font = ImageFont.truetype("DejaVuSans.ttf", 28)
+    except OSError:
+        logo_font = ImageFont.load_default()
+        title_font = ImageFont.load_default()
+        label_font = ImageFont.load_default()
+
+    draw.rectangle((0, 0, width, 120), fill=primary)
+    draw.text((60, 35), "Tutorlix", fill="white", font=logo_font)
+
+    draw.rounded_rectangle((60, 175, 165, 187), radius=8, fill=accent)
+
+    wrapped_title = textwrap.wrap(note.title.strip(), width=28)
+    y = 230
+
+    for line in wrapped_title[:4]:
+        draw.text((60, y), line, fill=dark, font=title_font)
+        y += 78
+
+    draw.text(
+        (60, height - 80),
+        "Professional Learning Note",
+        fill=primary,
+        font=label_font,
+    )
+
+    safe_name = re.sub(r"[^a-zA-Z0-9]+", "-", note.slug or note.title).strip("-").lower()
+    banner_path = output_dir / f"{safe_name[:80]}-banner.jpg"
+
+    image.save(banner_path, format="JPEG", quality=92)
+    return banner_path

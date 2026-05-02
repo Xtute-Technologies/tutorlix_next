@@ -12,7 +12,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .buffer import BufferPublisher
 from .config import BotConfig, ConfigError
-from .notes import NoteItem, NoteStateStore, TutorlixNoteClient, build_linkedin_text
+from .notes import (
+    NoteItem,
+    NoteStateStore,
+    TutorlixNoteClient,
+    build_linkedin_text,
+    create_note_banner,
+)
 
 
 LOGGER = logging.getLogger("av-bot")
@@ -131,6 +137,7 @@ def run_once(config: BotConfig) -> RunResult:
     note = state.choose_random_note(notes)
     note = client.fetch_detail(note)
     text = build_linkedin_text(note)
+    banner_path = create_note_banner(note, config.output_dir / "banners")
 
     if config.dry_run:
         LOGGER.info("Dry run selected note: %s", note.title)
@@ -148,7 +155,10 @@ def run_once(config: BotConfig) -> RunResult:
         timeout_seconds=config.request_timeout_seconds,
     )
     try:
-        results = publisher.publish_text_posts(text=text)
+        results = publisher.publish_media_posts(
+            text=text,
+            media_paths=(banner_path,),
+        )
     except Exception:
         LOGGER.exception("Buffer publish failed; keeping bot alive")
         return RunResult(note=note, text=text, buffer_post_ids=())
