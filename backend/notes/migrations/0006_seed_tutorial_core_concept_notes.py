@@ -648,7 +648,6 @@ def note_payload(Note, creator, tutorial_slug, tutorial_title, concept, tutorial
         "discounted_price": None,
         "access_duration_days": 0,
         "description": (
-            f"Detailed study note for the core concept \"{concept['title']}\" inside {tutorial_title}. "
             f"{SEED_DESCRIPTION_MARKER}"
         ),
         "is_draft": False,
