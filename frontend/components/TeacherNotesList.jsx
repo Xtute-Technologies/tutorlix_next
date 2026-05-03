@@ -8,7 +8,18 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, Edit, Trash2, FileText, Package, IndianRupee } from 'lucide-react';
 import UserHoverCard from '@/components/UserHoverCard';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { profileSelectionOptions } from "@/app/data/homeContent";
 import { cn } from "@/lib/utils";
+
+const profileTypeLabels = profileSelectionOptions.reduce((labels, option) => {
+  labels[option.id] = option.title;
+  return labels;
+}, {});
+
+const formatProfileTypeLabel = (value) => {
+  if (!value) return "";
+  return profileTypeLabels[value] || value.replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 export default function TeacherNotesList({ 
   adapter, 
@@ -121,6 +132,32 @@ export default function TeacherNotesList({
         accessorKey: "product_name",
         header: "Product",
         cell: ({ row }) => <span className="text-xs font-medium">{row.original.product_name || "-"}</span>,
+      },
+      {
+        accessorKey: "profileTypes",
+        header: "Profile Type",
+        cell: ({ row }) => {
+          const profileTypes = Array.isArray(row.original.profileTypes)
+            ? row.original.profileTypes.filter(Boolean)
+            : [];
+
+          if (profileTypes.length === 0) {
+            return <span className="text-xs text-muted-foreground">-</span>;
+          }
+
+          return (
+            <div className="flex max-w-[220px] flex-wrap gap-1">
+              {profileTypes.map((profileType) => (
+                <Badge
+                  key={profileType}
+                  variant="outline"
+                  className="border-primary/20 bg-primary/5 text-[11px] font-medium text-primary">
+                  {formatProfileTypeLabel(profileType)}
+                </Badge>
+              ))}
+            </div>
+          );
+        },
       }
     );
 
