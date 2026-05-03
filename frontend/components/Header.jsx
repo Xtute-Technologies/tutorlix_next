@@ -427,11 +427,11 @@ export default function Header() {
       {navigationContent.tutorials_enabled && subnavGroups.length > 0 && (
         <div className="border-t border-slate-200/80 bg-[#1d2a35] text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-            <div className="relative">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => scrollSubnav(-1)}
-                className={`absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-r-md bg-[#0f1720]/90 px-2 py-2 text-slate-200 shadow-lg md:block ${canScrollLeft ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#0f1720] text-white shadow-lg`}
                 aria-label="Scroll tutorials left"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -439,7 +439,7 @@ export default function Header() {
               <div
                 ref={subnavRef}
                 onScroll={updateScrollState}
-                className="flex gap-1 overflow-x-auto overflow-y-visible scroll-smooth whitespace-nowrap scrollbar-none md:px-10"
+                className="flex flex-1 gap-1 overflow-hidden scroll-smooth whitespace-nowrap scrollbar-none"
               >
                 {subnavGroups.map((group) => {
                   const active = group.items.some((item) => pathname === item.url);
@@ -508,7 +508,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => scrollSubnav(1)}
-                className={`absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-l-md bg-[#0f1720]/90 px-2 py-2 text-slate-200 shadow-lg md:block ${canScrollRight ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#0f1720] text-white shadow-lg`}
                 aria-label="Scroll tutorials right"
               >
                 <ChevronRight className="h-4 w-4" />
