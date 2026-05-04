@@ -181,6 +181,16 @@ export default function JobsPage() {
         }
     };
 
+    const getJobDetailHref = (job) => {
+        const id = encodeURIComponent(job.guid || `${job.companySlug || job.companyName}-${job.title}`);
+        return `/jobs/${id}`;
+    };
+
+    const saveJobForDetailPage = (job) => {
+        if (typeof window === 'undefined' || !job?.guid) return;
+        sessionStorage.setItem(`tutorlix-job-${job.guid}`, JSON.stringify(job));
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 text-slate-950">
             <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -391,9 +401,13 @@ export default function JobsPage() {
                                                     <p className="truncate text-sm font-semibold text-slate-500">
                                                         {item.companyName || 'Company'}
                                                     </p>
-                                                    <h3 className="mt-1 line-clamp-2 text-lg font-extrabold leading-6 text-slate-950">
+                                                    <Link
+                                                        href={getJobDetailHref(item)}
+                                                        onClick={() => saveJobForDetailPage(item)}
+                                                        className="mt-1 block line-clamp-2 text-lg font-extrabold leading-6 text-slate-950 hover:text-primary"
+                                                    >
                                                         {item.title || 'Untitled role'}
-                                                    </h3>
+                                                    </Link>
                                                 </div>
                                             </div>
 
@@ -428,29 +442,17 @@ export default function JobsPage() {
                                                         ? item.locationRestrictions.join(', ')
                                                         : 'Remote / Worldwide'}
                                                 </p>
-                                                <p>
-                                                    <span className="font-bold text-slate-950">Posted:</span>{' '}
-                                                    {formatDate(item.pubDate)}
-                                                </p>
+                                                
                                             </div>
 
-                                            <div className="mt-auto grid grid-cols-2 gap-3 pt-5">
-                                                <a
-                                                    href={item.applicationLink || sourceUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800"
+                                            <div className="mt-auto pt-5">
+                                                <Link
+                                                    href={getJobDetailHref(item)}
+                                                    onClick={() => saveJobForDetailPage(item)}
+                                                    className="inline-flex w-full items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800"
                                                 >
-                                                    Apply
-                                                </a>
-                                                <a
-                                                    href={sourceUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                                                >
-                                                    Source
-                                                </a>
+                                                    View Details
+                                                </Link>
                                             </div>
                                         </article>
                                     );
@@ -473,7 +475,7 @@ export default function JobsPage() {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-slate-950">Easy comparison</h4>
-                                    <p>Review salary, company, location, and posting date quickly.</p>
+                                    <p>Review salary, company, and location quickly.</p>
                                 </div>
                             </div>
                         </div>
