@@ -138,7 +138,7 @@ export default function JobsPage() {
             setError('');
 
             try {
-                const response = await fetch(`/api/jobs?${searchParams.toString()}`, {
+                const response = await fetch(`/jobs-catalog?${searchParams.toString()}`, {
                     signal: controller.signal,
                 });
 

@@ -57,7 +57,7 @@ export default function JobDetailPage({ params }) {
           page: '1',
         });
 
-        const response = await fetch(`/api/jobs?${params.toString()}`);
+        const response = await fetch(`/jobs-catalog?${params.toString()}`);
         const data = await response.json();
 
         const jobs = getJobsFromResponse(data)
