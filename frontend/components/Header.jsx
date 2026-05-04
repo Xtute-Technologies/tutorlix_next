@@ -105,6 +105,18 @@ export default function Header() {
     if (!visibleLinks.some((link) => link.url === "/forum")) {
       visibleLinks.splice(Math.min(visibleLinks.length, 5), 0, { label: "Forum", url: "/forum", visibility: "public" });
     }
+
+    if (
+      profileType === "professional" &&
+      !visibleLinks.some((link) => link.url === "/jobs")
+    ) {
+      visibleLinks.splice(Math.min(visibleLinks.length, 6), 0, {
+        label: "Jobs",
+        url: "/jobs",
+        visibility: "public",
+      });
+    }
+
     return visibleLinks;
   }, [navigationContent.primary_links, fallbackPrimaryLinks, profileType, user]);
 
@@ -339,7 +351,7 @@ export default function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mt-2 p-2">
-              
+
               {/* Standard Nav Links */}
               {topLevelNavLinks.map((link) => {
                 if (link.type === "study-materials") {
@@ -387,9 +399,9 @@ export default function Header() {
               {!user && (
                 <>
                   <DropdownMenuSeparator />
-                  
+
                   {/* Switch Profile (Moved here for mobile) */}
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="cursor-pointer"
                     onSelect={(event) => {
                       event.preventDefault();
@@ -400,8 +412,8 @@ export default function Header() {
                     <span>Switch Profile</span>
                   </DropdownMenuItem>
 
-                   {/* Become a Seller (Moved here for mobile) */}
-                   <DropdownMenuItem asChild className="cursor-pointer">
+                  {/* Become a Seller (Moved here for mobile) */}
+                  <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/register" className="text-slate-900 font-semibold">
                       {/* <House className="mr-2 h-4 w-4 text-amber-500" /> */}
                       <span>Become a Seller</span>
@@ -409,12 +421,12 @@ export default function Header() {
                   </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
-                  
+
                   {/* Login */}
                   <DropdownMenuItem asChild>
                     <Link href="/login" className="flex items-center w-full">
-                       <LogIn className="mr-2 h-4 w-4 text-slate-500" />
-                       Sign In
+                      <LogIn className="mr-2 h-4 w-4 text-slate-500" />
+                      Sign In
                     </Link>
                   </DropdownMenuItem>
                 </>
@@ -457,11 +469,10 @@ export default function Header() {
                           onMouseEnter={() => setOpenTutorialGroup(group.label)}
                           onFocus={() => setOpenTutorialGroup(group.label)}
                           onClick={() => setOpenTutorialGroup((current) => (current === group.label ? null : group.label))}
-                          className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${
-                            active || isOpen
-                              ? "border-emerald-400 bg-[#263543] text-white"
-                              : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
-                          }`}
+                          className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-colors ${active || isOpen
+                            ? "border-emerald-400 bg-[#263543] text-white"
+                            : "border-transparent text-slate-200 hover:bg-[#263543] hover:text-white"
+                            }`}
                           aria-expanded={isOpen}
                         >
                           <span className="inline-flex items-center gap-2">
@@ -487,11 +498,10 @@ export default function Header() {
                             <DropdownMenuItem key={`${group.label}-${item.url}`} asChild className="cursor-pointer p-0 focus:bg-transparent">
                               <Link
                                 href={item.url}
-                                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                                  pathname === item.url
-                                    ? "bg-slate-900 text-white"
-                                    : "text-slate-700 hover:bg-slate-100"
-                                }`}
+                                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pathname === item.url
+                                  ? "bg-slate-900 text-white"
+                                  : "text-slate-700 hover:bg-slate-100"
+                                  }`}
                                 onMouseEnter={() => setOpenTutorialGroup(group.label)}
                                 onClick={() => setOpenTutorialGroup(null)}
                               >
@@ -517,7 +527,7 @@ export default function Header() {
           </div>
         </div>
       )}
-      
+
       <ProfileTypeModal
         open={showProfileModal}
         onSelect={handleProfileSelect}
