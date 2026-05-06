@@ -14,7 +14,8 @@ pipeline {
                 'instagram_banner_bot',
                 'linkedin_banner_bot',
                 'av_bot',
-                'yehp_banner_bot'
+                'yehp_banner_bot',
+                'ai_devops_reel_factory'
             ],
             description: 'Choose which production build/deploy path to run.'
         )
@@ -29,6 +30,7 @@ pipeline {
         LINKEDIN_BOT_IMAGE = "${DOCKER_CREDS_USR}/linkedin-banner-bot-prod:latest"
         AV_BOT_IMAGE = "${DOCKER_CREDS_USR}/av-bot-prod:latest"
         YEHP_BOT_IMAGE = "${DOCKER_CREDS_USR}/yehp-banner-bot-prod:latest"
+        AI_DEVOPS_REEL_IMAGE = "${DOCKER_CREDS_USR}/ai-devops-reel-factory-prod:latest"
         INSTAGRAM_BOT_CONTAINER = 'instagram-banner-bot-prod'
         INSTAGRAM_BOT_ENV_FILE = '/var/www/tutorlix-prod/instagram-bot.env'
         INSTAGRAM_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/instagram-bot-output'
@@ -41,6 +43,14 @@ pipeline {
         YEHP_BOT_CONTAINER = 'yehp-banner-bot-prod'
         YEHP_BOT_ENV_FILE = '/var/www/tutorlix-prod/yehp-bot.env'
         YEHP_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/yehp-bot-output'
+        AI_DEVOPS_REEL_CONTAINER = 'ai-devops-reel-factory-prod'
+        AI_DEVOPS_REEL_ENV_FILE = '/var/www/tutorlix-prod/ai-devops-reel-factory.env'
+        AI_DEVOPS_REEL_OUTPUT_DIR = '/var/www/tutorlix-prod/ai-devops-reel-factory-output'
+        AI_DEVOPS_REEL_ASSETS_DIR = '/var/www/tutorlix-prod/ai-devops-reel-factory-assets'
+        AI_DEVOPS_REEL_LIVEPORTRAIT_DIR = '/var/www/tutorlix-prod/LivePortrait'
+        AI_DEVOPS_REEL_WAV2LIP_DIR = '/var/www/tutorlix-prod/Wav2Lip'
+        AI_DEVOPS_REEL_PORT = '11004'
+        AI_DEVOPS_REEL_GPU_ARGS = ''
         BACKEND_SECRET_NAME = 'backend-prod-env'
         ROLLOUT_TIMEOUT = '600s'
     }
@@ -183,6 +193,26 @@ pipeline {
 
                     echo "📤 Pushing AV bot prod image..."
                     docker push $AV_BOT_IMAGE
+                '''
+            }
+        }
+
+        stage('Build And Push AI DevOps Reel Factory Image') {
+            when {
+                expression { params.BUILD_TARGET == 'ai_devops_reel_factory' }
+            }
+            steps {
+                sh '''
+                    set -e
+                    echo "Building AI DevOps Reel Factory prod image..."
+                    docker build \
+                    --network=host \
+                    -f bots/ai_devops_reel_factory/Dockerfile.prod \
+                    -t $AI_DEVOPS_REEL_IMAGE \
+                    .
+
+                    echo "Pushing AI DevOps Reel Factory prod image..."
+                    docker push $AI_DEVOPS_REEL_IMAGE
                 '''
             }
         }
@@ -423,6 +453,113 @@ pipeline {
                     docker ps --filter "name=$YEHP_BOT_CONTAINER"
                     sleep 5
                     docker logs "$YEHP_BOT_CONTAINER" --tail=80
+                '''
+            }
+        }
+
+        stage('Run AI DevOps Reel Factory Container') {
+            when {
+                expression { params.BUILD_TARGET == 'ai_devops_reel_factory' }
+            }
+            steps {
+                sh '''
+                    set -e
+
+                    if [ ! -f "$AI_DEVOPS_REEL_ENV_FILE" ]; then
+                        echo "AI DevOps Reel Factory env file not found: $AI_DEVOPS_REEL_ENV_FILE"
+                        exit 1
+                    fi
+
+                    if [ ! -r "$AI_DEVOPS_REEL_ENV_FILE" ]; then
+                        echo "Jenkins cannot read AI DevOps Reel Factory env file: $AI_DEVOPS_REEL_ENV_FILE"
+                        echo "Fix file permissions before rerunning this job."
+                        exit 1
+                    fi
+
+                    INSTAGRAM_DRY_RUN=$(grep -E '^INSTAGRAM_DRY_RUN=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    INSTAGRAM_USER_ID=$(grep -E '^INSTAGRAM_USER_ID=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    INSTAGRAM_ACCESS_TOKEN=$(grep -E '^INSTAGRAM_ACCESS_TOKEN=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    PUBLIC_VIDEO_BASE_URL=$(grep -E '^PUBLIC_VIDEO_BASE_URL=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    INSTAGRAM_DRY_RUN=${INSTAGRAM_DRY_RUN:-false}
+
+                    if [ "$INSTAGRAM_DRY_RUN" != "true" ]; then
+                        if [ -z "$INSTAGRAM_USER_ID" ]; then
+                            echo "INSTAGRAM_USER_ID is required in $AI_DEVOPS_REEL_ENV_FILE"
+                            exit 1
+                        fi
+
+                        if [ -z "$INSTAGRAM_ACCESS_TOKEN" ]; then
+                            echo "INSTAGRAM_ACCESS_TOKEN is required in $AI_DEVOPS_REEL_ENV_FILE"
+                            exit 1
+                        fi
+
+                        if [ -z "$PUBLIC_VIDEO_BASE_URL" ]; then
+                            echo "PUBLIC_VIDEO_BASE_URL is required in $AI_DEVOPS_REEL_ENV_FILE"
+                            exit 1
+                        fi
+                    fi
+
+                    if [ ! -f "$AI_DEVOPS_REEL_ASSETS_DIR/face.png" ]; then
+                        echo "face.png not found: $AI_DEVOPS_REEL_ASSETS_DIR/face.png"
+                        exit 1
+                    fi
+
+                    if [ ! -f "$AI_DEVOPS_REEL_ASSETS_DIR/voice_sample.wav" ]; then
+                        echo "voice_sample.wav not found: $AI_DEVOPS_REEL_ASSETS_DIR/voice_sample.wav"
+                        exit 1
+                    fi
+
+                    if [ ! -d "$AI_DEVOPS_REEL_ASSETS_DIR/driving_videos" ] || ! find "$AI_DEVOPS_REEL_ASSETS_DIR/driving_videos" -maxdepth 1 -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.mkv' -o -name '*.webm' \) | grep -q .; then
+                        echo "At least one driving video is required in $AI_DEVOPS_REEL_ASSETS_DIR/driving_videos"
+                        exit 1
+                    fi
+
+                    if [ ! -f "$AI_DEVOPS_REEL_LIVEPORTRAIT_DIR/inference.py" ]; then
+                        echo "LivePortrait inference.py not found: $AI_DEVOPS_REEL_LIVEPORTRAIT_DIR/inference.py"
+                        exit 1
+                    fi
+
+                    if [ ! -f "$AI_DEVOPS_REEL_WAV2LIP_DIR/inference.py" ]; then
+                        echo "Wav2Lip inference.py not found: $AI_DEVOPS_REEL_WAV2LIP_DIR/inference.py"
+                        exit 1
+                    fi
+
+                    if [ ! -f "$AI_DEVOPS_REEL_WAV2LIP_DIR/wav2lip_gan.pth" ] && [ ! -f "$AI_DEVOPS_REEL_WAV2LIP_DIR/checkpoints/wav2lip_gan.pth" ] && [ ! -f "$AI_DEVOPS_REEL_WAV2LIP_DIR/checkpoints/wav2lip.pth" ]; then
+                        echo "Wav2Lip checkpoint not found in $AI_DEVOPS_REEL_WAV2LIP_DIR"
+                        exit 1
+                    fi
+
+                    mkdir -p "$AI_DEVOPS_REEL_OUTPUT_DIR"
+
+                    echo "Pulling latest AI DevOps Reel Factory image..."
+                    docker pull "$AI_DEVOPS_REEL_IMAGE"
+
+                    echo "Removing old AI DevOps Reel Factory container..."
+                    docker rm -f "$AI_DEVOPS_REEL_CONTAINER" || true
+
+                    GPU_ARGS="$AI_DEVOPS_REEL_GPU_ARGS"
+                    if [ "$GPU_ARGS" = "none" ]; then
+                        GPU_ARGS=""
+                    fi
+
+                    echo "Starting AI DevOps Reel Factory container..."
+                    docker run -d \
+                      $GPU_ARGS \
+                      --name "$AI_DEVOPS_REEL_CONTAINER" \
+                      --restart unless-stopped \
+                      --network host \
+                      --env-file "$AI_DEVOPS_REEL_ENV_FILE" \
+                      -e PYTHONUNBUFFERED=1 \
+                      -e PORT="$AI_DEVOPS_REEL_PORT" \
+                      -v "$AI_DEVOPS_REEL_OUTPUT_DIR:/app/outputs" \
+                      -v "$AI_DEVOPS_REEL_ASSETS_DIR:/app/assets:ro" \
+                      -v "$AI_DEVOPS_REEL_LIVEPORTRAIT_DIR:/content/LivePortrait" \
+                      -v "$AI_DEVOPS_REEL_WAV2LIP_DIR:/content/Wav2Lip" \
+                      "$AI_DEVOPS_REEL_IMAGE"
+
+                    docker ps --filter "name=$AI_DEVOPS_REEL_CONTAINER"
+                    sleep 5
+                    docker logs "$AI_DEVOPS_REEL_CONTAINER" --tail=120
                 '''
             }
         }

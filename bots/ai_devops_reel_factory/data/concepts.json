@@ -1,0 +1,86 @@
+[
+  {
+    "id": "docker_001",
+    "topic": "Docker",
+    "language": "hinglish",
+    "title": "Docker kya hota hai?",
+    "script": "Docker tumhari application ko ek container mein pack kar deta hai. Iska matlab app, dependencies, aur settings sab ek saath rahte hain. Isliye app kisi bhi server par same tarike se run hoti hai.",
+    "subtitles": [
+      "Docker app ko container mein pack karta hai.",
+      "App + dependencies + settings ek saath.",
+      "Isliye app har server par same run hoti hai."
+    ],
+    "code_visual": "docker build -t myapp .\ndocker run -p 3000:3000 myapp",
+    "diagram": ["Code", "Docker Image", "Container", "Server"]
+  },
+  {
+    "id": "kubernetes_001",
+    "topic": "Kubernetes",
+    "language": "hinglish",
+    "title": "Kubernetes ka simple meaning",
+    "script": "Kubernetes containers ko manage karta hai. Agar ek container crash ho jaye, Kubernetes usko dobara start kar sakta hai. Agar traffic badh jaye, woh naye replicas bhi chala sakta hai.",
+    "subtitles": [
+      "Kubernetes containers ko manage karta hai.",
+      "Crash hone par container restart ho sakta hai.",
+      "Traffic badhne par replicas scale hote hain."
+    ],
+    "code_visual": "kubectl create deployment api --image=myapp\nkubectl scale deployment api --replicas=3",
+    "diagram": ["User Traffic", "Service", "Pods", "Nodes"]
+  },
+  {
+    "id": "cicd_001",
+    "topic": "CI/CD",
+    "language": "hinglish",
+    "title": "CI/CD pipeline kya karti hai?",
+    "script": "CI/CD pipeline code change ko test, build, aur deploy karne ka automated flow hai. Developer push karta hai, pipeline tests chalati hai, image banati hai, aur safe environment mein deploy karti hai.",
+    "subtitles": [
+      "CI/CD code change ko automate karta hai.",
+      "Tests, build, aur deploy ek flow mein hote hain.",
+      "Manual deployment mistakes kam hoti hain."
+    ],
+    "code_visual": "git push origin main\npytest\ndocker build -t api:$GIT_SHA .\nkubectl rollout restart deployment/api",
+    "diagram": ["Git Push", "Tests", "Build Image", "Deploy"]
+  },
+  {
+    "id": "terraform_001",
+    "topic": "Terraform",
+    "language": "hinglish",
+    "title": "Infrastructure as Code",
+    "script": "Terraform se tum servers, databases, networks, aur cloud resources ko code ki tarah define karte ho. Isse infrastructure repeatable, reviewable, aur version controlled ban jata hai.",
+    "subtitles": [
+      "Terraform infrastructure ko code banata hai.",
+      "Cloud resources repeatable hote hain.",
+      "Changes review aur version control mein aate hain."
+    ],
+    "code_visual": "resource \"aws_instance\" \"api\" {\n  ami           = var.ami\n  instance_type = \"t3.micro\"\n}",
+    "diagram": ["Terraform Code", "Plan", "Apply", "Cloud Resources"]
+  },
+  {
+    "id": "load_balancer_001",
+    "topic": "Load Balancer",
+    "language": "hinglish",
+    "title": "Load balancer kyun zaroori hai?",
+    "script": "Load balancer user traffic ko multiple servers mein distribute karta hai. Isse ek server overload nahi hota, app highly available rehti hai, aur failed server ko traffic se hata sakte hain.",
+    "subtitles": [
+      "Load balancer traffic distribute karta hai.",
+      "Ek server overload nahi hota.",
+      "Failed server ko traffic se hata sakte hain."
+    ],
+    "code_visual": "upstream app {\n  server app1:3000;\n  server app2:3000;\n}",
+    "diagram": ["Users", "Load Balancer", "App Server 1", "App Server 2"]
+  },
+  {
+    "id": "observability_001",
+    "topic": "Observability",
+    "language": "hinglish",
+    "title": "Logs, metrics, aur traces",
+    "script": "Observability ka matlab hai system ke andar kya ho raha hai usko clearly samajhna. Logs batate hain kya event hua, metrics batate hain numbers, aur traces request ka full journey dikhate hain.",
+    "subtitles": [
+      "Observability system ko samajhne mein help karti hai.",
+      "Logs events dikhate hain.",
+      "Metrics numbers aur traces request journey dikhate hain."
+    ],
+    "code_visual": "logger.info(\"payment_started\")\nhttp_requests_total{status=\"500\"}\ntrace_id=abc123",
+    "diagram": ["Application", "Logs", "Metrics", "Traces"]
+  }
+]

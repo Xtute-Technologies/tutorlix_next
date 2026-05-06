@@ -1,0 +1,18 @@
+{
+  "language": "hi",
+  "timezone": "Asia/Kolkata",
+  "schedule_times": ["09:00", "16:00"],
+  "reel_width": 1080,
+  "reel_height": 1920,
+  "fps": 30,
+  "voice_clone_model": "xtts_v2",
+  "speaker_wav": "assets/voice_sample.wav",
+  "face_image": "assets/face.png",
+  "liveportrait_dir": "/content/LivePortrait",
+  "wav2lip_dir": "/content/Wav2Lip",
+  "output_dir": "outputs",
+  "subtitle_font_size": 60,
+  "face_position": "bottom_right",
+  "allow_concept_repeat": true,
+  "auto_post_instagram": true
+}

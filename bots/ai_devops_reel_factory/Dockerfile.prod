@@ -1,0 +1,35 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PORT=11004
+
+# FFmpeg renders reels; fonts support Hindi/Hinglish subtitles; OpenCV needs GL libs.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ffmpeg \
+        fonts-dejavu-core \
+        fonts-noto-core \
+        git \
+        libgl1 \
+        libglib2.0-0 \
+        libsm6 \
+        libsndfile1 \
+        libxext6 \
+        libxrender1 \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY bots/ai_devops_reel_factory/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY bots/ai_devops_reel_factory ./
+RUN mkdir -p assets/driving_videos assets/music assets/backgrounds outputs
+
+EXPOSE 11004
+
+# Keep the scheduler alive and serve outputs for reverse-proxy/CDN pickup.
+CMD ["sh", "-c", "python scripts/scheduler.py & python -m http.server ${PORT:-11004} --directory outputs"]

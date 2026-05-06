@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.py[cod]
+
+outputs/*
+!outputs/.gitkeep
+
+assets/face.png
+assets/voice_sample.wav
+assets/logo.png
+assets/driving_videos/*
+!assets/driving_videos/.gitkeep
+assets/music/*
+!assets/music/.gitkeep
+assets/backgrounds/*
+!assets/backgrounds/.gitkeep
