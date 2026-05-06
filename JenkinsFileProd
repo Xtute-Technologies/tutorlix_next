@@ -509,7 +509,22 @@ pipeline {
                         exit 1
                     fi
 
-                    if [ ! -d "$AI_DEVOPS_REEL_ASSETS_DIR/driving_videos" ] || ! find "$AI_DEVOPS_REEL_ASSETS_DIR/driving_videos" -maxdepth 1 -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.mkv' -o -name '*.webm' \) | grep -q .; then
+                    HAS_DRIVING_VIDEO=false
+                    if [ -d "$AI_DEVOPS_REEL_ASSETS_DIR/driving_videos" ]; then
+                        for DRIVING_VIDEO in \
+                            "$AI_DEVOPS_REEL_ASSETS_DIR"/driving_videos/*.mp4 \
+                            "$AI_DEVOPS_REEL_ASSETS_DIR"/driving_videos/*.mov \
+                            "$AI_DEVOPS_REEL_ASSETS_DIR"/driving_videos/*.mkv \
+                            "$AI_DEVOPS_REEL_ASSETS_DIR"/driving_videos/*.webm
+                        do
+                            if [ -f "$DRIVING_VIDEO" ]; then
+                                HAS_DRIVING_VIDEO=true
+                                break
+                            fi
+                        done
+                    fi
+
+                    if [ "$HAS_DRIVING_VIDEO" != "true" ]; then
                         echo "At least one driving video is required in $AI_DEVOPS_REEL_ASSETS_DIR/driving_videos"
                         exit 1
                     fi
