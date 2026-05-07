@@ -121,6 +121,12 @@ The voice language comes from `config.json`:
 
 Use `hi` for Hindi/Hinglish, `en` for English, or another XTTS-supported language code.
 
+XTTS requires license/TOS confirmation before model download. If you have purchased a commercial Coqui license or agree to the CPML terms for your use case, add this to your env file:
+
+```env
+COQUI_TOS_AGREED=1
+```
+
 ## Assets
 
 Required:
@@ -255,6 +261,7 @@ Set:
 INSTAGRAM_USER_ID=
 INSTAGRAM_ACCESS_TOKEN=
 PUBLIC_VIDEO_BASE_URL=
+COQUI_TOS_AGREED=1
 ```
 
 Requirements:

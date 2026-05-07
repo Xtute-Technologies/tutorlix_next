@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,18 @@ def _model_name_from_config(config: dict[str, Any]) -> str:
     return configured
 
 
+def _require_coqui_tos_agreement(model_name: str) -> None:
+    if "xtts" not in model_name.lower():
+        return
+    if os.getenv("COQUI_TOS_AGREED") == "1":
+        return
+    raise PipelineError(
+        "Coqui XTTS requires license/TOS confirmation before model download. "
+        "If you have purchased a commercial Coqui license or agree to the CPML "
+        "terms for your use case, set COQUI_TOS_AGREED=1 in the bot env file."
+    )
+
+
 def generate_voice(config: dict[str, Any] | None = None) -> Path:
     config = config or load_config()
     outputs = output_dir(config)
@@ -73,7 +86,9 @@ def generate_voice(config: dict[str, Any] | None = None) -> Path:
     if not use_gpu:
         LOGGER.warning("CUDA GPU is unavailable. XTTS will run on CPU and may be slow.")
 
-    tts = _load_tts_model(_model_name_from_config(config), use_gpu)
+    model_name = _model_name_from_config(config)
+    _require_coqui_tos_agreement(model_name)
+    tts = _load_tts_model(model_name, use_gpu)
     output_path = outputs / "voice.wav"
     LOGGER.info("Generating cloned voice to %s with language=%s", output_path, language)
     try:

@@ -480,7 +480,13 @@ pipeline {
                     INSTAGRAM_USER_ID=$(grep -E '^INSTAGRAM_USER_ID=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
                     INSTAGRAM_ACCESS_TOKEN=$(grep -E '^INSTAGRAM_ACCESS_TOKEN=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
                     PUBLIC_VIDEO_BASE_URL=$(grep -E '^PUBLIC_VIDEO_BASE_URL=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
+                    COQUI_TOS_AGREED=$(grep -E '^COQUI_TOS_AGREED=' "$AI_DEVOPS_REEL_ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d '"')
                     INSTAGRAM_DRY_RUN=${INSTAGRAM_DRY_RUN:-false}
+
+                    if [ "$COQUI_TOS_AGREED" != "1" ]; then
+                        echo "COQUI_TOS_AGREED=1 is required in $AI_DEVOPS_REEL_ENV_FILE after you confirm the Coqui XTTS license/TOS."
+                        exit 1
+                    fi
 
                     if [ "$INSTAGRAM_DRY_RUN" != "true" ]; then
                         if [ -z "$INSTAGRAM_USER_ID" ]; then
