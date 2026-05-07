@@ -127,6 +127,8 @@ XTTS requires license/TOS confirmation before model download. If you have purcha
 COQUI_TOS_AGREED=1
 ```
 
+The Docker image pins `TTS==0.22.0` and `transformers==4.36.2` because newer Transformers releases removed legacy exports used by XTTS. If you see an import error for `BeamSearchScorer`, rebuild the Docker image from the latest repo instead of patching the running container.
+
 ## Assets
 
 Required:
@@ -232,6 +234,7 @@ Expected production host files/directories:
 /var/www/tutorlix-prod/ai-devops-reel-factory-assets/voice_sample.wav
 /var/www/tutorlix-prod/ai-devops-reel-factory-assets/driving_videos/*.mp4
 /var/www/tutorlix-prod/ai-devops-reel-factory-output
+/var/www/tutorlix-prod/ai-devops-reel-factory-model-cache
 /var/www/tutorlix-prod/LivePortrait
 /var/www/tutorlix-prod/Wav2Lip
 ```
@@ -241,6 +244,7 @@ The Jenkins container mounts:
 ```text
 assets  -> /app/assets
 outputs -> /app/outputs
+XTTS model cache -> /root/.local/share/tts
 LivePortrait -> /content/LivePortrait
 Wav2Lip -> /content/Wav2Lip
 ```

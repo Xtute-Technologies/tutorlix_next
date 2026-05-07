@@ -40,10 +40,23 @@ def _load_tts_model(model_name: str, use_gpu: bool) -> Any:
     LOGGER.info("Loading Coqui XTTS model on %s", device)
     try:
         model = TTS(model_name=model_name, gpu=use_gpu)
+    except ImportError as exc:
+        raise PipelineError(
+            "Coqui XTTS failed to import its transformer dependencies. "
+            "Use the pinned dependency set in requirements.txt, especially "
+            "transformers==4.36.2, then rebuild the Docker image."
+        ) from exc
     except TypeError:
-        model = TTS(model_name=model_name)
-        if hasattr(model, "to"):
-            model.to(device)
+        try:
+            model = TTS(model_name=model_name)
+            if hasattr(model, "to"):
+                model.to(device)
+        except ImportError as exc:
+            raise PipelineError(
+                "Coqui XTTS failed to import its transformer dependencies. "
+                "Use the pinned dependency set in requirements.txt, especially "
+                "transformers==4.36.2, then rebuild the Docker image."
+            ) from exc
 
     _TTS_MODEL = model
     _TTS_DEVICE = device

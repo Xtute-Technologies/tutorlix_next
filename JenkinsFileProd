@@ -47,6 +47,7 @@ pipeline {
         AI_DEVOPS_REEL_ENV_FILE = '/var/www/tutorlix-prod/ai-devops-reel-factory.env'
         AI_DEVOPS_REEL_OUTPUT_DIR = '/var/www/tutorlix-prod/ai-devops-reel-factory-output'
         AI_DEVOPS_REEL_ASSETS_DIR = '/var/www/tutorlix-prod/ai-devops-reel-factory-assets'
+        AI_DEVOPS_REEL_MODEL_CACHE_DIR = '/var/www/tutorlix-prod/ai-devops-reel-factory-model-cache'
         AI_DEVOPS_REEL_LIVEPORTRAIT_DIR = '/var/www/tutorlix-prod/LivePortrait'
         AI_DEVOPS_REEL_WAV2LIP_DIR = '/var/www/tutorlix-prod/Wav2Lip'
         AI_DEVOPS_REEL_PORT = '11004'
@@ -550,7 +551,7 @@ pipeline {
                         exit 1
                     fi
 
-                    mkdir -p "$AI_DEVOPS_REEL_OUTPUT_DIR"
+                    mkdir -p "$AI_DEVOPS_REEL_OUTPUT_DIR" "$AI_DEVOPS_REEL_MODEL_CACHE_DIR"
 
                     echo "Pulling latest AI DevOps Reel Factory image..."
                     docker pull "$AI_DEVOPS_REEL_IMAGE"
@@ -574,6 +575,7 @@ pipeline {
                       -e PORT="$AI_DEVOPS_REEL_PORT" \
                       -v "$AI_DEVOPS_REEL_OUTPUT_DIR:/app/outputs" \
                       -v "$AI_DEVOPS_REEL_ASSETS_DIR:/app/assets:ro" \
+                      -v "$AI_DEVOPS_REEL_MODEL_CACHE_DIR:/root/.local/share/tts" \
                       -v "$AI_DEVOPS_REEL_LIVEPORTRAIT_DIR:/content/LivePortrait" \
                       -v "$AI_DEVOPS_REEL_WAV2LIP_DIR:/content/Wav2Lip" \
                       "$AI_DEVOPS_REEL_IMAGE"
