@@ -127,7 +127,7 @@ XTTS requires license/TOS confirmation before model download. If you have purcha
 COQUI_TOS_AGREED=1
 ```
 
-The Docker image pins `TTS==0.22.0` and `transformers==4.36.2` because newer Transformers releases removed legacy exports used by XTTS. If you see an import error for `BeamSearchScorer`, rebuild the Docker image from the latest repo instead of patching the running container.
+The Docker image pins `TTS==0.22.0`, `transformers==4.36.2`, and `torch==2.5.1`. Newer Transformers releases removed legacy exports used by XTTS, and PyTorch 2.6 changed `torch.load()` defaults in a way that breaks XTTS v2 checkpoint loading. If you see `BeamSearchScorer` or `Weights only load failed`, rebuild the Docker image from the latest repo instead of patching the running container.
 
 ## Assets
 

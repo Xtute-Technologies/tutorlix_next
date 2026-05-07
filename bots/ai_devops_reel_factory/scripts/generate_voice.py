@@ -23,6 +23,30 @@ def _cuda_available() -> bool:
     return bool(torch.cuda.is_available())
 
 
+def _require_compatible_torch() -> None:
+    try:
+        import torch
+    except ImportError as exc:
+        raise PipelineError("PyTorch is not installed. Rebuild the Docker image.") from exc
+
+    version_text = torch.__version__.split("+", 1)[0]
+    major_text, minor_text, *_ = version_text.split(".")
+    try:
+        major = int(major_text)
+        minor = int(minor_text)
+    except ValueError:
+        LOGGER.warning("Could not parse PyTorch version: %s", torch.__version__)
+        return
+
+    if major > 2 or (major == 2 and minor >= 6):
+        raise PipelineError(
+            "Coqui XTTS v2 checkpoint loading is incompatible with PyTorch >= 2.6 "
+            "because torch.load now defaults to weights_only=True. Rebuild with "
+            "the pinned requirements: torch==2.5.1, torchvision==0.20.1, "
+            "torchaudio==2.5.1."
+        )
+
+
 def _load_tts_model(model_name: str, use_gpu: bool) -> Any:
     global _TTS_MODEL, _TTS_DEVICE
     device = "cuda" if use_gpu else "cpu"
@@ -95,6 +119,7 @@ def generate_voice(config: dict[str, Any] | None = None) -> Path:
         raise PipelineError(f"Voice sample should be an audio file: {speaker_wav}")
 
     language = str(config.get("language", "hi")).strip() or "hi"
+    _require_compatible_torch()
     use_gpu = _cuda_available()
     if not use_gpu:
         LOGGER.warning("CUDA GPU is unavailable. XTTS will run on CPU and may be slow.")
