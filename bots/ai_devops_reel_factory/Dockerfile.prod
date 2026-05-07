@@ -31,5 +31,5 @@ RUN mkdir -p assets/driving_videos assets/music assets/backgrounds outputs
 
 EXPOSE 11004
 
-# Keep the scheduler alive and serve outputs for reverse-proxy/CDN pickup.
-CMD ["sh", "-c", "python scripts/scheduler.py & python -m http.server ${PORT:-11004} --directory outputs"]
+# Run once on container start, keep the scheduler alive, and serve outputs.
+CMD ["sh", "-c", "python scripts/scheduler.py --run-now & python -m http.server ${PORT:-11004} --directory outputs"]

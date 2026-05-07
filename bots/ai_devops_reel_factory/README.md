@@ -216,6 +216,8 @@ and runs a long-lived scheduler container named:
 ai-devops-reel-factory-prod
 ```
 
+The production Docker command runs one pipeline immediately when the container starts, then keeps the daily scheduler active for 09:00 and 16:00 in the configured timezone.
+
 Expected production host files/directories:
 
 ```text
