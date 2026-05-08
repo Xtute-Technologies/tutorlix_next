@@ -26,14 +26,37 @@ Upload your own `face.png`, `voice_sample.wav`, and at least one driving video i
 
 ## Google Colab Setup
 
+The recommended path for this bot is the Colab notebook:
+
+```text
+bots/ai_devops_reel_factory/AI_DevOps_Reel_Factory_Colab.ipynb
+```
+
+Use Colab when the VPS does not have enough disk, RAM, CUDA support, or GPU capacity for XTTS, LivePortrait, Wav2Lip, and video rendering. The notebook mounts Google Drive, clones this repo, installs dependencies, syncs assets/checkpoints, writes outputs back to Drive, and can run render-only, dry-run posting, or real Instagram posting.
+
+Colab is not a reliable always-on scheduler. Treat it as a GPU render workstation: open the notebook, run the pipeline, save the output, and optionally post after the video is available from a public HTTPS URL.
+
+The notebook creates `/content/ai-devops-py310` and runs the bot with Python 3.10. This is intentional: some Colab runtimes use Python 3.12, while Coqui `TTS==0.22.0`/XTTS is safest on Python 3.10.
+
+LivePortrait runs in a separate `/content/liveportrait-py310` environment because its dependencies upgrade `numpy`, `transformers`, and other packages that conflict with Coqui TTS. Wav2Lip runs from the bot environment with a small Colab compatibility patch; do not install Wav2Lip's original `requirements.txt` on Python 3.10 because it pins `numpy==1.17.1`.
+
 1. In Colab, open `Runtime > Change runtime type`.
 2. Select `T4 GPU`.
-3. Mount or upload this folder to `/content/tutorlix_next/bots/ai_devops_reel_factory`.
-4. Install system packages and Python dependencies:
+3. Open or upload `AI_DevOps_Reel_Factory_Colab.ipynb`.
+4. Put assets and checkpoints in Google Drive under:
+
+```text
+MyDrive/tutorlix_ai_devops_reel_factory/
+```
+
+5. Run the notebook cells in order.
+
+Manual setup is still possible:
 
 ```bash
 apt-get update
 apt-get install -y ffmpeg git fonts-noto-core
+git clone https://github.com/Xtute-Technologies/tutorlix_next.git /content/tutorlix_next
 cd /content/tutorlix_next/bots/ai_devops_reel_factory
 pip install -r requirements.txt
 ```
@@ -207,6 +230,8 @@ python scripts/scheduler.py --run-now --dry-run-post
 The scheduler prevents overlapping runs. If the 09:00 run is still active at 16:00, the 16:00 run is skipped and the scheduler continues.
 
 ## Jenkins Production Deploy
+
+Use this only if the production host has enough disk and runtime resources. For a small VPS, skip this target in Jenkins and run the Colab notebook instead.
 
 The root [JenkinsFileProd](../../JenkinsFileProd) includes a new `BUILD_TARGET`:
 
@@ -411,9 +436,62 @@ Upload your sample to `assets/voice_sample.wav` or change `speaker_wav` in `conf
 
 Colab may have started on CPU. Change runtime to T4 GPU and restart the runtime.
 
+`pip install -r requirements.txt returned non-zero exit status 1`
+
+Use the latest Colab notebook from this repo and rerun the install cell. The notebook should install `uv`, create `/content/ai-devops-py310`, and run dependency installation with `/content/ai-devops-py310/bin/python`, not Colab's default `python`.
+
+`script.txt exists but final_reel.mp4 is missing`
+
+Run the notebook cell named `Troubleshoot Missing final_reel.mp4`. The normal output order is `script.txt`, `script_metadata.json`, `voice.wav`, `liveportrait.mp4`, `synced_face.mp4`, then `final_reel.mp4`. The first missing file tells you which stage failed.
+
+`Wav2Lip requirements fail on numpy==1.17.1`
+
+Use the latest notebook. It intentionally skips `/content/Wav2Lip/requirements.txt` and patches Wav2Lip for the bot's Python 3.10 environment.
+
+`No module named 'pkg_resources'`
+
+Install the pinned setuptools version in the Colab Python 3.10 environment:
+
+```python
+run([PYTHON, "-m", "pip", "install", "--force-reinstall", "setuptools==80.9.0"])
+```
+
+Then rerun the missing-output troubleshooting cell.
+
+`Key backend: 'module://matplotlib_inline.backend_inline' is not a valid value`
+
+Force a headless matplotlib backend before rerunning voice generation:
+
+```python
+import os
+os.environ["MPLBACKEND"] = "Agg"
+```
+
+The latest notebook and `generate_voice.py` set this automatically.
+
 `LivePortrait inference.py not found`
 
 Clone LivePortrait into `/content/LivePortrait` or update `liveportrait_dir`.
+
+`LivePortrait pretrained weights are missing`
+
+Use the latest notebook. It downloads official weights from Hugging Face `KlingTeam/LivePortrait` into:
+
+```text
+/content/LivePortrait/pretrained_weights
+```
+
+If downloading manually, the required path includes:
+
+```text
+/content/LivePortrait/pretrained_weights/liveportrait/base_models/appearance_feature_extractor.pth
+```
+
+If Hugging Face download fails in Colab, add `HF_TOKEN` as a Colab Secret and rerun the LivePortrait/Wav2Lip setup cell. You can also download `KlingTeam/LivePortrait` manually and copy `liveportrait/` plus `insightface/` into:
+
+```text
+MyDrive/tutorlix_ai_devops_reel_factory/LivePortrait/pretrained_weights/
+```
 
 `LivePortrait finished but no MP4 was found`
 

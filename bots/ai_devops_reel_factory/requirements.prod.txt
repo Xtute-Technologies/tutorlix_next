@@ -2,6 +2,7 @@
 
 # Production Jenkins builds run without Docker GPU flags by default. Use CPU
 # wheels to avoid pulling several GB of CUDA packages into the image layer.
+setuptools==80.9.0
 torch==2.5.1+cpu
 torchvision==0.20.1+cpu
 torchaudio==2.5.1+cpu

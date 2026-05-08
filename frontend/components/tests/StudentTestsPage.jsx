@@ -11,12 +11,43 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
+const parseMarks = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatMarks = (value) => parseMarks(value).toFixed(2);
+
+const calculatePercentage = (marksObtained, totalMarks) => {
+  const obtained = parseMarks(marksObtained);
+  const total = parseMarks(totalMarks);
+  if (total <= 0) return null;
+  return (obtained / total) * 100;
+};
+
+const calculateReviewedTotals = (tests) => {
+  return tests.reduce(
+    (totals, test) => {
+      const attempt = test.my_attempt;
+      if (!attempt?.submitted_at || !attempt?.reviewed_at) return totals;
+      return {
+        obtained: totals.obtained + parseMarks(attempt.total_awarded_marks),
+        total: totals.total + parseMarks(test.total_marks),
+        count: totals.count + 1,
+      };
+    },
+    { obtained: 0, total: 0, count: 0 }
+  );
+};
+
 export default function StudentTestsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const reviewedTotals = calculateReviewedTotals(tests);
+  const totalPercentage = reviewedTotals.total > 0 ? (reviewedTotals.obtained / reviewedTotals.total) * 100 : null;
 
   useEffect(() => {
     if (!user || user.role !== 'student') {
@@ -85,12 +116,21 @@ export default function StudentTestsPage() {
     },
     {
       id: 'score',
-      header: 'Score',
+      header: 'Percentage',
       cell: ({ row }) => {
         const attempt = row.original.my_attempt;
         if (!attempt?.submitted_at) return '-';
         if (!attempt?.reviewed_at) return 'Pending review';
-        return `${attempt.total_awarded_marks || '0.00'} / ${row.original.total_marks || '0.00'}`;
+        const percentage = calculatePercentage(attempt.total_awarded_marks, row.original.total_marks);
+        if (percentage === null) return '-';
+        return (
+          <div>
+            <div className="font-medium">{percentage.toFixed(2)}%</div>
+            <div className="text-xs text-gray-500">
+              {formatMarks(attempt.total_awarded_marks)} / {formatMarks(row.original.total_marks)}
+            </div>
+          </div>
+        );
       },
     },
     {
@@ -136,6 +176,18 @@ export default function StudentTestsPage() {
           {message.text}
         </Card>
       )}
+
+      <Card className="p-4">
+        <div className="text-sm text-gray-500">Total Percentage</div>
+        <div className="mt-1 text-2xl font-semibold">
+          {totalPercentage === null ? '-' : `${totalPercentage.toFixed(2)}%`}
+        </div>
+        <div className="text-xs text-gray-500">
+          {reviewedTotals.count > 0
+            ? `${formatMarks(reviewedTotals.obtained)} / ${formatMarks(reviewedTotals.total)} across ${reviewedTotals.count} reviewed test${reviewedTotals.count === 1 ? '' : 's'}`
+            : 'No reviewed tests yet'}
+        </div>
+      </Card>
 
       <DataTable columns={columns} data={tests} searchKey="title" loading={loading} />
     </div>

@@ -5,6 +5,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV MPLBACKEND=Agg
 ENV PORT=11004
 
 # FFmpeg renders reels; fonts support Hindi/Hinglish subtitles; OpenCV needs GL libs.

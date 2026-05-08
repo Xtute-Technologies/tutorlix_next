@@ -53,6 +53,7 @@ def run_wav2lip(config: dict | None = None) -> Path:
         raise PipelineError(f"Generated voice audio missing: {voice_audio}")
 
     wav2lip_dir = config_path(config, "wav2lip_dir", must_exist=True)
+    wav2lip_python = str(config.get("wav2lip_python") or python_executable())
     inference_py = wav2lip_dir / "inference.py"
     if not inference_py.exists():
         raise PipelineError(f"Wav2Lip inference.py not found: {inference_py}")
@@ -60,7 +61,7 @@ def run_wav2lip(config: dict | None = None) -> Path:
     checkpoint = _checkpoint_path(config, wav2lip_dir)
     output_path = outputs / "synced_face.mp4"
     command = [
-        python_executable(),
+        wav2lip_python,
         "inference.py",
         "--checkpoint_path",
         str(checkpoint),

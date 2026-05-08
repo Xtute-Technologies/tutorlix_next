@@ -14,6 +14,10 @@ XTTS_MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 _TTS_MODEL: Any | None = None
 _TTS_DEVICE: str | None = None
 
+# Colab injects an inline matplotlib backend into the environment. Coqui TTS
+# imports matplotlib in a headless subprocess, so force a valid non-GUI backend.
+os.environ["MPLBACKEND"] = "Agg"
+
 
 def _cuda_available() -> bool:
     try:

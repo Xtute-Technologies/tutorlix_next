@@ -23,13 +23,35 @@ from utils import (
 LOGGER = logging.getLogger("ai-devops-reel-factory.liveportrait")
 
 
+def _required_weight_paths(liveportrait_dir: Path) -> list[Path]:
+    root = liveportrait_dir / "pretrained_weights"
+    return [
+        root / "liveportrait" / "base_models" / "appearance_feature_extractor.pth",
+        root / "liveportrait" / "base_models" / "motion_extractor.pth",
+        root / "liveportrait" / "base_models" / "spade_generator.pth",
+        root / "liveportrait" / "base_models" / "warping_module.pth",
+        root / "liveportrait" / "retargeting_models" / "stitching_retargeting_module.pth",
+        root / "liveportrait" / "landmark.onnx",
+        root / "insightface" / "models" / "buffalo_l" / "2d106det.onnx",
+        root / "insightface" / "models" / "buffalo_l" / "det_10g.onnx",
+    ]
+
+
 def run_liveportrait(config: dict | None = None, driving_video: Path | None = None) -> Path:
     config = config or load_config()
     face_image = config_path(config, "face_image", must_exist=True)
     liveportrait_dir = config_path(config, "liveportrait_dir", must_exist=True)
+    liveportrait_python = str(config.get("liveportrait_python") or python_executable())
     inference_py = liveportrait_dir / "inference.py"
     if not inference_py.exists():
         raise PipelineError(f"LivePortrait inference.py not found: {inference_py}")
+    missing_weights = [path for path in _required_weight_paths(liveportrait_dir) if not path.exists()]
+    if missing_weights:
+        raise PipelineError(
+            "LivePortrait pretrained weights are missing. Download them from Hugging Face "
+            "KlingTeam/LivePortrait into /content/LivePortrait/pretrained_weights. Missing: "
+            + ", ".join(str(path) for path in missing_weights)
+        )
 
     driving_video = driving_video or choose_random_file(
         PROJECT_ROOT / "assets" / "driving_videos",
@@ -39,7 +61,7 @@ def run_liveportrait(config: dict | None = None, driving_video: Path | None = No
 
     started = time.time() - 2
     command = [
-        python_executable(),
+        liveportrait_python,
         "inference.py",
         "-s",
         str(face_image),
