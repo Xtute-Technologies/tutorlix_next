@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = '';
+const API_BASE_URL = 'http://localhost:8000';
 
 // ✅ REMOVE forced Content-Type
 const axiosInstance = axios.create({
@@ -44,14 +44,14 @@ axiosInstance.interceptors.response.use(
           );
 
           const { access } = response.data;
-          Cookies.set('accessToken', access, { expires: 1 });
+          Cookies.set('accessToken', access, { expires: 1, path: '/' });
 
           originalRequest.headers.Authorization = `Bearer ${access}`;
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
+        Cookies.remove('accessToken', { path: '/' });
+        Cookies.remove('refreshToken', { path: '/' });
 
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
