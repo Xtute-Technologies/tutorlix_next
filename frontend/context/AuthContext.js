@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       const data = await authService.login(credentials);
       setUser(data.user);
       if (shouldRedirect) {
-        router.push('/dashboard');
+        router.replace('/dashboard');
       }
       return { success: true, user: data.user };
     } catch (error) {
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
       const data = await authService.register(userData);
       if (data.user && data.access) {
         setUser(data.user);
-        router.push('/dashboard');
+        router.replace('/dashboard');
       }
       return { success: true, data };
     } catch (error) {

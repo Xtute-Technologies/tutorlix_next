@@ -18,6 +18,28 @@ import {
 import React from "react";
 import { ThemeProvider } from "@/components/theme-provider"
 
+const roleHomePath = (role) => {
+  if (role === "admin") return "/admin";
+  if (role === "teacher") return "/teacher";
+  if (role === "seller") return "/seller/bookings";
+  if (role === "student") return "/student";
+  return "/dashboard";
+};
+
+const routeAccessRules = [
+  { prefix: "/admin", roles: ["admin"] },
+  { prefix: "/teacher", roles: ["teacher"] },
+  { prefix: "/student", roles: ["student"] },
+  { prefix: "/seller", roles: ["seller", "admin"] },
+];
+
+const getAllowedRolesForPath = (pathname) => {
+  const matchedRule = routeAccessRules.find(
+    (rule) => pathname === rule.prefix || pathname.startsWith(`${rule.prefix}/`)
+  );
+  return matchedRule?.roles || null;
+};
+
 export default function AdminRootLayout({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -31,12 +53,25 @@ export default function AdminRootLayout({ children }) {
     }
   }, [user, loading, router]);
 
+  const allowedRoles = getAllowedRolesForPath(pathname);
+  const isUnauthorizedRoute = Boolean(user && allowedRoles && !allowedRoles.includes(user.role));
+
+  useEffect(() => {
+    if (!loading && isUnauthorizedRoute) {
+      router.replace(roleHomePath(user.role));
+    }
+  }, [isUnauthorizedRoute, loading, router, user]);
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
   if (!user) {
     return null;
+  }
+
+  if (isUnauthorizedRoute) {
+    return <div className="flex items-center justify-center h-screen">Redirecting...</div>;
   }
 
   const generateBreadcrumbs = () => {

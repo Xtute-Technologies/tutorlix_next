@@ -1,14 +1,32 @@
 import axiosInstance from './axios';
 import Cookies from 'js-cookie';
 
+const AUTH_COOKIE_OPTIONS = { path: '/' };
+const ACCESS_COOKIE_OPTIONS = { ...AUTH_COOKIE_OPTIONS, expires: 1 };
+const REFRESH_COOKIE_OPTIONS = { ...AUTH_COOKIE_OPTIONS, expires: 30 };
+
+const clearAuthCookies = () => {
+  Cookies.remove('accessToken', AUTH_COOKIE_OPTIONS);
+  Cookies.remove('refreshToken', AUTH_COOKIE_OPTIONS);
+};
+
+const storeAuthTokens = ({ access, refresh }) => {
+  if (access) {
+    Cookies.set('accessToken', access, ACCESS_COOKIE_OPTIONS);
+  }
+  if (refresh) {
+    Cookies.set('refreshToken', refresh, REFRESH_COOKIE_OPTIONS);
+  }
+};
+
 export const authService = {
   // Register new user
   register: async (userData) => {
+    clearAuthCookies();
     const response = await axiosInstance.post('/api/auth/registration/', userData);
 
     if (response.data.access && response.data.refresh) {
-      Cookies.set('accessToken', response.data.access, { expires: 1 });
-      Cookies.set('refreshToken', response.data.refresh, { expires: 30 });
+      storeAuthTokens(response.data);
     }
 
     return response.data;
@@ -16,11 +34,11 @@ export const authService = {
 
   // Login with email or phone
   login: async (credentials) => {
+    clearAuthCookies();
     const response = await axiosInstance.post('/api/auth/login/', credentials);
 
     if (response.data.access && response.data.refresh) {
-      Cookies.set('accessToken', response.data.access, { expires: 1 });
-      Cookies.set('refreshToken', response.data.refresh, { expires: 30 });
+      storeAuthTokens(response.data);
     }
 
     return response.data;
@@ -33,8 +51,7 @@ export const authService = {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
+      clearAuthCookies();
     }
   },
 
