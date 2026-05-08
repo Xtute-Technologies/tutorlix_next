@@ -133,6 +133,9 @@ pipeline {
                     echo "🖼️ Updating images with immutable tags..."
                     kubectl set image deployment/backend backend="$BACKEND_IMAGE:$IMAGE_TAG"
                     kubectl set image deployment/frontend frontend="$FRONTEND_IMAGE:$IMAGE_TAG"
+
+                    echo "🧹 Removing old Ollama env vars from backend deployment..."
+                    kubectl set env deployment/backend OLLAMA_AI_TEACHER_MODEL- OLLAMA_BASE_URL- || true
                 '''
             }
         }
