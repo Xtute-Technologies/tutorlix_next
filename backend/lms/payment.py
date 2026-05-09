@@ -1,6 +1,8 @@
 import razorpay
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
+from uuid import uuid4
 
 class PaymentService:
     def __init__(self):
@@ -56,17 +58,33 @@ class PaymentService:
 
     def create_order(self, amount, currency="INR", receipt=None, notes=None):
         try:
-            amount_in_paisa = int(amount * 100)
+            amount_in_paisa = self._amount_to_paisa(amount)
             data = {
                 "amount": amount_in_paisa,
                 "currency": currency,
-                "receipt": str(receipt),
+                "receipt": self._unique_receipt(receipt),
                 "notes": notes or {}
             }
             order = self.client.order.create(data=data)
             return order
         except Exception as e:
             raise ValidationError(f"Error creating Razorpay order: {str(e)}")
+
+    def _amount_to_paisa(self, amount):
+        try:
+            decimal_amount = Decimal(str(amount))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValidationError("Invalid payment amount.") from exc
+
+        if decimal_amount <= 0:
+            raise ValidationError("Payment amount must be greater than zero.")
+
+        return int((decimal_amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+    def _unique_receipt(self, receipt):
+        suffix = uuid4().hex[:10]
+        base = str(receipt or "order").strip() or "order"
+        return f"{base[:29]}-{suffix}"
 
     def verify_order_signature(self, params_dict):
         """
