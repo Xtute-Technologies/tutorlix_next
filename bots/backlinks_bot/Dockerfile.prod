@@ -1,0 +1,12 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY bots/backlinks_bot/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY bots/backlinks_bot ./bots/backlinks_bot
+
+CMD ["python", "-m", "bots.backlinks_bot", "--loop", "--publish"]
+

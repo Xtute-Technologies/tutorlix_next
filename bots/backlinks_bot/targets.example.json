@@ -1,0 +1,25 @@
+[
+  {
+    "id": "owned-wordpress-site",
+    "type": "wordpress",
+    "base_url": "https://example.com",
+    "enabled": true,
+    "authorized": true,
+    "status": "draft",
+    "username_env": "OWNED_WORDPRESS_USERNAME",
+    "password_env": "OWNED_WORDPRESS_APP_PASSWORD",
+    "category_ids": [],
+    "tag_ids": []
+  },
+  {
+    "id": "owned-custom-site",
+    "type": "webhook",
+    "base_url": "https://example.org",
+    "endpoint": "https://example.org/api/backlinks",
+    "enabled": false,
+    "authorized": true,
+    "status": "draft",
+    "token_env": "OWNED_CUSTOM_SITE_TOKEN"
+  }
+]
+
