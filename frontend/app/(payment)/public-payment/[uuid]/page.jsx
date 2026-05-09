@@ -10,6 +10,10 @@ import { Loader2, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 
+const PAYMENT_DETAILS_RETRY_DELAYS_MS = [800, 1800];
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
 export default function PublicPaymentPage() {
     const params = useParams();
     const router = useRouter();
@@ -29,22 +33,35 @@ export default function PublicPaymentPage() {
     }, [uuid]);
 
     const fetchBookingDetails = async () => {
-        try {
-            let response;
-            if (type === 'note') {
-                response = await axios.get(`/api/notes/purchases/details_public/${uuid}/`);
-                setBookingData({ isNote: true, ...response.data });
-            } else if (type === 'note-ai') {
-                response = await axios.get(`/api/notes/ai-subscriptions/details_public/${uuid}/`);
-                setBookingData({ isNoteAI: true, ...response.data });
-            } else {
-                response = await axios.get(`/api/lms/bookings/details_public/${uuid}/`);
-                setBookingData(response.data);
+        setLoading(true);
+        setError(null);
+
+        for (let attempt = 0; attempt <= PAYMENT_DETAILS_RETRY_DELAYS_MS.length; attempt += 1) {
+            try {
+                let response;
+                if (type === 'note') {
+                    response = await axios.get(`/api/notes/purchases/details_public/${uuid}/`);
+                    setBookingData({ isNote: true, ...response.data });
+                } else if (type === 'note-ai') {
+                    response = await axios.get(`/api/notes/ai-subscriptions/details_public/${uuid}/`);
+                    setBookingData({ isNoteAI: true, ...response.data });
+                } else {
+                    response = await axios.get(`/api/lms/bookings/details_public/${uuid}/`);
+                    setBookingData(response.data);
+                }
+                setLoading(false);
+                return;
+            } catch (err) {
+                const retryDelay = PAYMENT_DETAILS_RETRY_DELAYS_MS[attempt];
+                if (retryDelay) {
+                    await wait(retryDelay);
+                    continue;
+                }
+
+                setError(err.response?.data?.detail || err.response?.data?.error || "Failed to load details.");
+                setLoading(false);
+                return;
             }
-        } catch (err) {
-            setError(err.response?.data?.detail || err.response?.data?.error || "Failed to load details.");
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -142,7 +159,13 @@ export default function PublicPaymentPage() {
     };
 
     if (loading) return <div className="h-screen flex justify-center items-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-    if (error) return <div className="h-screen flex justify-center items-center flex-col gap-4 text-destructive bg-background"><AlertCircle className="h-12 w-12" /><p className="text-xl font-semibold">{error}</p></div>;
+    if (error) return (
+        <div className="h-screen flex justify-center items-center flex-col gap-4 text-destructive bg-background p-4 text-center">
+            <AlertCircle className="h-12 w-12" />
+            <p className="text-xl font-semibold">{error}</p>
+            <Button variant="outline" onClick={fetchBookingDetails}>Retry</Button>
+        </div>
+    );
 
     if ((type === 'note' || type === 'note-ai') && bookingData?.status === 'paid') {
         return (

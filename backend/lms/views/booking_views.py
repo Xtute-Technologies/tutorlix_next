@@ -393,26 +393,37 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 "message": "This booking is already paid."
             })
 
-        service = PaymentService()
+        if booking.payment_status == "expired":
+            return Response({
+                "booking": CourseBookingSerializer(booking).data,
+                "razorpay_order_id": booking.razorpay_order_id,
+                "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
+                "status": booking.payment_status,
+                "message": "This payment link is expired."
+            })
 
-        # 🔥 CRITICAL RULE:
-        # Razorpay order MUST be recreated on every retry
-        try:
-            order = service.create_order(
-                amount=booking.final_amount,  # ✅ frozen price from DB
-                receipt=str(booking.id),
-                notes={"booking_uuid": str(booking.booking_id)}
-            )
+        if not booking.razorpay_order_id:
+            service = PaymentService()
+            try:
+                order = service.create_order(
+                    amount=booking.final_amount,
+                    receipt=str(booking.id),
+                    notes={"booking_uuid": str(booking.booking_id)}
+                )
 
-            booking.razorpay_order_id = order["id"]
-            booking.save(update_fields=["razorpay_order_id"])
+                booking.razorpay_order_id = order["id"]
+                booking.save(update_fields=["razorpay_order_id"])
 
-        except Exception as e:
-            logger.error(f"Razorpay order creation failed: {e}")
-            return Response(
-                {"detail": "Error initializing payment."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            except Exception:
+                logger.exception(
+                    "Razorpay order creation failed for booking_id=%s amount=%s",
+                    booking.booking_id,
+                    booking.final_amount,
+                )
+                return Response(
+                    {"detail": "Error initializing payment."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         return Response({
             "booking": CourseBookingSerializer(booking).data,
