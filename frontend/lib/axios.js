@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = 'https://tutorlix.com/api';
+const API_BASE_URL = '';
 
 // ✅ REMOVE forced Content-Type
 const axiosInstance = axios.create({

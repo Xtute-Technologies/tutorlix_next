@@ -15,8 +15,7 @@ pipeline {
                 'linkedin_banner_bot',
                 'av_bot',
                 'yehp_banner_bot',
-                'ai_devops_reel_factory',
-                'backlinks_bot'
+                'ai_devops_reel_factory'
             ],
             description: 'Choose which production build/deploy path to run.'
         )
@@ -32,7 +31,6 @@ pipeline {
         AV_BOT_IMAGE = "${DOCKER_CREDS_USR}/av-bot-prod:latest"
         YEHP_BOT_IMAGE = "${DOCKER_CREDS_USR}/yehp-banner-bot-prod:latest"
         AI_DEVOPS_REEL_IMAGE = "${DOCKER_CREDS_USR}/ai-devops-reel-factory-prod:latest"
-        BACKLINKS_BOT_IMAGE = "${DOCKER_CREDS_USR}/backlinks-bot-prod:latest"
         INSTAGRAM_BOT_CONTAINER = 'instagram-banner-bot-prod'
         INSTAGRAM_BOT_ENV_FILE = '/var/www/tutorlix-prod/instagram-bot.env'
         INSTAGRAM_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/instagram-bot-output'
@@ -54,10 +52,6 @@ pipeline {
         AI_DEVOPS_REEL_WAV2LIP_DIR = '/var/www/tutorlix-prod/Wav2Lip'
         AI_DEVOPS_REEL_PORT = '11004'
         AI_DEVOPS_REEL_GPU_ARGS = ''
-        BACKLINKS_BOT_CONTAINER = 'backlinks-bot-prod'
-        BACKLINKS_BOT_ENV_FILE = '/var/www/tutorlix-prod/backlinks-bot.env'
-        BACKLINKS_BOT_OUTPUT_DIR = '/var/www/tutorlix-prod/backlinks-bot-output'
-        BACKLINKS_BOT_TARGETS_FILE = '/var/www/tutorlix-prod/backlinks-bot-targets.json'
         BACKEND_SECRET_NAME = 'backend-prod-env'
         ROLLOUT_TIMEOUT = '600s'
     }
@@ -220,26 +214,6 @@ pipeline {
 
                     echo "Pushing AI DevOps Reel Factory prod image..."
                     docker push $AI_DEVOPS_REEL_IMAGE
-                '''
-            }
-        }
-
-        stage('Build And Push Backlinks Bot Image') {
-            when {
-                expression { params.BUILD_TARGET == 'backlinks_bot' }
-            }
-            steps {
-                sh '''
-                    set -e
-                    echo "Building Backlinks bot prod image..."
-                    docker build \
-                    --network=host \
-                    -f bots/backlinks_bot/Dockerfile.prod \
-                    -t $BACKLINKS_BOT_IMAGE \
-                    .
-
-                    echo "Pushing Backlinks bot prod image..."
-                    docker push $BACKLINKS_BOT_IMAGE
                 '''
             }
         }
@@ -609,63 +583,6 @@ pipeline {
                     docker ps --filter "name=$AI_DEVOPS_REEL_CONTAINER"
                     sleep 5
                     docker logs "$AI_DEVOPS_REEL_CONTAINER" --tail=120
-                '''
-            }
-        }
-
-        stage('Run Backlinks Bot Container') {
-            when {
-                expression { params.BUILD_TARGET == 'backlinks_bot' }
-            }
-            steps {
-                sh '''
-                    set -e
-
-                    if [ ! -f "$BACKLINKS_BOT_ENV_FILE" ]; then
-                        echo "Backlinks bot env file not found: $BACKLINKS_BOT_ENV_FILE"
-                        exit 1
-                    fi
-
-                    if [ ! -r "$BACKLINKS_BOT_ENV_FILE" ]; then
-                        echo "Jenkins cannot read Backlinks bot env file: $BACKLINKS_BOT_ENV_FILE"
-                        echo "Fix file permissions before rerunning this job."
-                        exit 1
-                    fi
-
-                    if [ ! -f "$BACKLINKS_BOT_TARGETS_FILE" ]; then
-                        echo "Backlinks bot targets file not found: $BACKLINKS_BOT_TARGETS_FILE"
-                        echo "Create it from bots/backlinks_bot/targets.example.json and include only authorized websites."
-                        exit 1
-                    fi
-
-                    if [ ! -r "$BACKLINKS_BOT_TARGETS_FILE" ]; then
-                        echo "Jenkins cannot read Backlinks bot targets file: $BACKLINKS_BOT_TARGETS_FILE"
-                        echo "Fix file permissions before rerunning this job."
-                        exit 1
-                    fi
-
-                    mkdir -p "$BACKLINKS_BOT_OUTPUT_DIR"
-
-                    echo "Pulling latest Backlinks bot image..."
-                    docker pull "$BACKLINKS_BOT_IMAGE"
-
-                    echo "Removing old Backlinks bot container..."
-                    docker rm -f "$BACKLINKS_BOT_CONTAINER" || true
-
-                    echo "Starting Backlinks bot container..."
-                    docker run -d \
-                      --name "$BACKLINKS_BOT_CONTAINER" \
-                      --restart unless-stopped \
-                      --network host \
-                      --env-file "$BACKLINKS_BOT_ENV_FILE" \
-                      -e BACKLINKS_BOT_TARGETS_FILE=/app/bots/backlinks_bot/targets.json \
-                      -v "$BACKLINKS_BOT_OUTPUT_DIR:/app/bots/backlinks_bot/output" \
-                      -v "$BACKLINKS_BOT_TARGETS_FILE:/app/bots/backlinks_bot/targets.json:ro" \
-                      "$BACKLINKS_BOT_IMAGE"
-
-                    docker ps --filter "name=$BACKLINKS_BOT_CONTAINER"
-                    sleep 5
-                    docker logs "$BACKLINKS_BOT_CONTAINER" --tail=80
                 '''
             }
         }

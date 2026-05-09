@@ -1,2 +1,0 @@
-"""Authorized backlink publishing bot."""
-
