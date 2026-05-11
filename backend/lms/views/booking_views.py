@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 import json
 import logging
 from lms.payment import PaymentService
+from lms.frontend_urls import build_frontend_url
 from django.conf import settings
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,25 @@ try:
     from allauth.account.models import EmailAddress
 except ImportError:
     EmailAddress = None
+
+
+def _exception_message(exc):
+    detail = getattr(exc, "detail", None)
+    if isinstance(detail, list):
+        return " ".join(str(item) for item in detail)
+    if isinstance(detail, dict):
+        return " ".join(f"{key}: {value}" for key, value in detail.items())
+
+    message = str(exc).strip()
+    return message or None
+
+
+def _payment_initialization_error(exc):
+    message = _exception_message(exc)
+    detail = "Error initializing payment."
+    if message:
+        detail = f"{detail} {message}"
+    return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
 from lms.models import (
     Product, Offer, CourseBooking, PaymentHistory, AdhocPayment, AdhocPaymentHistory
@@ -308,9 +328,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             student_status="in_process"
         )
 
-        booking.payment_link = (
-            f"{settings.FRONTEND_URL}/public-payment/{booking.booking_id}"
-        )
+        booking.payment_link = build_frontend_url(request, f"/public-payment/{booking.booking_id}")
         booking.save()
 
         serializer = self.get_serializer(booking)
@@ -414,16 +432,13 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 booking.razorpay_order_id = order["id"]
                 booking.save(update_fields=["razorpay_order_id"])
 
-            except Exception:
+            except Exception as exc:
                 logger.exception(
                     "Razorpay order creation failed for booking_id=%s amount=%s",
                     booking.booking_id,
                     booking.final_amount,
                 )
-                return Response(
-                    {"detail": "Error initializing payment."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return _payment_initialization_error(exc)
 
         return Response({
             "booking": CourseBookingSerializer(booking).data,
@@ -684,8 +699,9 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
             created_by=self.request.user,
             payment_status='pending',
         )
-        adhoc_payment.payment_link = (
-            f"{settings.FRONTEND_URL}/public-payment/{adhoc_payment.payment_id}?type=adhoc"
+        adhoc_payment.payment_link = build_frontend_url(
+            self.request,
+            f"/public-payment/{adhoc_payment.payment_id}?type=adhoc",
         )
         adhoc_payment.save(update_fields=['payment_link'])
 
@@ -723,16 +739,13 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
                 )
                 adhoc_payment.razorpay_order_id = order["id"]
                 adhoc_payment.save(update_fields=["razorpay_order_id"])
-            except Exception:
+            except Exception as exc:
                 logger.exception(
                     "Razorpay order creation failed for adhoc_payment_id=%s amount=%s",
                     adhoc_payment.payment_id,
                     adhoc_payment.amount,
                 )
-                return Response(
-                    {"detail": "Error initializing payment."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return _payment_initialization_error(exc)
 
         amount_in_paisa = int((adhoc_payment.amount * Decimal('100')).quantize(Decimal('1')))
         return Response({

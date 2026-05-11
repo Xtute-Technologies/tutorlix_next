@@ -11,6 +11,7 @@ from .models import (
     QuestionBankCourse, QuestionBankTopic, QuestionBankQuestion, ReelGenerationJob, Resource, ApprovedResourceDomain, ResourceImportJob,
     ForumPost, ForumPostLike, ForumComment, ForumNotification, MicrosoftCourse,
 )
+from .frontend_urls import build_frontend_url
 from django.utils.text import slugify
 
 User = get_user_model()
@@ -591,6 +592,7 @@ class CourseBookingSerializer(serializers.ModelSerializer):
         many=True,
         read_only=True
     )
+    payment_link = serializers.SerializerMethodField()
 
     class Meta:
         model = CourseBooking
@@ -653,6 +655,14 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_payment_link(self, obj):
+        if not obj.payment_link:
+            return None
+        return build_frontend_url(
+            self.context.get('request'),
+            f"/public-payment/{obj.booking_id}",
+        )
+
 
 class AdhocPaymentHistorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -671,6 +681,7 @@ class AdhocPaymentSerializer(serializers.ModelSerializer):
     payment_histories = AdhocPaymentHistorySerializer(many=True, read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     created_by_email = serializers.CharField(source='created_by.email', read_only=True)
+    payment_link = serializers.SerializerMethodField()
 
     class Meta:
         model = AdhocPayment
@@ -713,9 +724,17 @@ class AdhocPaymentSerializer(serializers.ModelSerializer):
         ]
 
     def validate_amount(self, value):
-        if value <= Decimal('0'):
-            raise serializers.ValidationError('Amount must be greater than zero.')
+        if value < Decimal('1.00'):
+            raise serializers.ValidationError('Amount must be at least ₹1.00.')
         return value
+
+    def get_payment_link(self, obj):
+        if not obj.payment_link:
+            return None
+        return build_frontend_url(
+            self.context.get('request'),
+            f"/public-payment/{obj.payment_id}?type=adhoc",
+        )
 
 
 class QuestionBankQuestionSerializer(serializers.ModelSerializer):
