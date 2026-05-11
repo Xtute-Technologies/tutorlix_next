@@ -20,6 +20,7 @@ import {
   Video,
   CheckSquare,
   FolderTree,
+  ReceiptText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,6 +30,7 @@ const adminNavItems = [
   { name: "Categories", href: "/admin/categories", icon: Tag },
   { name: "Offers", href: "/admin/offers", icon: Percent },
   { name: "Bookings", href: "/admin/bookings", icon: ShoppingCart },
+  { name: "Adhoc Payments", href: "/admin/adhoc-payments", icon: ReceiptText },
   { name: "Student Classes", href: "/admin/classes-student", icon: Users },
   { name: "Course Classes", href: "/admin/classes-course", icon: BookOpen },
   { name: "Recordings", href: "/admin/recordings", icon: Video },

@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     Category, ProfileType, Product, ProductImage, Offer, CourseBooking,
+    AdhocPayment, AdhocPaymentHistory,
     StudentSpecificClass, CourseSpecificClass, Recording,
     Attendance, TestScore, Expense, ContactFormMessage,
     SellerExpense, TeacherExpense, Masterclass,
@@ -130,6 +131,23 @@ class CourseBookingAdmin(admin.ModelAdmin):
         elif request.user.role == 'student':
             return qs.filter(student=request.user)
         return qs.none()
+
+
+@admin.register(AdhocPayment)
+class AdhocPaymentAdmin(admin.ModelAdmin):
+    list_display = ['title', 'client_name', 'amount', 'payment_status', 'created_by', 'created_at']
+    list_filter = ['payment_status', 'created_at', 'created_by']
+    search_fields = ['title', 'client_name', 'client_email', 'client_phone']
+    ordering = ['-created_at']
+    readonly_fields = ['payment_id', 'payment_link', 'payment_date', 'razorpay_order_id', 'razorpay_payment_id', 'created_at', 'updated_at']
+
+
+@admin.register(AdhocPaymentHistory)
+class AdhocPaymentHistoryAdmin(admin.ModelAdmin):
+    list_display = ['adhoc_payment', 'amount', 'status', 'razorpay_payment_id', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['adhoc_payment__title', 'razorpay_order_id', 'razorpay_payment_id']
+    ordering = ['-created_at']
 
 
 # class AttendanceRecordInline(admin.TabularInline):

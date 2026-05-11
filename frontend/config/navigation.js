@@ -15,6 +15,7 @@ import {
   File,
   FileText,
   FolderOpen,
+  ReceiptText,
 } from "lucide-react";
 
 export const getNavItems = (role) => {
@@ -102,6 +103,7 @@ export const getNavItems = (role) => {
         icon: DollarSign,
         isActive: true,
         items: [
+          { title: "Adhoc Payments", url: "/admin/adhoc-payments", icon: ReceiptText },
           { title: "Expenses", url: "/admin/expenses", icon: DollarSign },
           { title: "Seller Expenses", url: "/admin/seller-expenses", icon: DollarSign },
           { title: "Teacher Expenses", url: "/admin/teacher-expenses", icon: DollarSign },

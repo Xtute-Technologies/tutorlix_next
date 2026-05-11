@@ -24,10 +24,10 @@ except ImportError:
     EmailAddress = None
 
 from lms.models import (
-    Product, Offer, CourseBooking, PaymentHistory
+    Product, Offer, CourseBooking, PaymentHistory, AdhocPayment, AdhocPaymentHistory
 )
 from lms.serializers import (
-    CourseBookingSerializer
+    CourseBookingSerializer, AdhocPaymentSerializer
 )
 
 
@@ -627,6 +627,213 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         })
 
 
+class AdhocPaymentViewSet(viewsets.ModelViewSet):
+    """
+    Admin-only payment links for non-course payments.
+    """
+
+    queryset = AdhocPayment.objects.all()
+    serializer_class = AdhocPaymentSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['payment_status', 'created_by']
+    search_fields = ['title', 'client_name', 'client_email', 'client_phone']
+    ordering_fields = ['created_at', 'amount', 'payment_date']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('created_by').prefetch_related('payment_histories')
+        if self.request.user.role == 'admin':
+            return queryset
+        return queryset.none()
+
+    def _ensure_admin(self, request):
+        if request.user.role != 'admin':
+            return Response(
+                {"detail": "Only admins can manage adhoc payments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
+
+    def create(self, request, *args, **kwargs):
+        denied = self._ensure_admin(request)
+        if denied:
+            return denied
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        denied = self._ensure_admin(request)
+        if denied:
+            return denied
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        denied = self._ensure_admin(request)
+        if denied:
+            return denied
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        denied = self._ensure_admin(request)
+        if denied:
+            return denied
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        adhoc_payment = serializer.save(
+            created_by=self.request.user,
+            payment_status='pending',
+        )
+        adhoc_payment.payment_link = (
+            f"{settings.FRONTEND_URL}/public-payment/{adhoc_payment.payment_id}?type=adhoc"
+        )
+        adhoc_payment.save(update_fields=['payment_link'])
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='details_public/(?P<uuid>[^/.]+)')
+    def get_payment_details(self, request, uuid=None):
+        try:
+            adhoc_payment = AdhocPayment.objects.get(payment_id=uuid)
+        except AdhocPayment.DoesNotExist:
+            return Response(
+                {"detail": "Payment link not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if adhoc_payment.payment_status in ['paid', 'expired']:
+            return Response({
+                "payment": AdhocPaymentSerializer(adhoc_payment).data,
+                "status": adhoc_payment.payment_status,
+                "message": (
+                    "This payment is already paid."
+                    if adhoc_payment.payment_status == 'paid'
+                    else "This payment link is expired."
+                ),
+            })
+
+        if not adhoc_payment.razorpay_order_id:
+            service = PaymentService()
+            try:
+                order = service.create_order(
+                    amount=adhoc_payment.amount,
+                    receipt=f"adhoc-{adhoc_payment.id}",
+                    notes={
+                        "type": "adhoc_payment",
+                        "adhoc_payment_id": str(adhoc_payment.payment_id),
+                    },
+                )
+                adhoc_payment.razorpay_order_id = order["id"]
+                adhoc_payment.save(update_fields=["razorpay_order_id"])
+            except Exception:
+                logger.exception(
+                    "Razorpay order creation failed for adhoc_payment_id=%s amount=%s",
+                    adhoc_payment.payment_id,
+                    adhoc_payment.amount,
+                )
+                return Response(
+                    {"detail": "Error initializing payment."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        amount_in_paisa = int((adhoc_payment.amount * Decimal('100')).quantize(Decimal('1')))
+        return Response({
+            "key": settings.RAZORPAY_SECRET_ID,
+            "amount": amount_in_paisa,
+            "currency": "INR",
+            "name": "Tutorlix",
+            "description": adhoc_payment.title,
+            "order_id": adhoc_payment.razorpay_order_id,
+            "payment_id": str(adhoc_payment.payment_id),
+            "status": adhoc_payment.payment_status,
+            "prefill": {
+                "name": adhoc_payment.client_name,
+                "email": adhoc_payment.client_email,
+                "contact": adhoc_payment.client_phone,
+            },
+            "theme": {
+                "color": "#eab308",
+            },
+        })
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='verify_payment')
+    def verify_payment(self, request):
+        payment_uuid = request.data.get('payment_id')
+        payment_id = request.data.get('razorpay_payment_id')
+        order_id = request.data.get('razorpay_order_id')
+        signature = request.data.get('razorpay_signature')
+
+        if not all([payment_uuid, payment_id, order_id, signature]):
+            return Response(
+                {"detail": "Missing parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            adhoc_payment = AdhocPayment.objects.get(payment_id=payment_uuid)
+        except AdhocPayment.DoesNotExist:
+            return Response(
+                {"detail": "Payment link not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if adhoc_payment.payment_status == 'paid':
+            return Response({
+                "status": "success",
+                "payment_id": str(adhoc_payment.payment_id),
+                "amount": str(adhoc_payment.amount),
+            })
+
+        service = PaymentService()
+        params = {
+            "razorpay_order_id": order_id,
+            "razorpay_payment_id": payment_id,
+            "razorpay_signature": signature,
+        }
+
+        if not service.verify_order_signature(params):
+            AdhocPaymentHistory.objects.create(
+                adhoc_payment=adhoc_payment,
+                title=adhoc_payment.title,
+                amount=adhoc_payment.amount,
+                razorpay_order_id=order_id,
+                razorpay_payment_id=payment_id,
+                status='failed',
+            )
+            adhoc_payment.payment_status = 'failed'
+            adhoc_payment.save(update_fields=['payment_status'])
+            return Response(
+                {"detail": "Signature verification failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        AdhocPaymentHistory.objects.create(
+            adhoc_payment=adhoc_payment,
+            title=adhoc_payment.title,
+            amount=adhoc_payment.amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            razorpay_signature=signature,
+            status='paid',
+        )
+        adhoc_payment.payment_status = 'paid'
+        adhoc_payment.razorpay_payment_id = payment_id
+        adhoc_payment.razorpay_order_id = order_id
+        adhoc_payment.razorpay_signature = signature
+        adhoc_payment.payment_date = timezone.now()
+        adhoc_payment.save(update_fields=[
+            'payment_status',
+            'razorpay_payment_id',
+            'razorpay_order_id',
+            'razorpay_signature',
+            'payment_date',
+        ])
+
+        return Response({
+            "status": "success",
+            "payment_id": str(adhoc_payment.payment_id),
+            "amount": str(adhoc_payment.amount),
+        })
+
+
 class RazorpayWebhookView(APIView):
     """
     Razorpay Webhook Handler
@@ -688,6 +895,8 @@ class RazorpayWebhookView(APIView):
         # Check if it is a Note Purchase
         if notes.get("type") == "note_purchase":
             return self._handle_note_payment_success(payload, notes)
+        if notes.get("type") == "adhoc_payment":
+            return self._handle_adhoc_payment_success(payload, notes)
 
         payment_id = payment.get("id")
         order_id = payment.get("order_id")
@@ -804,6 +1013,52 @@ class RazorpayWebhookView(APIView):
         logger.info(f"Payment SUCCESS recorded for Note Purchase {purchase.purchase_id}")
         return Response({"status": "success"})
 
+    def _handle_adhoc_payment_success(self, payload, notes):
+        adhoc_payment_id = notes.get("adhoc_payment_id")
+        payment = payload["payload"]["payment"]["entity"]
+        payment_id = payment.get("id")
+        order_id = payment.get("order_id")
+
+        if not adhoc_payment_id:
+            logger.warning("No adhoc_payment_id in payment notes")
+            return Response({"status": "ignored"})
+
+        try:
+            adhoc_payment = AdhocPayment.objects.get(payment_id=adhoc_payment_id)
+        except AdhocPayment.DoesNotExist:
+            logger.error(f"Adhoc payment not found for ID {adhoc_payment_id}")
+            return Response({"status": "adhoc_payment_not_found"})
+
+        if AdhocPaymentHistory.objects.filter(
+            razorpay_payment_id=payment_id,
+            status="paid"
+        ).exists():
+            logger.info("Duplicate adhoc payment webhook ignored")
+            return Response({"status": "duplicate"})
+
+        AdhocPaymentHistory.objects.create(
+            adhoc_payment=adhoc_payment,
+            title=adhoc_payment.title,
+            amount=adhoc_payment.amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            status="paid",
+        )
+
+        adhoc_payment.payment_status = "paid"
+        adhoc_payment.payment_date = timezone.now()
+        adhoc_payment.razorpay_payment_id = payment_id
+        adhoc_payment.razorpay_order_id = order_id
+        adhoc_payment.save(update_fields=[
+            "payment_status",
+            "payment_date",
+            "razorpay_payment_id",
+            "razorpay_order_id",
+        ])
+
+        logger.info(f"Payment SUCCESS recorded for adhoc payment {adhoc_payment.payment_id}")
+        return Response({"status": "success"})
+
 
     # ------------------------------------------------------------------
     # FAILED HANDLER
@@ -815,6 +1070,8 @@ class RazorpayWebhookView(APIView):
         # Check if it is a Note Purchase
         if notes.get("type") == "note_purchase":
              return self._handle_note_payment_failed(payload, notes)
+        if notes.get("type") == "adhoc_payment":
+             return self._handle_adhoc_payment_failed(payload, notes)
 
         payment_id = payment.get("id")
         order_id = payment.get("order_id")
@@ -873,3 +1130,38 @@ class RazorpayWebhookView(APIView):
              pass 
              
         return Response({"status": "success"})
+
+    def _handle_adhoc_payment_failed(self, payload, notes):
+        adhoc_payment_id = notes.get("adhoc_payment_id")
+        payment = payload["payload"]["payment"]["entity"]
+        payment_id = payment.get("id")
+        order_id = payment.get("order_id")
+
+        if not adhoc_payment_id:
+            return Response({"status": "ignored"})
+
+        try:
+            adhoc_payment = AdhocPayment.objects.get(payment_id=adhoc_payment_id)
+        except AdhocPayment.DoesNotExist:
+            return Response({"status": "adhoc_payment_not_found"})
+
+        if AdhocPaymentHistory.objects.filter(
+            razorpay_payment_id=payment_id,
+            status="failed"
+        ).exists():
+            return Response({"status": "duplicate"})
+
+        AdhocPaymentHistory.objects.create(
+            adhoc_payment=adhoc_payment,
+            title=adhoc_payment.title,
+            amount=adhoc_payment.amount,
+            razorpay_order_id=order_id,
+            razorpay_payment_id=payment_id,
+            status="failed",
+        )
+
+        if adhoc_payment.payment_status != "paid":
+            adhoc_payment.payment_status = "failed"
+            adhoc_payment.save(update_fields=["payment_status"])
+
+        return Response({"status": "failed"})

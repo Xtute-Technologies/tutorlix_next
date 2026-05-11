@@ -516,6 +516,33 @@ export const bookingAPI = {
   },
 };
 
+export const adhocPaymentAPI = {
+  getAll: async (params = {}) => {
+    const response = await axiosInstance.get('/api/lms/adhoc-payments/', { params });
+    return extractResults(response);
+  },
+
+  getById: async (id) => {
+    const response = await axiosInstance.get(`/api/lms/adhoc-payments/${id}/`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axiosInstance.post('/api/lms/adhoc-payments/', data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axiosInstance.patch(`/api/lms/adhoc-payments/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axiosInstance.delete(`/api/lms/adhoc-payments/${id}/`);
+    return response.data;
+  },
+};
+
 // ============= Test Score APIs =============
 
 export const testScoreAPI = {

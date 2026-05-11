@@ -30,7 +30,7 @@ export default function PublicPaymentPage() {
         if (uuid) {
             fetchBookingDetails();
         }
-    }, [uuid]);
+    }, [uuid, type]);
 
     const fetchBookingDetails = async () => {
         setLoading(true);
@@ -39,15 +39,29 @@ export default function PublicPaymentPage() {
         for (let attempt = 0; attempt <= PAYMENT_DETAILS_RETRY_DELAYS_MS.length; attempt += 1) {
             try {
                 let response;
-                if (type === 'note') {
+                const paymentType = (type || '').toLowerCase();
+
+                if (paymentType === 'note') {
                     response = await axios.get(`/api/notes/purchases/details_public/${uuid}/`);
                     setBookingData({ isNote: true, ...response.data });
-                } else if (type === 'note-ai') {
+                } else if (paymentType === 'note-ai') {
                     response = await axios.get(`/api/notes/ai-subscriptions/details_public/${uuid}/`);
                     setBookingData({ isNoteAI: true, ...response.data });
+                } else if (paymentType === 'adhoc') {
+                    response = await axios.get(`/api/lms/adhoc-payments/details_public/${uuid}/`);
+                    setBookingData({ isAdhoc: true, ...response.data });
                 } else {
-                    response = await axios.get(`/api/lms/bookings/details_public/${uuid}/`);
-                    setBookingData(response.data);
+                    try {
+                        response = await axios.get(`/api/lms/bookings/details_public/${uuid}/`);
+                        setBookingData(response.data);
+                    } catch (bookingErr) {
+                        if (bookingErr.response?.status !== 404) {
+                            throw bookingErr;
+                        }
+
+                        response = await axios.get(`/api/lms/adhoc-payments/details_public/${uuid}/`);
+                        setBookingData({ isAdhoc: true, ...response.data });
+                    }
                 }
                 setLoading(false);
                 return;
@@ -122,6 +136,31 @@ export default function PublicPaymentPage() {
                     }
                 }
             };
+        } else if (bookingData.isAdhoc) {
+            options = {
+                key: bookingData.key,
+                amount: bookingData.amount,
+                currency: bookingData.currency,
+                name: bookingData.name,
+                description: bookingData.description,
+                order_id: bookingData.order_id,
+                prefill: bookingData.prefill,
+                theme: bookingData.theme,
+                handler: async function (response) {
+                    try {
+                        await axios.post('/api/lms/adhoc-payments/verify_payment/', {
+                            payment_id: bookingData.payment_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        router.push(`/payment-success?status=success&type=adhoc&razorpay_payment_id=${response.razorpay_payment_id}`);
+                    } catch (verifyErr) {
+                        alert("Payment verification failed. Please contact support.");
+                        setProcessing(false);
+                    }
+                }
+            };
         } else {
             options = {
                 key: bookingData.razorpay_key_id,
@@ -167,7 +206,7 @@ export default function PublicPaymentPage() {
         </div>
     );
 
-    if ((type === 'note' || type === 'note-ai') && bookingData?.status === 'paid') {
+    if ((type === 'note' || type === 'note-ai' || type === 'adhoc') && bookingData?.status === 'paid') {
         return (
             <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
                 <Card className="w-full max-w-md shadow-lg border-emerald-500/20 bg-card">
@@ -205,6 +244,21 @@ export default function PublicPaymentPage() {
         );
     }
 
+    if (bookingData?.isAdhoc && bookingData?.status === "expired") {
+        return (
+            <div className="h-screen flex justify-center items-center bg-background">
+                <Card className="w-full max-w-md shadow-lg">
+                    <CardHeader className="text-center">
+                        <AlertCircle className="h-14 w-14 text-destructive mx-auto mb-4" />
+                        <CardTitle className="text-2xl font-bold text-foreground">Payment Link Expired</CardTitle>
+                        <CardDescription className="text-muted-foreground">This link is no longer valid.</CardDescription>
+                    </CardHeader>
+                    <CardFooter className="flex justify-center"><Button variant="outline" onClick={() => router.push("/")}>Go to Home</Button></CardFooter>
+                </Card>
+            </div>
+        );
+    }
+
     const { booking } = bookingData;
 
     return (
@@ -221,8 +275,29 @@ export default function PublicPaymentPage() {
                     </CardHeader>
                     
                     <CardContent className="p-6 space-y-6">
-                        {bookingData.isNote || bookingData.isNoteAI ? (
-                            /* NOTE VIEW */
+                        {bookingData.isAdhoc ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Payment For</h3>
+                                    <p className="text-lg font-bold text-foreground">{bookingData.description}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Client</h3>
+                                        <p className="font-medium text-foreground text-sm">{bookingData.prefill?.name}</p>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Phone</h3>
+                                        <p className="font-medium text-foreground text-sm">{bookingData.prefill?.contact || 'N/A'}</p>
+                                    </div>
+                                </div>
+                                <Separator />
+                                <div className="flex justify-between items-center py-2">
+                                    <span className="text-lg font-bold">Total Amount</span>
+                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">₹{(bookingData.amount / 100).toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+                        ) : bookingData.isNote || bookingData.isNoteAI ? (
                             <div className="space-y-4">
                                 <div>
                                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Item</h3>

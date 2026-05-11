@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from accounts.serializers import PublicUserSerializer, SimpleUserSerializer
 from .models import (
     Category, ProfileType, PaymentHistory, Product, ProductImage, Offer, CourseBooking,
+    AdhocPayment, AdhocPaymentHistory,
     StudentSpecificClass, CourseSpecificClass,
     Recording, Attendance, TestScore, Test, TestQuestion, TestAttempt, TestAnswer,
     Expense, ContactFormMessage, SellerExpense, TeacherExpense, ProductLead, Masterclass,
@@ -651,6 +652,70 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+
+class AdhocPaymentHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdhocPaymentHistory
+        fields = [
+            'id',
+            'amount',
+            'status',
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'created_at',
+        ]
+
+
+class AdhocPaymentSerializer(serializers.ModelSerializer):
+    payment_histories = AdhocPaymentHistorySerializer(many=True, read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    created_by_email = serializers.CharField(source='created_by.email', read_only=True)
+
+    class Meta:
+        model = AdhocPayment
+        fields = [
+            'id',
+            'payment_id',
+            'title',
+            'description',
+            'client_name',
+            'client_email',
+            'client_phone',
+            'amount',
+            'payment_link',
+            'payment_status',
+            'payment_date',
+            'payment_histories',
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'razorpay_signature',
+            'created_by',
+            'created_by_name',
+            'created_by_email',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'payment_id',
+            'payment_link',
+            'payment_date',
+            'payment_histories',
+            'razorpay_order_id',
+            'razorpay_payment_id',
+            'razorpay_signature',
+            'created_by',
+            'created_by_name',
+            'created_by_email',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_amount(self, value):
+        if value <= Decimal('0'):
+            raise serializers.ValidationError('Amount must be greater than zero.')
+        return value
 
 
 class QuestionBankQuestionSerializer(serializers.ModelSerializer):

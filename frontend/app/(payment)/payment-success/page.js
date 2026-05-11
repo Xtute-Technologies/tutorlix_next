@@ -25,8 +25,14 @@ function PaymentSuccessContent() {
 
   useEffect(() => {
     // 1. Handle Notes Logic separately
-    if ((type === 'note' || type === 'note-ai') && manualStatus === 'success') {
+    if ((type === 'note' || type === 'note-ai' || type === 'adhoc') && manualStatus === 'success') {
        setStatus('success');
+       if (type === 'adhoc') {
+          toast.success("Payment Successful", {
+            description: "The client payment has been confirmed.",
+          });
+          return;
+       }
        // Auto-redirect logic or Toast
        if (noteId) {
           toast.success("Purchase Successful", {
@@ -97,7 +103,7 @@ function PaymentSuccessContent() {
           </CardTitle>
           <CardDescription className="text-gray-500">
             {status === 'success' 
-              ? (type === 'note' ? 'Your purchase has been confirmed. You will be redirected shortly.' : type === 'note-ai' ? 'Your Ask AI subscription is active. You will be redirected shortly.' : `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.`) 
+              ? (type === 'note' ? 'Your purchase has been confirmed. You will be redirected shortly.' : type === 'note-ai' ? 'Your Ask AI subscription is active. You will be redirected shortly.' : type === 'adhoc' ? 'Your payment has been confirmed.' : `Your booking for ${bookingDetails?.course_name || 'Course'} has been confirmed.`) 
               : 'We verified the transaction but found an issue.'}
           </CardDescription>
         </CardHeader>
@@ -125,6 +131,10 @@ function PaymentSuccessContent() {
                   <Button asChild className="w-full bg-green-600 hover:bg-green-700">
                     <Link href={`/student/notes/${noteId}`}>Go to Note</Link>
                   </Button>
+             ) : type === 'adhoc' ? (
+                 <Button asChild className="w-full">
+                    <Link href="/">Go to Home</Link>
+                 </Button>
              ) : (
                  <Button asChild className="w-full">
                     <Link href="/dashboard">Login to Continue</Link>

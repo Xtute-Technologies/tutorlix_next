@@ -11,6 +11,7 @@ router.register(r'profile-types', views.ProfileTypeViewSet, basename='profile-ty
 router.register(r'products', views.ProductViewSet, basename='product')
 router.register(r'offers', views.OfferViewSet, basename='offer')
 router.register(r'bookings', views.CourseBookingViewSet, basename='booking')
+router.register(r'adhoc-payments', views.AdhocPaymentViewSet, basename='adhoc-payment')
 router.register(r'masterclasses', views.MasterclassViewSet, basename='masterclass')
 router.register(r'student-classes', views.StudentSpecificClassViewSet, basename='student-class')
 router.register(r'course-classes', views.CourseSpecificClassViewSet, basename='course-class')

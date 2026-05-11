@@ -403,6 +403,79 @@ class PaymentHistory(models.Model):
     def __str__(self):
         return f"{self.booking.booking_id} - {self.status} - ₹{self.amount}"  
 
+
+class AdhocPayment(models.Model):
+    """
+    Admin-created payment links for non-course client payments.
+    """
+
+    PAYMENT_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+        ('expired', 'Expired'),
+    )
+
+    payment_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    client_name = models.CharField(max_length=200)
+    client_email = models.EmailField(blank=True)
+    client_phone = models.CharField(max_length=20, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_link = models.URLField(blank=True, null=True)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    payment_date = models.DateTimeField(null=True, blank=True)
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_adhoc_payments',
+        limit_choices_to={'role': 'admin'},
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Adhoc Payment'
+        verbose_name_plural = 'Adhoc Payments'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.client_name} - ₹{self.amount}"
+
+
+class AdhocPaymentHistory(models.Model):
+    PAYMENT_STATUS_CHOICES = (
+        ('created', 'Created'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+    )
+
+    adhoc_payment = models.ForeignKey(
+        AdhocPayment,
+        on_delete=models.CASCADE,
+        related_name='payment_histories',
+    )
+    title = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='created')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.adhoc_payment.payment_id} - {self.status} - ₹{self.amount}"
+
 class StudentSpecificClass(models.Model):
     """
     Classes specific to students
