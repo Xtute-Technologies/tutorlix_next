@@ -127,7 +127,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         # ---------------------------
         # REVENUE (SOURCE OF TRUTH)
         # ---------------------------
-        total_revenue = Decimal('0')
+        course_revenue = Decimal('0')
+        adhoc_revenue = Decimal('0')
         failed_attempts = 0
 
         for booking in bookings:
@@ -136,20 +137,48 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             paid_histories = [history for history in histories if history.status == 'paid']
             if paid_histories:
                 latest_paid = max(paid_histories, key=lambda history: history.created_at)
-                total_revenue += latest_paid.amount or Decimal('0')
+                course_revenue += latest_paid.amount or Decimal('0')
+
+        paid_adhoc_payments = 0
+        pending_adhoc_payments = 0
+
+        if request.user.role == 'admin':
+            adhoc_payments = list(
+                AdhocPayment.objects.prefetch_related('payment_histories')
+            )
+
+            for adhoc_payment in adhoc_payments:
+                histories = list(adhoc_payment.payment_histories.all())
+                failed_attempts += sum(1 for history in histories if history.status == 'failed')
+                paid_histories = [history for history in histories if history.status == 'paid']
+
+                if paid_histories:
+                    latest_paid = max(paid_histories, key=lambda history: history.created_at)
+                    adhoc_revenue += latest_paid.amount or Decimal('0')
+                    paid_adhoc_payments += 1
+                elif adhoc_payment.payment_status == 'paid':
+                    adhoc_revenue += adhoc_payment.amount or Decimal('0')
+                    paid_adhoc_payments += 1
+                elif adhoc_payment.payment_status != 'expired':
+                    pending_adhoc_payments += 1
 
         # ---------------------------
         # OPTIONAL: EXTRA INTELLIGENCE
         # ---------------------------
-        successful_payments = paid_bookings
-        total_sales = paid_bookings + pending_bookings
+        total_revenue = course_revenue + adhoc_revenue
+        successful_payments = paid_bookings + paid_adhoc_payments
+        total_sales = paid_bookings + pending_bookings + paid_adhoc_payments + pending_adhoc_payments
 
         return Response({
             "total_bookings": total_bookings,
             "paid_bookings": paid_bookings,
             "pending_bookings": pending_bookings,
+            "paid_adhoc_payments": paid_adhoc_payments,
+            "pending_adhoc_payments": pending_adhoc_payments,
             "successful_payments": successful_payments,
             "failed_payment_attempts": failed_attempts,
+            "course_revenue": course_revenue,
+            "adhoc_revenue": adhoc_revenue,
             "total_revenue": total_revenue,
             "total_sales": total_sales
         })

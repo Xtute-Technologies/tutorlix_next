@@ -31,10 +31,13 @@ export default function AdminDashboard() {
     paidBookings: 0,
     pendingBookings: 0,
     totalRevenue: 0,
+    courseRevenue: 0,
+    adhocRevenue: 0,
     totalGeneralExpenses: 0,
     totalSellerExpenses: 0,
     totalSales: 0,
-    successfulPayments: 0
+    successfulPayments: 0,
+    paidAdhocPayments: 0,
   });
   const [recentBookings, setRecentBookings] = useState([]);
 
@@ -69,7 +72,10 @@ export default function AdminDashboard() {
         pendingBookings: bookingStatsRes.pending_bookings || 0,
         totalSales: bookingStatsRes.total_sales || 0,
         totalRevenue: parseFloat(bookingStatsRes.total_revenue || 0),
+        courseRevenue: parseFloat(bookingStatsRes.course_revenue || 0),
+        adhocRevenue: parseFloat(bookingStatsRes.adhoc_revenue || 0),
         successfulPayments: bookingStatsRes.successful_payments || 0, 
+        paidAdhocPayments: bookingStatsRes.paid_adhoc_payments || 0,
         totalGeneralExpenses: parseFloat(expenseSummaryRes.total_expenses || expenseSummaryRes.total || 0),
         totalSellerExpenses: parseFloat(sellerExpenseSummaryRes.total_amount || 0),
       });
@@ -130,6 +136,18 @@ export default function AdminDashboard() {
                <span className="text-primary-foreground/70">Total Revenue</span>
                <span className="font-bold">₹{stats.totalRevenue.toLocaleString('en-IN')}</span>
              </div>
+             {stats.adhocRevenue > 0 && (
+               <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-primary-foreground/75">
+                 <div className="rounded-lg bg-primary-foreground/10 px-2 py-1">
+                   <span className="block uppercase tracking-wider opacity-80">Courses</span>
+                   <span className="font-bold text-primary-foreground">₹{stats.courseRevenue.toLocaleString('en-IN')}</span>
+                 </div>
+                 <div className="rounded-lg bg-primary-foreground/10 px-2 py-1">
+                   <span className="block uppercase tracking-wider opacity-80">Adhoc</span>
+                   <span className="font-bold text-primary-foreground">₹{stats.adhocRevenue.toLocaleString('en-IN')}</span>
+                 </div>
+               </div>
+             )}
            </CardContent>
         </Card>
 
