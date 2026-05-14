@@ -1,7 +1,33 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = '';
+const getDefaultApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const { origin, hostname } = window.location;
+    if (!['localhost', '127.0.0.1'].includes(hostname)) {
+      return origin;
+    }
+  }
+
+  return 'http://127.0.0.1:8000';
+};
+
+const normalizeApiBaseUrl = (value) => {
+  const rawUrl = (value || getDefaultApiBaseUrl()).trim().replace(/\/+$/, '');
+
+  // Most app API calls already include `/api/...`; avoid generating `/api/api/...`.
+  if (rawUrl === '/api') {
+    return '';
+  }
+
+  if (rawUrl.endsWith('/api')) {
+    return rawUrl.slice(0, -4);
+  }
+
+  return rawUrl;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // ✅ REMOVE forced Content-Type
 const axiosInstance = axios.create({

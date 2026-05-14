@@ -51,6 +51,25 @@ export const pdfStyles = StyleSheet.create({
     marginVertical: 10,
     lineHeight: 1.5,
   },
+  mathBlock: {
+    padding: 12,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    backgroundColor: "#f8fafc",
+  },
+  mathTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#0f172a",
+    marginBottom: 6,
+  },
+  mathBody: {
+    fontSize: 11,
+    color: "#0f172a",
+    lineHeight: 1.6,
+  },
   pageFooter: {
     position: "absolute",
     bottom: 30,

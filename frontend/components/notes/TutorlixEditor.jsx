@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2, Youtube } from "lucide-react";
 import { noteImageAPI } from "@/lib/notesService";
 import { toast } from "sonner";
+import { MathBlockSpec } from "./blocks/MathBlock";
 import { YoutubeBlockSpec } from "./blocks/YoutubeBlock";
 import { View, Text, Link } from "@react-pdf/renderer";
 import { pdfStyles } from "./PDFStyles";
@@ -24,6 +25,7 @@ const schema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     codeBlock: createCodeBlockSpec(codeBlockOptions),
+    math: MathBlockSpec(),
     youtube: YoutubeBlockSpec(),
   },
   inlineContentSpecs: defaultInlineContentSpecs,
@@ -117,6 +119,14 @@ export default function TutorlixEditor({
             </View>
           );
         },
+        math: (block) => {
+          return (
+            <View style={pdfStyles.mathBlock} wrap={false}>
+              {block.props.title ? <Text style={pdfStyles.mathTitle}>{block.props.title}</Text> : null}
+              <Text style={pdfStyles.mathBody}>{block.props.body || ""}</Text>
+            </View>
+          );
+        },
       },
       inlineContentMapping: pdfDefaultSchemaMappings.inlineContentMapping,
       styleMapping: pdfDefaultSchemaMappings.styleMapping,
@@ -145,19 +155,32 @@ export default function TutorlixEditor({
     return <div className="flex items-center justify-center p-12 text-muted-foreground">Loading Editor...</div>;
   }
 
+  const insertMathBlock = () => {
+    const currentBlock = editor.getTextCursorPosition().block;
+    editor.insertBlocks([{ type: "math" }], currentBlock, "after");
+  };
+
   return (
     <div className="space-y-4 relative group">
       {/* Editor Toolbar (Optional for Read-Only or PDF Export) */}
-      {showPDFExport && (
-        <div className="flex justify-end border-b pb-2 mb-2">
-          <Button
-            onClick={handleExportPDF}
-            variant="ghost"
-            className="text-xs h-8 text-muted-foreground hover:text-primary"
-            disabled={isExporting}>
-            {isExporting ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <FileDown className="mr-2 h-3 w-3" />}
-            Export as PDF
-          </Button>
+      {(showPDFExport || !readOnly) && (
+        <div className="flex flex-wrap justify-end gap-2 border-b pb-2 mb-2">
+          {!readOnly && (
+            <Button onClick={insertMathBlock} variant="outline" className="h-8 text-xs">
+              <span className="mr-1 font-serif text-base leading-none">∑</span>
+              Math Block
+            </Button>
+          )}
+          {showPDFExport && (
+            <Button
+              onClick={handleExportPDF}
+              variant="ghost"
+              className="text-xs h-8 text-muted-foreground hover:text-primary"
+              disabled={isExporting}>
+              {isExporting ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <FileDown className="mr-2 h-3 w-3" />}
+              Export as PDF
+            </Button>
+          )}
         </div>
       )}
 
@@ -200,8 +223,20 @@ export default function TutorlixEditor({
                 subtext: "Embed a YouTube video",
               };
 
+              const mathItem = {
+                title: "Math Block",
+                onItemClick: () => {
+                  const currentBlock = editor.getTextCursorPosition().block;
+                  editor.insertBlocks([{ type: "math" }], currentBlock, "after");
+                },
+                aliases: ["math", "equation", "formula", "symbols", "question"],
+                group: "Math",
+                icon: <span className="font-serif text-lg leading-none">∑</span>,
+                subtext: "Write concepts, formulas, and questions with math symbols",
+              };
+
               // Combine
-              const allItems = [...filteredItems, youtubeItem];
+              const allItems = [...filteredItems, mathItem, youtubeItem];
 
               // Filter by query
               return filterSuggestionItems(allItems, query);
