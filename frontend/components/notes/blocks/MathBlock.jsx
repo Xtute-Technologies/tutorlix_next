@@ -88,6 +88,12 @@ const MathBlock = ({ block, editor }) => {
     });
   };
 
+  const applyFormat = (command, value = null) => {
+    document.execCommand(command, false, value);
+    const html = textareaRef.current?.innerHTML || "";
+    updateBody(html);
+  };
+
   const hasContent = titleValue.trim() || bodyValue.trim();
 
   if (!editor.isEditable && !hasContent) {
@@ -131,15 +137,66 @@ const MathBlock = ({ block, editor }) => {
         placeholder="Title, e.g. Quadratic formula or Trigonometry question"
       />
 
-      <textarea
+      <div
         ref={textareaRef}
-        className="min-h-[180px] w-full resize-y rounded-md border border-slate-200 bg-white p-3 font-serif text-base leading-8 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-        value={bodyValue}
-        onChange={(event) => updateBody(event.target.value)}
-        placeholder="Write concepts, formulas, examples, and questions. Use the symbol palette below."
+        contentEditable
+        suppressContentEditableWarning
+        className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white p-3 font-serif text-base leading-8 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        dangerouslySetInnerHTML={{ __html: bodyValue }}
+        onInput={(event) => updateBody(event.currentTarget.innerHTML)}
+        data-placeholder="Write concepts, formulas, examples, and questions."
       />
 
       <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="mb-2 flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm"
+            onClick={() => applyFormat("bold")}
+          >
+            Bold
+          </button>
+
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm italic"
+            onClick={() => applyFormat("italic")}
+          >
+            Italic
+          </button>
+
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm underline"
+            onClick={() => applyFormat("underline")}
+          >
+            Underline
+          </button>
+
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm"
+            onClick={() => applyFormat("insertUnorderedList")}
+          >
+            • List
+          </button>
+
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm"
+            onClick={() => applyFormat("formatBlock", "<h2>")}
+          >
+            H2
+          </button>
+
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm font-mono"
+            onClick={() => applyFormat("formatBlock", "<pre>")}
+          >
+            Code
+          </button>
+        </div>
         {SYMBOL_GROUPS.map((group) => (
           <div key={group.label} className="grid gap-2 sm:grid-cols-[92px_1fr]">
             <div className="pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{group.label}</div>
