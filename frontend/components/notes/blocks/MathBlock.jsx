@@ -103,7 +103,7 @@ const MathBlock = ({ block, editor }) => {
         data-body={bodyValue}
       >
         {titleValue.trim() && <div className="mb-3 text-sm font-semibold text-slate-900">{titleValue}</div>}
-        <pre className="whitespace-pre-wrap break-words font-serif text-base leading-8 text-slate-900">{bodyValue}</pre>
+        <pre className="whitespace-pre-wrap break-words font-serif text-base leading-8">{bodyValue}</pre>
       </div>
     );
   }
