@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Lock, Upload } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock, Loader2, Lock, Play, Terminal, Upload } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { testAttemptAPI } from '@/lib/lmsService';
@@ -35,6 +35,14 @@ function formatDuration(totalSeconds) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatExecutionTime(durationMs) {
+  if (!Number.isFinite(Number(durationMs))) return '';
+  if (Number(durationMs) >= 1000) {
+    return `${(Number(durationMs) / 1000).toFixed(2)}s`;
+  }
+  return `${Number(durationMs)}ms`;
+}
+
 function getAttemptTimer(attempt, nowMs) {
   const startedMs = parseDateMs(attempt?.started_at);
   if (!startedMs) return null;
@@ -63,6 +71,7 @@ export default function StudentAttemptPage() {
   const [loading, setLoading] = useState(true);
   const [locking, setLocking] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [codeRuns, setCodeRuns] = useState({});
   const [nowMs, setNowMs] = useState(() => Date.now());
   const autosaveTimer = useRef(null);
   const lockingRef = useRef(false);
@@ -271,6 +280,43 @@ export default function StudentAttemptPage() {
     }));
   };
 
+  const setCodeRunValue = (questionId, patch) => {
+    setCodeRuns((prev) => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId],
+        ...patch,
+      },
+    }));
+  };
+
+  const handleRunCode = async (question, codeValue, codeLanguage, stdin) => {
+    if (!attempt || !question || attempt.status !== 'in_progress') return;
+
+    setCodeRunValue(question.id, { running: true, error: '', result: null });
+    try {
+      await persistAnswer(question, {
+        ...(draftAnswers[question.id] || {}),
+        code_answer: codeValue || '',
+        code_language: codeLanguage || '',
+      });
+      const result = await testAttemptAPI.runCode(attempt.id, {
+        question: question.id,
+        code: codeValue || '',
+        language: codeLanguage || '',
+        stdin: stdin || '',
+      });
+      setCodeRunValue(question.id, { running: false, result, error: '' });
+    } catch (error) {
+      console.error('Failed to run code', error);
+      setCodeRunValue(question.id, {
+        running: false,
+        result: null,
+        error: error.response?.data?.detail || 'Failed to run code.',
+      });
+    }
+  };
+
   const renderQuestionBody = () => {
     if (!currentQuestion) return null;
 
@@ -318,38 +364,105 @@ export default function StudentAttemptPage() {
       const codeLanguage = currentAnswer.code_language || currentQuestion.coding_language || 'python';
       const hasDraftCode = Object.prototype.hasOwnProperty.call(currentAnswer, 'code_answer');
       const codeValue = hasDraftCode ? currentAnswer.code_answer || '' : currentQuestion.starter_code || '';
+      const runState = codeRuns[currentQuestion.id] || {};
+      const runResult = runState.result;
+      const stdoutText = runResult?.stdout || '';
+      const stderrText = runResult?.stderr || '';
+      const hasStdout = stdoutText.trim().length > 0;
+      const hasStderr = stderrText.trim().length > 0;
+      const outputText = runState.running
+        ? 'Running...'
+        : runState.error
+          ? runState.error
+          : runResult
+            ? hasStdout
+              ? stdoutText
+              : runResult.success
+                ? 'Program finished with no output.'
+                : 'No standard output.'
+            : 'No output yet.';
 
       return (
-        <div className="space-y-4">
-          <Select
-            value={codeLanguage}
-            disabled={attempt?.status !== 'in_progress'}
-            onValueChange={(value) => setAnswerValue(currentQuestion.id, { code_language: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              {['python', 'javascript', 'java', 'cpp', 'c'].map((language) => (
-                <SelectItem key={language} value={language}>{language}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <CodeEditor
-            height={520}
-            language={codeLanguage}
-            readOnly={attempt?.status !== 'in_progress'}
-            title={`question-${(attempt.current_question_index || 0) + 1}`}
-            value={codeValue}
-            onChange={(value) => setAnswerValue(currentQuestion.id, { code_answer: value })}
-          />
-          <Textarea
-            className="sr-only"
-            value={codeValue}
-            readOnly={attempt?.status !== 'in_progress'}
-            onChange={(event) => setAnswerValue(currentQuestion.id, { code_answer: event.target.value })}
-            aria-label="Code answer"
-          />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0 space-y-4">
+            <Select
+              value={codeLanguage}
+              disabled={attempt?.status !== 'in_progress'}
+              onValueChange={(value) => setAnswerValue(currentQuestion.id, { code_language: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                {['python', 'javascript', 'java', 'cpp', 'c'].map((language) => (
+                  <SelectItem key={language} value={language}>{language}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <CodeEditor
+              height={520}
+              language={codeLanguage}
+              readOnly={attempt?.status !== 'in_progress'}
+              title={`question-${(attempt.current_question_index || 0) + 1}`}
+              value={codeValue}
+              onChange={(value) => setAnswerValue(currentQuestion.id, { code_answer: value })}
+            />
+            <Textarea
+              className="sr-only"
+              value={codeValue}
+              readOnly={attempt?.status !== 'in_progress'}
+              onChange={(event) => setAnswerValue(currentQuestion.id, { code_answer: event.target.value })}
+              aria-label="Code answer"
+            />
+          </div>
+
+          <div className="min-w-0 rounded-lg border bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Terminal className="h-4 w-4" />
+                Output
+              </div>
+              {runResult && (
+                <span className="shrink-0 text-xs text-gray-500">
+                  {runResult.timed_out ? 'Timed out' : `Exit ${runResult.exit_code ?? '-'}`}
+                  {runResult.duration_ms !== undefined ? ` . ${formatExecutionTime(runResult.duration_ms)}` : ''}
+                </span>
+              )}
+            </div>
+
+            <Textarea
+              className="mb-3 min-h-[110px] font-mono text-sm"
+              value={runState.stdin || ''}
+              readOnly={attempt?.status !== 'in_progress'}
+              onChange={(event) => setCodeRunValue(currentQuestion.id, { stdin: event.target.value })}
+              placeholder="Input (stdin)"
+            />
+
+            <Button
+              className="mb-3 w-full"
+              disabled={attempt?.status !== 'in_progress' || runState.running}
+              onClick={() => handleRunCode(currentQuestion, codeValue, codeLanguage, runState.stdin)}
+            >
+              {runState.running ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              {runState.running ? 'Running' : 'Run code'}
+            </Button>
+
+            <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+              <pre className="min-h-[150px] max-h-[260px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-100">{outputText}</pre>
+              {hasStderr && (
+                <div className="border-t border-slate-800">
+                  <div className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-red-300">
+                    Errors
+                  </div>
+                  <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-red-100">{stderrText}</pre>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }

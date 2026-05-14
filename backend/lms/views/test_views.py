@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
+from lms.code_runner import CodeRunnerValidationError, run_code
 from lms.models import CourseBooking, Test, TestAnswer, TestAttempt, TestQuestion
 from lms.permissions import IsAdminOrTeacher
 from lms.serializers import (
@@ -322,6 +323,45 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
 
         serializer = TestAnswerSerializer(answer, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def run_code(self, request, pk=None):
+        attempt = self.get_object()
+        user = request.user
+        is_student_attempt = user.role == 'student' and attempt.student_id == user.id
+        is_reviewer = user.role in ['admin', 'teacher'] and _teacher_can_manage_test(user, attempt.test)
+
+        if not is_student_attempt and not is_reviewer:
+            return Response({'detail': 'You cannot run code for this attempt.'}, status=status.HTTP_403_FORBIDDEN)
+        if is_student_attempt and attempt.status != 'in_progress':
+            return Response({'detail': f'Cannot run code while attempt is {attempt.status}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        question = get_object_or_404(TestQuestion, pk=request.data.get('question'), test=attempt.test)
+        if question.question_type != 'coding':
+            return Response({'detail': 'Code can only be run for coding questions.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        source_code = request.data.get('code') or ''
+        code_language = request.data.get('language') or question.coding_language or ''
+        if is_reviewer:
+            answer = attempt.answers.filter(question=question).first()
+            if not answer or not (answer.code_answer or '').strip():
+                return Response({'detail': 'No submitted code is available for this question.'}, status=status.HTTP_400_BAD_REQUEST)
+            source_code = answer.code_answer or ''
+            code_language = answer.code_language or question.coding_language or ''
+
+        try:
+            result = run_code(
+                code_language,
+                source_code,
+                request.data.get('stdin') or '',
+            )
+        except CodeRunnerValidationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_student_attempt:
+            attempt.last_activity_at = timezone.now()
+            attempt.save(update_fields=['last_activity_at', 'updated_at'])
+        return Response(result)
 
     @action(detail=True, methods=['post'])
     def lock(self, request, pk=None):

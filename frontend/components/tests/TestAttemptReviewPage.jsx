@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ExternalLink, FileText, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, ExternalLink, FileText, Loader2, Lock, Play, Terminal, Unlock } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { testAttemptAPI, testQuestionAPI } from '@/lib/lmsService';
@@ -28,6 +28,14 @@ function isMcqOptionCorrect(option, correctOptions) {
   return Array.isArray(correctOptions) && correctOptions.includes(option);
 }
 
+function formatExecutionTime(durationMs) {
+  if (!Number.isFinite(Number(durationMs))) return '';
+  if (Number(durationMs) >= 1000) {
+    return `${(Number(durationMs) / 1000).toFixed(2)}s`;
+  }
+  return `${Number(durationMs)}ms`;
+}
+
 export default function TestAttemptReviewPage({ role }) {
   const params = useParams();
   const router = useRouter();
@@ -38,6 +46,7 @@ export default function TestAttemptReviewPage({ role }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [unlocking, setUnlocking] = useState(false);
   const [gradingState, setGradingState] = useState({});
+  const [codeRuns, setCodeRuns] = useState({});
   const [savingQuestionId, setSavingQuestionId] = useState(null);
 
   useEffect(() => {
@@ -103,6 +112,36 @@ export default function TestAttemptReviewPage({ role }) {
         ...patch,
       },
     }));
+  };
+
+  const setCodeRunValue = (questionId, patch) => {
+    setCodeRuns((prev) => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId],
+        ...patch,
+      },
+    }));
+  };
+
+  const handleRunSubmittedCode = async (question, stdin) => {
+    if (!attempt?.id || !question?.id) return;
+
+    setCodeRunValue(question.id, { running: true, error: '', result: null });
+    try {
+      const result = await testAttemptAPI.runCode(attempt.id, {
+        question: question.id,
+        stdin: stdin || '',
+      });
+      setCodeRunValue(question.id, { running: false, result, error: '' });
+    } catch (error) {
+      console.error('Failed to run submitted code', error);
+      setCodeRunValue(question.id, {
+        running: false,
+        result: null,
+        error: error.response?.data?.detail || 'Failed to run submitted code.',
+      });
+    }
   };
 
   const handleSaveGrade = async (question) => {
@@ -250,6 +289,23 @@ export default function TestAttemptReviewPage({ role }) {
             awarded_marks: answer?.awarded_marks ?? '0',
             review_comment: answer?.review_comment || '',
           };
+          const codeRunState = codeRuns[question.id] || {};
+          const codeRunResult = codeRunState.result;
+          const stdoutText = codeRunResult?.stdout || '';
+          const stderrText = codeRunResult?.stderr || '';
+          const hasStdout = stdoutText.trim().length > 0;
+          const hasStderr = stderrText.trim().length > 0;
+          const outputText = codeRunState.running
+            ? 'Running...'
+            : codeRunState.error
+              ? codeRunState.error
+              : codeRunResult
+                ? hasStdout
+                  ? stdoutText
+                  : codeRunResult.success
+                    ? 'Program finished with no output.'
+                    : 'No standard output.'
+                : 'No output yet.';
 
           return (
             <Card key={question.id} className="space-y-5 p-6">
@@ -363,6 +419,52 @@ export default function TestAttemptReviewPage({ role }) {
                       title={`submitted-q${index + 1}`}
                       value={answer?.code_answer || 'No code submitted.'}
                     />
+                  </div>
+                  <div className="rounded-lg border bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                        <Terminal className="h-4 w-4" />
+                        Output
+                      </div>
+                      {codeRunResult && (
+                        <span className="shrink-0 text-xs text-gray-500">
+                          {codeRunResult.timed_out ? 'Timed out' : `Exit ${codeRunResult.exit_code ?? '-'}`}
+                          {codeRunResult.duration_ms !== undefined ? ` . ${formatExecutionTime(codeRunResult.duration_ms)}` : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    <Textarea
+                      className="mb-3 min-h-[96px] font-mono text-sm"
+                      value={codeRunState.stdin || ''}
+                      onChange={(event) => setCodeRunValue(question.id, { stdin: event.target.value })}
+                      placeholder="Input (stdin)"
+                    />
+
+                    <Button
+                      className="mb-3"
+                      disabled={codeRunState.running || !(answer?.code_answer || '').trim()}
+                      onClick={() => handleRunSubmittedCode(question, codeRunState.stdin)}
+                    >
+                      {codeRunState.running ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      {codeRunState.running ? 'Running' : 'Run submitted code'}
+                    </Button>
+
+                    <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                      <pre className="min-h-[120px] max-h-[260px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-100">{outputText}</pre>
+                      {hasStderr && (
+                        <div className="border-t border-slate-800">
+                          <div className="px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-red-300">
+                            Errors
+                          </div>
+                          <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-red-100">{stderrText}</pre>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

@@ -4,6 +4,14 @@ import { cn } from "@/lib/utils";
 
 const Input = React.forwardRef(
   ({ className, type, ...props }, ref) => {
+    const inputProps = { ...props };
+    const hasValueProp = Object.prototype.hasOwnProperty.call(inputProps, "value");
+    const skipsValueNormalization = ["checkbox", "file", "radio"].includes(type);
+
+    if (hasValueProp && inputProps.value == null && !skipsValueNormalization) {
+      inputProps.value = "";
+    }
+
     return (
       <input
         type={type}
@@ -12,7 +20,7 @@ const Input = React.forwardRef(
           className
         )}
         ref={ref}
-        {...props}
+        {...inputProps}
       />
     );
   }

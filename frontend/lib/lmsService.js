@@ -653,6 +653,11 @@ export const testAttemptAPI = {
     return response.data;
   },
 
+  runCode: async (attemptId, data) => {
+    const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/run_code/`, data);
+    return response.data;
+  },
+
   lock: async (attemptId, reason) => {
     const response = await axiosInstance.post(`/api/lms/test-attempts/${attemptId}/lock/`, { reason });
     return response.data;
