@@ -170,8 +170,8 @@ export default function PublicPaymentPage() {
                 }
             };
         } else {
-            const paymentCurrency = bookingData.currency || bookingData.booking.payment_currency || "INR";
-            const paymentAmount = bookingData.amount ?? Math.round(Number(bookingData.booking.payment_amount ?? bookingData.booking.final_amount) * 100);
+            const paymentCurrency = "INR";
+            const paymentAmount = bookingData.amount ?? Math.round(Number(bookingData.booking.final_amount) * 100);
             options = {
                 key: bookingData.razorpay_key_id,
                 amount: paymentAmount,
@@ -201,7 +201,7 @@ export default function PublicPaymentPage() {
                 theme: { color: "#eab308" },
             };
         }
-        
+
         options.modal = { ondismiss: () => setProcessing(false) };
         const rzp1 = new window.Razorpay(options);
         rzp1.open();
@@ -283,7 +283,7 @@ export default function PublicPaymentPage() {
                         <CardTitle className="text-2xl font-bold text-foreground">Checkout</CardTitle>
                         <CardDescription>Complete your purchase securely</CardDescription>
                     </CardHeader>
-                    
+
                     <CardContent className="p-6 space-y-6">
                         {bookingData.isAdhoc ? (
                             <div className="space-y-4">
