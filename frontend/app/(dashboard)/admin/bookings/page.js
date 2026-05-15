@@ -20,6 +20,7 @@ const bookingSchema = z.object({
   product: z.number().min(1, 'Product is required'),
   course_name: z.string().min(1, 'Course name is required'),
   price: z.string().min(1, 'Price is required'),
+  international_student: z.boolean().optional(),
   coupon_code: z.number().optional(),
   payment_link: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   payment_status: z.string(),
@@ -28,6 +29,19 @@ const bookingSchema = z.object({
   payment_date: z.string().optional().or(z.literal('')),
   course_expiry_date: z.string().optional().or(z.literal('')),
 });
+
+const formatCurrency = (value, currency = 'INR') => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency',
+    currency,
+  }).format(amount);
+};
+
+const bookingPaymentAmount = (booking) => formatCurrency(
+  booking?.payment_amount ?? booking?.final_amount,
+  booking?.payment_currency || 'INR'
+);
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -90,6 +104,7 @@ export default function BookingsPage() {
         product: parseInt(data.product),
         sales_representative: data.sales_representative ? parseInt(data.sales_representative) : null,
         coupon_code: data.coupon_code || null,
+        international_student: !!data.international_student,
         payment_date: data.payment_date || null,
         course_expiry_date: data.course_expiry_date || null,
       };
@@ -218,6 +233,13 @@ export default function BookingsPage() {
       placeholder: '0.00',
     },
     {
+      name: 'international_student',
+      label: 'International Student',
+      type: 'checkbox',
+      required: false,
+      placeholder: 'Charge this booking in USD',
+    },
+    {
       name: 'payment_status',
       label: 'Payment Status',
       type: 'select',
@@ -289,6 +311,7 @@ export default function BookingsPage() {
     : {
       payment_status: 'pending',
       student_status: 'in_process',
+      international_student: false,
     };
 
   const columns = [
@@ -320,13 +343,25 @@ export default function BookingsPage() {
       header: 'Amount',
       cell: ({ row }) => (
         <div>
-          <div className="font-medium">₹{parseFloat(row.original.final_amount).toFixed(2)}</div>
+          <div className="font-medium">{bookingPaymentAmount(row.original)}</div>
+          {row.original.international_student && (
+            <div className="text-sm text-gray-600">{formatCurrency(row.original.final_amount, 'INR')} source</div>
+          )}
           {row.original.discount_amount > 0 && (
             <div className="text-sm text-green-600">
-              -₹{parseFloat(row.original.discount_amount).toFixed(2)} off
+              -{formatCurrency(row.original.discount_amount, 'INR')} off
             </div>
           )}
         </div>
+      ),
+    },
+    {
+      accessorKey: 'international_student',
+      header: 'Student Type',
+      cell: ({ row }) => (
+        <Badge className={row.original.international_student ? 'bg-blue-600' : 'bg-gray-600'}>
+          {row.original.international_student ? 'International' : 'India'}
+        </Badge>
       ),
     },
     {
@@ -432,7 +467,7 @@ export default function BookingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-green-100 text-sm">Total Revenue (Paid)</p>
-            <p className="text-3xl font-bold mt-1">₹{totalRevenue.toFixed(2)}</p>
+            <p className="text-3xl font-bold mt-1">{formatCurrency(totalRevenue, 'INR')}</p>
           </div>
           <DollarSign className="h-12 w-12 text-green-200" />
         </div>
@@ -516,18 +551,23 @@ export default function BookingsPage() {
                   </div>
                   <div>
                     <span className="text-gray-600">Price:</span>
-                    <span className="ml-2 font-medium">₹{parseFloat(selectedBooking.price).toFixed(2)}</span>
+                    <span className="ml-2 font-medium">{formatCurrency(selectedBooking.price, 'INR')}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Discount:</span>
                     <span className="ml-2 font-medium text-green-600">
-                      -₹{parseFloat(selectedBooking.discount_amount).toFixed(2)}
+                      -{formatCurrency(selectedBooking.discount_amount, 'INR')}
                     </span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-gray-600">Final Amount:</span>
-                    <span className="ml-2 font-bold text-lg">₹{parseFloat(selectedBooking.final_amount).toFixed(2)}</span>
+                    <span className="ml-2 font-bold text-lg">{bookingPaymentAmount(selectedBooking)}</span>
                   </div>
+                  {selectedBooking.international_student && (
+                    <div className="col-span-2 text-xs text-gray-600">
+                      Source amount: {formatCurrency(selectedBooking.final_amount, 'INR')}
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -619,8 +659,13 @@ export default function BookingsPage() {
                         >
                           <div>
                             <div className="font-medium text-gray-900">
-                              ₹{p.amount}
+                              {formatCurrency(p.charged_amount ?? p.amount, p.currency || 'INR')}
                             </div>
+                            {p.currency !== 'INR' && (
+                              <div className="text-xs text-gray-500">
+                                Source: {formatCurrency(p.amount, 'INR')}
+                              </div>
+                            )}
                             <div className="text-xs text-gray-500">
                               {p.created_at
                                 ? new Date(p.created_at).toLocaleString()
@@ -656,7 +701,7 @@ export default function BookingsPage() {
 
                 {getLatestPaidPayment(selectedBooking) && (
                   <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                    Counted revenue for this booking: one successful payment of ₹{parseFloat(getLatestPaidPayment(selectedBooking).amount || 0).toFixed(2)}
+                    Counted revenue for this booking: one successful payment of {formatCurrency(getLatestPaidPayment(selectedBooking).amount, 'INR')}
                   </div>
                 )}
               </Card>

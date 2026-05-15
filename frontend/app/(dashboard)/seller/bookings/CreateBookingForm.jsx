@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Check, ChevronsUpDown, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
@@ -47,15 +48,57 @@ function useDebounce(value, delay) {
 const bookingFormSchema = z.object({
   student_name: z.string().min(1, "Student Name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string()
-    .length(10, "Phone number must be exactly 10 digits")
-    .regex(/^\d+$/, "Phone number must contain only numbers"),
-  state: z.string().min(1, "State is required"),
+  phone: z.string().min(1, "Phone number is required"),
+  state: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   product: z.string().min(1, "Please select a course"),
   coupon_code: z.string().optional(),
-  manual_price: z.number().optional()
+  manual_price: z.number().optional(),
+  international_student: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  const digitsOnly = /^\d+$/;
+  if (!digitsOnly.test(data.phone || "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message: "Phone number must contain only numbers",
+    });
+    return;
+  }
+
+  if (data.international_student) {
+    if (data.phone.length < 7 || data.phone.length > 15) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phone"],
+        message: "International phone must be 7 to 15 digits",
+      });
+    }
+  } else {
+    if (data.phone.length !== 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["phone"],
+        message: "Phone number must be exactly 10 digits",
+      });
+    }
+    if (!data.state) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["state"],
+        message: "State is required",
+      });
+    }
+  }
 });
+
+const formatCurrency = (value, currency = "INR") => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
+    style: "currency",
+    currency,
+  }).format(amount);
+};
 
 export default function CreateBookingForm({ onSuccess }) {
   const [products, setProducts] = useState([]);
@@ -91,7 +134,8 @@ export default function CreateBookingForm({ onSuccess }) {
       password: '',
       product: '',
       coupon_code: '',
-      manual_price: 0
+      manual_price: 0,
+      international_student: false,
     }
   });
 
@@ -160,6 +204,7 @@ export default function CreateBookingForm({ onSuccess }) {
   const watchedProduct = watch("product");
   const watchedCoupon = watch("coupon_code");
   const watchedPrice = watch("manual_price");
+  const watchedInternational = !!watch("international_student");
   const safeManualPrice = typeof watchedPrice === "number" && !Number.isNaN(watchedPrice) ? watchedPrice : 0.00;
   
   const selectedProductObj = products.find(p => p.id.toString() === watchedProduct);
@@ -179,13 +224,20 @@ export default function CreateBookingForm({ onSuccess }) {
         const resp = await bookingAPI.previewPrice({
           product: watchedProduct,
           coupon_code: watchedCoupon, 
-          manual_price: safeManualPrice
+          manual_price: safeManualPrice,
+          international_student: watchedInternational,
         });
         setPriceInfo(resp);
       } catch (error) {
+        const errorText = error.response?.data?.detail
+          || error.response?.data?.exchange_rate?.[0]
+          || error.response?.data?.coupon_code
+          || error.response?.data?.offer_message
+          || "Unable to calculate the latest payment amount.";
         setPriceInfo({
           error: true,
-          offer_message: error.response?.data?.coupon_code || error.response?.data?.offer_message || "Invalid coupon"
+          error_message: errorText,
+          offer_message: error.response?.data?.coupon_code || error.response?.data?.offer_message || errorText
         });
       } finally {
         setCalculatingPrice(false);
@@ -197,7 +249,7 @@ export default function CreateBookingForm({ onSuccess }) {
     }, 500);
 
     return () => clearTimeout(handler);
-  }, [watchedProduct, watchedCoupon, watchedPrice]);
+  }, [watchedProduct, watchedCoupon, watchedPrice, watchedInternational]);
 
   const fetchProducts = async () => {
     try {
@@ -284,22 +336,24 @@ export default function CreateBookingForm({ onSuccess }) {
             <div className="space-y-2">
                 <Label htmlFor="phone" className="text-foreground">Phone <span className="text-destructive">*</span></Label>
                 <div className="flex rounded-md shadow-sm">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm font-medium">
-                      +91
-                    </span>
+                    {!watchedInternational && (
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm font-medium">
+                        +91
+                      </span>
+                    )}
                     <Input 
                         id="phone" 
                         type="tel"
                         disabled={!!existingUser}
-                        placeholder="98765 43210" 
+                        placeholder={watchedInternational ? "Country code + number" : "98765 43210"}
                         className={cn(
-                            "rounded-l-none", 
+                            !watchedInternational && "rounded-l-none",
                             errors.phone && "border-destructive focus-visible:ring-destructive",
                             existingUser && "bg-muted text-muted-foreground opacity-100"
                         )}
                         {...register("phone", {
                             onChange: (e) => {
-                                e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                                e.target.value = e.target.value.replace(/\D/g, "").slice(0, watchedInternational ? 15 : 10);
                             }
                         })}
                     />
@@ -307,66 +361,78 @@ export default function CreateBookingForm({ onSuccess }) {
                 {errors.phone && <span className="text-xs text-destructive font-medium">{errors.phone.message}</span>}
             </div>
             
-            {/* State Autocomplete */}
-            <div className="space-y-2 flex flex-col">
-                <Label className="text-foreground">State <span className="text-destructive">*</span></Label>
-                <Controller
-                  name="state"
-                  control={control}
-                  render={({ field }) => (
-                    <Popover open={openState && !existingUser} onOpenChange={(v) => !existingUser && setOpenState(v)}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          disabled={!!existingUser}
-                          aria-expanded={openState}
-                          className={cn(
-                            "w-full justify-between font-normal",
-                            !field.value && "text-muted-foreground",
-                            errors.state && "border-destructive text-destructive",
-                            existingUser && "bg-muted text-muted-foreground opacity-100"
-                          )}
-                        >
-                          {field.value
-                            ? INDIAN_STATES.find((state) => state === field.value) || field.value
-                            : "Select state..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[240px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search state..." />
-                          <CommandList>
-                            <CommandEmpty>No state found.</CommandEmpty>
-                            <CommandGroup>
-                              {INDIAN_STATES.map((state) => (
-                                <CommandItem
-                                  key={state}
-                                  value={state}
-                                  onSelect={(currentValue) => {
-                                    setValue("state", currentValue, { shouldValidate: true });
-                                    setOpenState(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      field.value === state ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {state}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  )}
+            {watchedInternational ? (
+              <div className="space-y-2">
+                <Label htmlFor="state" className="text-foreground">Country / Region</Label>
+                <Input
+                  id="state"
+                  placeholder="United States"
+                  disabled={!!existingUser}
+                  {...register("state")}
+                  className={cn(existingUser && "bg-muted text-muted-foreground opacity-100")}
                 />
-                {errors.state && <span className="text-xs text-destructive font-medium">{errors.state.message}</span>}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-2 flex flex-col">
+                  <Label className="text-foreground">State <span className="text-destructive">*</span></Label>
+                  <Controller
+                    name="state"
+                    control={control}
+                    render={({ field }) => (
+                      <Popover open={openState && !existingUser} onOpenChange={(v) => !existingUser && setOpenState(v)}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            disabled={!!existingUser}
+                            aria-expanded={openState}
+                            className={cn(
+                              "w-full justify-between font-normal",
+                              !field.value && "text-muted-foreground",
+                              errors.state && "border-destructive text-destructive",
+                              existingUser && "bg-muted text-muted-foreground opacity-100"
+                            )}
+                          >
+                            {field.value
+                              ? INDIAN_STATES.find((state) => state === field.value) || field.value
+                              : "Select state..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[240px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search state..." />
+                            <CommandList>
+                              <CommandEmpty>No state found.</CommandEmpty>
+                              <CommandGroup>
+                                {INDIAN_STATES.map((state) => (
+                                  <CommandItem
+                                    key={state}
+                                    value={state}
+                                    onSelect={(currentValue) => {
+                                      setValue("state", currentValue, { shouldValidate: true });
+                                      setOpenState(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === state ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {state}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  />
+                  {errors.state && <span className="text-xs text-destructive font-medium">{errors.state.message}</span>}
+              </div>
+            )}
         </div>
 
         {/* Password (Only for new users) */}
@@ -389,6 +455,28 @@ export default function CreateBookingForm({ onSuccess }) {
                 Course Selection
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Controller
+                    name="international_student"
+                    control={control}
+                    render={({ field }) => (
+                        <div className="md:col-span-2 flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                            <Checkbox
+                                checked={!!field.value}
+                                onCheckedChange={(checked) => field.onChange(checked === true)}
+                                id="international_student"
+                            />
+                            <div className="space-y-0.5">
+                                <Label htmlFor="international_student" className="text-sm font-medium">
+                                    International student
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Charge the payable amount in USD at checkout.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                />
+
                 <div className="space-y-2">
                     <Label className="text-foreground">Select Course <span className="text-destructive">*</span></Label>
                     <Controller
@@ -445,14 +533,14 @@ export default function CreateBookingForm({ onSuccess }) {
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Base Price</span>
                             <span className={selectedProductObj.discounted_price ? 'line-through text-muted-foreground' : 'text-foreground font-medium'}>
-                                ₹{selectedProductObj.price}
+                                {formatCurrency(selectedProductObj.price, "INR")}
                             </span>
                         </div>
                         
                         {selectedProductObj.discounted_price && (
                               <div className="flex justify-between items-center text-emerald-600">
                                 <span>Product Discount</span>
-                                <span className="font-medium">Now ₹{selectedProductObj.discounted_price}</span>
+                                <span className="font-medium">Now {formatCurrency(selectedProductObj.discounted_price, "INR")}</span>
                               </div>
                         )}
                         
@@ -462,7 +550,7 @@ export default function CreateBookingForm({ onSuccess }) {
                                 {calculatingPrice ? (
                                     <span className="text-muted-foreground flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin"/> Checking...</span>
                                 ) : priceInfo?.discount_amount > 0 ? (
-                                    <span className="text-emerald-600 font-medium">- ₹{priceInfo.discount_amount}</span>
+                                    <span className="text-emerald-600 font-medium">- {formatCurrency(priceInfo.discount_amount, "INR")}</span>
                                 ) : (
                                     <span className="text-destructive text-xs">{priceInfo?.offer_message || "Invalid"}</span>
                                 )}
@@ -476,24 +564,42 @@ export default function CreateBookingForm({ onSuccess }) {
                                     {priceInfo?.manual_discount_message ? (
                                         <span className="text-destructive text-xs">{priceInfo.manual_discount_message}</span>
                                     ) : (
-                                        <span className="text-emerald-600 font-medium">- ₹{safeManualPrice}.00</span>
+                                        <span className="text-emerald-600 font-medium">- {formatCurrency(safeManualPrice, "INR")}</span>
                                     )}
                                 </>
                             ) : <span>-</span>}
                         </div>
                     </div>
 
+                    {priceInfo?.error_message && (
+                        <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                            {priceInfo.error_message}
+                        </div>
+                    )}
+
                     <div className="border-t border-border mt-3 pt-3 flex justify-between items-center">
                         <span className="font-bold text-foreground">Total Payable</span>
                         <span className="text-primary text-xl font-bold">
-                            ₹{priceInfo?.final_amount ?? (selectedProductObj.discounted_price || selectedProductObj.price)}
+                            {watchedInternational && priceInfo?.error
+                              ? "Unable to calculate"
+                              : formatCurrency(
+                                watchedInternational
+                                  ? priceInfo?.payment_amount
+                                  : priceInfo?.final_amount ?? (selectedProductObj.discounted_price || selectedProductObj.price),
+                                watchedInternational ? "USD" : "INR"
+                              )}
                         </span>
                     </div>
+                    {watchedInternational && priceInfo?.exchange_rate && (
+                        <div className="pt-2 text-xs text-muted-foreground text-right">
+                            Converted from {formatCurrency(priceInfo.final_amount, "INR")} at ₹{priceInfo.exchange_rate}/USD
+                        </div>
+                    )}
                 </div>
             )}
         </div>
 
-        <Button type="submit" className="w-full h-12 font-bold shadow-lg" disabled={isSubmitting}>
+        <Button type="submit" className="w-full h-12 font-bold shadow-lg" disabled={isSubmitting || (watchedInternational && priceInfo?.error)}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? "Creating..." : "Generate Booking Link"}
         </Button>

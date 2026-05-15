@@ -13,6 +13,28 @@ import { useAuth } from '@/context/AuthContext';
 import CopyButton from '@/components/ui/copy-button';
 import { cn } from "@/lib/utils";
 
+const formatCurrency = (value, currency = "INR") => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
+    style: "currency",
+    currency,
+  }).format(amount);
+};
+
+const bookingPaymentAmount = (booking) => {
+  return formatCurrency(
+    booking.payment_amount ?? booking.final_amount,
+    booking.payment_currency || "INR"
+  );
+};
+
+const historyPaymentAmount = (history) => {
+  return formatCurrency(
+    history.charged_amount ?? history.amount,
+    history.currency || "INR"
+  );
+};
+
 export default function SellerBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -137,8 +159,22 @@ export default function SellerBookingsPage() {
       header: 'Amount',
       cell: ({ row }) => (
         <span className="font-bold text-foreground">
-          ₹{parseFloat(row.original.final_amount).toLocaleString('en-IN')}
+          {bookingPaymentAmount(row.original)}
         </span>
+      ),
+    },
+    {
+      accessorKey: 'international_student',
+      header: 'Student Type',
+      cell: ({ row }) => (
+        <Badge variant="outline" className={cn(
+          "border-transparent text-[10px] font-bold",
+          row.original.international_student
+            ? "bg-blue-500/10 text-blue-600"
+            : "bg-muted text-muted-foreground"
+        )}>
+          {row.original.international_student ? "International" : "India"}
+        </Badge>
       ),
     },
     {
@@ -360,8 +396,8 @@ export default function SellerBookingsPage() {
                       <p className="text-xs text-muted-foreground">Course: {selectedBooking.course_name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-black text-foreground">₹{selectedBooking.final_amount}</p>
-                      <Badge variant="outline" className="mt-1 capitalize text-[10px]">{selectedBooking.payment_status}</Badge>
+	                      <p className="text-xl font-black text-foreground">{bookingPaymentAmount(selectedBooking)}</p>
+	                      <Badge variant="outline" className="mt-1 capitalize text-[10px]">{selectedBooking.payment_status}</Badge>
                     </div>
                   </div>
 
@@ -403,7 +439,10 @@ export default function SellerBookingsPage() {
                       .map((p) => (
                         <div key={p.id} className="flex items-center justify-between p-3 text-sm">
                           <div className="space-y-0.5">
-                            <div className="font-bold text-foreground">₹{p.amount}</div>
+	                            <div className="font-bold text-foreground">{historyPaymentAmount(p)}</div>
+                              {p.currency !== "INR" && (
+                                <div className="text-[10px] text-muted-foreground">Source: {formatCurrency(p.amount, "INR")}</div>
+                              )}
                             <div className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleString()}</div>
                             {p.razorpay_payment_id && (
                               <div className="text-[10px] font-mono text-muted-foreground/70">ID: {p.razorpay_payment_id}</div>

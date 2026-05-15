@@ -13,6 +13,14 @@ import Link from 'next/link';
 const PAYMENT_DETAILS_RETRY_DELAYS_MS = [800, 1800];
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const formatCurrency = (value, currency = 'INR') => {
+    const amount = Number(value || 0);
+    return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+        style: 'currency',
+        currency,
+    }).format(amount);
+};
+const formatMinorCurrency = (value, currency = 'INR') => formatCurrency(Number(value || 0) / 100, currency);
 
 export default function PublicPaymentPage() {
     const params = useParams();
@@ -162,10 +170,12 @@ export default function PublicPaymentPage() {
                 }
             };
         } else {
+            const paymentCurrency = bookingData.currency || bookingData.booking.payment_currency || "INR";
+            const paymentAmount = bookingData.amount ?? Math.round(Number(bookingData.booking.payment_amount ?? bookingData.booking.final_amount) * 100);
             options = {
                 key: bookingData.razorpay_key_id,
-                amount: bookingData.booking.final_amount * 100,
-                currency: "INR",
+                amount: paymentAmount,
+                currency: paymentCurrency,
                 name: "Tutorlix",
                 description: `Payment for ${bookingData.booking.course_name}`,
                 order_id: bookingData.razorpay_order_id,
@@ -294,7 +304,7 @@ export default function PublicPaymentPage() {
                                 <Separator />
                                 <div className="flex justify-between items-center py-2">
                                     <span className="text-lg font-bold">Total Amount</span>
-                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">₹{(bookingData.amount / 100).toLocaleString('en-IN')}</span>
+                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{formatMinorCurrency(bookingData.amount, bookingData.currency || 'INR')}</span>
                                 </div>
                             </div>
                         ) : bookingData.isNote || bookingData.isNoteAI ? (
@@ -316,7 +326,7 @@ export default function PublicPaymentPage() {
                                 <Separator />
                                 <div className="flex justify-between items-center py-2">
                                     <span className="text-lg font-bold">Total Amount</span>
-                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">₹{(bookingData.amount / 100).toLocaleString('en-IN')}</span>
+                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{formatMinorCurrency(bookingData.amount, bookingData.currency || 'INR')}</span>
                                 </div>
                             </div>
                         ) : (
@@ -339,19 +349,26 @@ export default function PublicPaymentPage() {
                                 <Separator />
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground text-sm">Course Fee</span>
-                                    <span className="font-medium text-foreground">₹{booking.price}</span>
+                                    <span className="font-medium text-foreground">{formatCurrency(booking.price, 'INR')}</span>
                                 </div>
                                 {booking.discount_amount != '0.00' && (
                                     <div className="flex justify-between items-center text-emerald-600">
                                         <span className="text-sm">Discount</span>
-                                        <span className="font-medium">- ₹{booking.discount_amount}</span>
+                                        <span className="font-medium">- {formatCurrency(booking.discount_amount, 'INR')}</span>
                                     </div>
                                 )}
                                 <Separator />
                                 <div className="flex justify-between items-center">
                                     <span className="text-lg font-bold">Total To Pay</span>
-                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">₹{booking.final_amount}</span>
+                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                                        {formatCurrency(booking.payment_amount ?? booking.final_amount, booking.payment_currency || 'INR')}
+                                    </span>
                                 </div>
+                                {booking.payment_currency !== 'INR' && (
+                                    <div className="text-right text-xs text-muted-foreground">
+                                        Source amount: {formatCurrency(booking.final_amount, 'INR')}
+                                    </div>
+                                )}
                                 {booking.sales_rep_email && (
                                     <div className="mt-2 pt-4 border-t border-dashed border-border">
                                         <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Sales Representative</h3>

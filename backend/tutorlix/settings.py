@@ -304,6 +304,12 @@ ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 RAZORPAY_SECRET_ID = os.getenv('RAZORPAY_SECRET_ID', '')
 RAZORPAY_SECRET_KEY = os.getenv('RAZORPAY_SECRET_KEY', '')
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
+LMS_EXCHANGE_RATE_API_URL = os.getenv(
+    'LMS_EXCHANGE_RATE_API_URL',
+    'https://api.frankfurter.dev/v2/rate/USD/INR',
+)
+LMS_EXCHANGE_RATE_TIMEOUT_SECONDS = int(os.getenv('LMS_EXCHANGE_RATE_TIMEOUT_SECONDS', '5'))
+LMS_EXCHANGE_RATE_CACHE_SECONDS = int(os.getenv('LMS_EXCHANGE_RATE_CACHE_SECONDS', '3600'))
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')

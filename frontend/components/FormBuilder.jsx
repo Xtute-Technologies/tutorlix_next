@@ -330,10 +330,11 @@ export function FormBuilder({
           <div className="flex items-center space-x-2">
             <Checkbox
               checked={!!formField.value}
-              onCheckedChange={(val) => form.setValue(name, val)}
+              onCheckedChange={(val) => formField.onChange(val === true)}
               disabled={disabled || isSubmitting}
+              id={name}
             />
-            <label className="text-sm font-normal cursor-pointer">
+            <label htmlFor={name} className="text-sm font-normal cursor-pointer">
               {placeholder || label}
             </label>
           </div>

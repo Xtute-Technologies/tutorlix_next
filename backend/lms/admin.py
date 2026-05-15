@@ -97,18 +97,18 @@ class OfferAdmin(admin.ModelAdmin):
 
 @admin.register(CourseBooking)
 class CourseBookingAdmin(admin.ModelAdmin):
-    list_display = ['student', 'course_name', 'final_amount', 'payment_status', 'student_status', 'sales_representative', 'booking_date']
-    list_filter = ['payment_status', 'student_status', 'booking_date', 'sales_representative']
+    list_display = ['student', 'course_name', 'final_amount', 'international_student', 'payment_currency', 'payment_amount', 'payment_status', 'student_status', 'sales_representative', 'booking_date']
+    list_filter = ['payment_status', 'student_status', 'international_student', 'payment_currency', 'booking_date', 'sales_representative']
     search_fields = ['student__email', 'student__first_name', 'student__last_name', 'course_name', 'booked_by']
     ordering = ['-booking_date']
-    readonly_fields = ['booking_date', 'created_at', 'updated_at']
+    readonly_fields = ['payment_currency', 'payment_amount', 'exchange_rate', 'booking_date', 'created_at', 'updated_at']
     
     fieldsets = (
         ('Student Information', {
             'fields': ('student', 'student_status')
         }),
         ('Course Details', {
-            'fields': ('product', 'course_name', 'price', 'coupon_code', 'discount_amount', 'final_amount')
+            'fields': ('product', 'course_name', 'price', 'coupon_code', 'discount_amount', 'final_amount', 'international_student', 'payment_currency', 'payment_amount', 'exchange_rate')
         }),
         ('Payment Information', {
             'fields': ('payment_link', 'payment_status', 'payment_date')
@@ -135,17 +135,17 @@ class CourseBookingAdmin(admin.ModelAdmin):
 
 @admin.register(AdhocPayment)
 class AdhocPaymentAdmin(admin.ModelAdmin):
-    list_display = ['title', 'client_name', 'amount', 'payment_status', 'created_by', 'created_at']
-    list_filter = ['payment_status', 'created_at', 'created_by']
+    list_display = ['title', 'client_name', 'amount', 'international', 'payment_currency', 'payment_amount', 'payment_status', 'created_by', 'created_at']
+    list_filter = ['payment_status', 'international', 'payment_currency', 'created_at', 'created_by']
     search_fields = ['title', 'client_name', 'client_email', 'client_phone']
     ordering = ['-created_at']
-    readonly_fields = ['payment_id', 'payment_link', 'payment_date', 'razorpay_order_id', 'razorpay_payment_id', 'created_at', 'updated_at']
+    readonly_fields = ['payment_id', 'payment_link', 'payment_currency', 'payment_amount', 'exchange_rate', 'payment_date', 'razorpay_order_id', 'razorpay_payment_id', 'created_at', 'updated_at']
 
 
 @admin.register(AdhocPaymentHistory)
 class AdhocPaymentHistoryAdmin(admin.ModelAdmin):
-    list_display = ['adhoc_payment', 'amount', 'status', 'razorpay_payment_id', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['adhoc_payment', 'amount', 'currency', 'charged_amount', 'status', 'razorpay_payment_id', 'created_at']
+    list_filter = ['status', 'currency', 'created_at']
     search_fields = ['adhoc_payment__title', 'razorpay_order_id', 'razorpay_payment_id']
     ordering = ['-created_at']
 

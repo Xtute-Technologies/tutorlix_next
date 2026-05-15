@@ -21,11 +21,23 @@ const adhocPaymentSchema = z.object({
   client_email: z.string().email('Must be a valid email').optional().or(z.literal('')),
   client_phone: z.string().optional().or(z.literal('')),
   amount: z.string().min(1, 'Amount is required'),
+  international: z.boolean().optional(),
   description: z.string().optional().or(z.literal('')),
   payment_status: z.string().optional(),
 });
 
-const formatCurrency = (value) => `₹${parseFloat(value || 0).toFixed(2)}`;
+const formatCurrency = (value, currency = 'INR') => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency',
+    currency,
+  }).format(amount);
+};
+
+const paymentAmount = (payment) => formatCurrency(
+  payment?.payment_amount ?? payment?.amount,
+  payment?.payment_currency || 'INR'
+);
 
 const statusClasses = {
   pending: 'bg-yellow-600',
@@ -81,6 +93,7 @@ export default function AdhocPaymentsPage() {
       const payload = {
         ...data,
         amount: parseFloat(data.amount),
+        international: !!data.international,
         payment_status: data.payment_status || 'pending',
       };
 
@@ -144,6 +157,13 @@ export default function AdhocPaymentsPage() {
     { name: 'client_email', label: 'Client Email', type: 'email', required: false, placeholder: 'client@example.com' },
     { name: 'client_phone', label: 'Client Phone', type: 'tel', required: false, placeholder: '9876543210' },
     { name: 'amount', label: 'Amount', type: 'number', required: true, placeholder: '0.00' },
+    {
+      name: 'international',
+      label: 'International',
+      type: 'checkbox',
+      required: false,
+      placeholder: 'Charge this payment in USD',
+    },
     { name: 'description', label: 'Description', type: 'textarea', rows: 4, required: false, placeholder: 'Scope, invoice notes, or payment purpose' },
     {
       name: 'payment_status',
@@ -163,7 +183,7 @@ export default function AdhocPaymentsPage() {
   const editingPayment = editingId ? payments.find((payment) => payment.id === editingId) : null;
   const defaultValues = editingPayment
     ? { ...editingPayment, amount: String(editingPayment.amount || '') }
-    : { payment_status: 'pending' };
+    : { payment_status: 'pending', international: false };
 
   const paidTotal = payments.reduce((sum, payment) => {
     if (payment.payment_status !== 'paid') return sum;
@@ -187,7 +207,23 @@ export default function AdhocPaymentsPage() {
     {
       accessorKey: 'amount',
       header: 'Amount',
-      cell: ({ row }) => <span className="font-medium">{formatCurrency(row.original.amount)}</span>,
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium">{paymentAmount(row.original)}</div>
+          {row.original.international && (
+            <div className="text-xs text-gray-600">{formatCurrency(row.original.amount, 'INR')} source</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'international',
+      header: 'International',
+      cell: ({ row }) => (
+        <Badge className={row.original.international ? 'bg-blue-600' : 'bg-gray-600'}>
+          {row.original.international ? 'Yes' : 'No'}
+        </Badge>
+      ),
     },
     {
       accessorKey: 'payment_status',
@@ -264,7 +300,7 @@ export default function AdhocPaymentsPage() {
         </Card>
         <Card className="p-5">
           <p className="text-sm text-gray-600">Paid Amount</p>
-          <p className="text-2xl font-bold mt-1">{formatCurrency(paidTotal)}</p>
+          <p className="text-2xl font-bold mt-1">{formatCurrency(paidTotal, 'INR')}</p>
         </Card>
       </div>
 
@@ -311,7 +347,10 @@ export default function AdhocPaymentsPage() {
                   <div><span className="text-gray-600">Client:</span> <span className="font-medium">{selectedPayment.client_name}</span></div>
                   <div><span className="text-gray-600">Email:</span> <span className="font-medium">{selectedPayment.client_email || 'N/A'}</span></div>
                   <div><span className="text-gray-600">Phone:</span> <span className="font-medium">{selectedPayment.client_phone || 'N/A'}</span></div>
-                  <div><span className="text-gray-600">Amount:</span> <span className="font-bold">{formatCurrency(selectedPayment.amount)}</span></div>
+                  <div><span className="text-gray-600">Amount:</span> <span className="font-bold">{paymentAmount(selectedPayment)}</span></div>
+                  {selectedPayment.international && (
+                    <div><span className="text-gray-600">Source Amount:</span> <span className="font-medium">{formatCurrency(selectedPayment.amount, 'INR')}</span></div>
+                  )}
                   <div><span className="text-gray-600">Status:</span> <PaymentStatusBadge status={selectedPayment.payment_status} /></div>
                 </div>
                 {selectedPayment.description && <p className="mt-4 text-sm text-gray-700 whitespace-pre-line">{selectedPayment.description}</p>}
@@ -336,7 +375,8 @@ export default function AdhocPaymentsPage() {
                     {selectedPayment.payment_histories.map((history) => (
                       <div key={history.id} className="flex items-center justify-between p-3 text-sm">
                         <div>
-                          <div className="font-medium">{formatCurrency(history.amount)}</div>
+                          <div className="font-medium">{formatCurrency(history.charged_amount ?? history.amount, history.currency || 'INR')}</div>
+                          {history.currency !== 'INR' && <div className="text-xs text-gray-500">Source: {formatCurrency(history.amount, 'INR')}</div>}
                           <div className="text-xs text-gray-500">{new Date(history.created_at).toLocaleString()}</div>
                           {history.razorpay_payment_id && <div className="text-xs text-gray-400">Payment ID: {history.razorpay_payment_id}</div>}
                         </div>

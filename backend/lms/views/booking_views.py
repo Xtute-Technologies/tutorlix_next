@@ -15,6 +15,7 @@ import json
 import logging
 from lms.payment import PaymentService
 from lms.frontend_urls import build_frontend_url
+from lms.currency import amount_to_minor_units, payment_pricing
 from django.conf import settings
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,15 @@ def _payment_initialization_error(exc):
         detail = f"{detail} {message}"
     return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
 
+
+def _request_bool(data, key):
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
 from lms.models import (
     Product, Offer, CourseBooking, PaymentHistory, AdhocPayment, AdhocPaymentHistory
 )
@@ -61,7 +71,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
     serializer_class = CourseBookingSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['payment_status', 'student_status', 'sales_representative', 'student', 'product']
+    filterset_fields = ['payment_status', 'student_status', 'sales_representative', 'student', 'product', 'international_student']
     search_fields = ['course_name', 'student__email', 'student__first_name', 'student__last_name', 'booked_by']
     ordering_fields = ['booking_date', 'final_amount', 'payment_date']
     ordering = ['-booking_date']
@@ -342,6 +352,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         total_discount = coupon_discount + manual_discount
 
         # 7️⃣ CREATE BOOKING
+        international_student = _request_bool(data, 'international_student')
         booking = CourseBooking.objects.create(
             student=student,
             product=product,
@@ -351,6 +362,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             manual_discount=manual_discount,
             discount_amount=total_discount,
             final_amount=final_amount,
+            international_student=international_student,
             sales_representative=user,
             booked_by=user.get_full_name(),
             payment_status="pending",
@@ -431,11 +443,17 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        payment_amount = booking.get_payment_amount()
+        payment_currency = booking.get_payment_currency()
+        amount_minor = amount_to_minor_units(payment_amount)
+
         if booking.payment_status == "paid":
             return Response({
                 "booking": CourseBookingSerializer(booking).data,
                 "razorpay_order_id": booking.razorpay_order_id,
                 "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
+                "amount": amount_minor,
+                "currency": payment_currency,
                 "status": booking.payment_status,
                 "message": "This booking is already paid."
             })
@@ -445,6 +463,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 "booking": CourseBookingSerializer(booking).data,
                 "razorpay_order_id": booking.razorpay_order_id,
                 "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
+                "amount": amount_minor,
+                "currency": payment_currency,
                 "status": booking.payment_status,
                 "message": "This payment link is expired."
             })
@@ -453,9 +473,14 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             service = PaymentService()
             try:
                 order = service.create_order(
-                    amount=booking.final_amount,
+                    amount=payment_amount,
+                    currency=payment_currency,
                     receipt=str(booking.id),
-                    notes={"booking_uuid": str(booking.booking_id)}
+                    notes={
+                        "booking_uuid": str(booking.booking_id),
+                        "payment_currency": payment_currency,
+                        "payment_amount": str(payment_amount),
+                    }
                 )
 
                 booking.razorpay_order_id = order["id"]
@@ -473,6 +498,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             "booking": CourseBookingSerializer(booking).data,
             "razorpay_order_id": booking.razorpay_order_id,
             "razorpay_key_id": settings.RAZORPAY_SECRET_ID,
+            "amount": amount_minor,
+            "currency": payment_currency,
             "status": booking.payment_status
         })
 
@@ -509,6 +536,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 "status": "success",
                 "booking_id": str(booking.booking_id),
                 "final_amount": str(booking.final_amount),
+                "payment_amount": str(booking.get_payment_amount()),
+                "currency": booking.get_payment_currency(),
                 "payment_attempts": booking.payment_histories.count(),
             })
 
@@ -532,6 +561,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 "status": "success",
                 "booking_id": str(booking.booking_id),
                 "final_amount": str(booking.final_amount),
+                "payment_amount": str(booking.get_payment_amount()),
+                "currency": booking.get_payment_currency(),
                 "payment_attempts": booking.payment_histories.count(),
             })
 
@@ -542,6 +573,9 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
                 booking=booking,
                 course_name=booking.course_name,
                 amount=booking.final_amount,
+                charged_amount=booking.get_payment_amount(),
+                currency=booking.get_payment_currency(),
+                exchange_rate=booking.exchange_rate,
                 razorpay_order_id=order_id,
                 razorpay_payment_id=payment_id,
                 status="failed",
@@ -561,6 +595,9 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             booking=booking,
             course_name=booking.course_name,
             amount=booking.final_amount,
+            charged_amount=booking.get_payment_amount(),
+            currency=booking.get_payment_currency(),
+            exchange_rate=booking.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             razorpay_signature=signature,
@@ -593,6 +630,8 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             "status": "success",
             "booking_id": str(booking.booking_id),
             "final_amount": str(booking.final_amount),
+            "payment_amount": str(booking.get_payment_amount()),
+            "currency": booking.get_payment_currency(),
             "payment_attempts": booking.payment_histories.count(),  # ✅ FK based
         })
 
@@ -619,6 +658,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
         product_id = data.get('product')
         coupon_code = data.get('coupon_code')
         manual_price = data.get('manual_price')
+        international_student = _request_bool(data, 'international_student')
         if not product_id:
             return Response({"product": "Product is required."}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -628,7 +668,7 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
 
         effective_price = product.discounted_price if product.discounted_price else product.price
         price = effective_price
-        discount_amount = 0
+        discount_amount = Decimal(0)
         offer = None
         offer_valid = False
         offer_message = None
@@ -656,13 +696,17 @@ class CourseBookingViewSet(viewsets.ModelViewSet):
             print(min_manual_discount)
             manual_discount = Decimal(0)
             manual_discount_message = "Cannot be Greater than ₹" + str(min_manual_discount)
-        final_amount = max(price - discount_amount - manual_discount, 0)
+        final_amount = max(price - discount_amount - manual_discount, Decimal(0))
+        checkout_pricing = payment_pricing(final_amount, international_student)
 
         return Response({
             "effective_price": str(effective_price),
             "discount_amount": str(discount_amount),
             "manual_price": str(manual_discount),
             "final_amount": str(final_amount),
+            "payment_currency": checkout_pricing["currency"],
+            "payment_amount": str(checkout_pricing["payment_amount"]),
+            "exchange_rate": str(checkout_pricing["exchange_rate"]) if checkout_pricing["exchange_rate"] else None,
             "offer_message": offer_message,
             "manual_discount_message": manual_discount_message,
             "has_discount": bool(product.discounted_price),
@@ -680,7 +724,7 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
     serializer_class = AdhocPaymentSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['payment_status', 'created_by']
+    filterset_fields = ['payment_status', 'created_by', 'international']
     search_fields = ['title', 'client_name', 'client_email', 'client_phone']
     ordering_fields = ['created_at', 'amount', 'payment_date']
     ordering = ['-created_at']
@@ -745,8 +789,12 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
             )
 
         if adhoc_payment.payment_status in ['paid', 'expired']:
+            payment_amount = adhoc_payment.get_payment_amount()
+            payment_currency = adhoc_payment.get_payment_currency()
             return Response({
                 "payment": AdhocPaymentSerializer(adhoc_payment).data,
+                "amount": amount_to_minor_units(payment_amount),
+                "currency": payment_currency,
                 "status": adhoc_payment.payment_status,
                 "message": (
                     "This payment is already paid."
@@ -758,12 +806,17 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
         if not adhoc_payment.razorpay_order_id:
             service = PaymentService()
             try:
+                payment_amount = adhoc_payment.get_payment_amount()
+                payment_currency = adhoc_payment.get_payment_currency()
                 order = service.create_order(
-                    amount=adhoc_payment.amount,
+                    amount=payment_amount,
+                    currency=payment_currency,
                     receipt=f"adhoc-{adhoc_payment.id}",
                     notes={
                         "type": "adhoc_payment",
                         "adhoc_payment_id": str(adhoc_payment.payment_id),
+                        "payment_currency": payment_currency,
+                        "payment_amount": str(payment_amount),
                     },
                 )
                 adhoc_payment.razorpay_order_id = order["id"]
@@ -776,15 +829,20 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
                 )
                 return _payment_initialization_error(exc)
 
-        amount_in_paisa = int((adhoc_payment.amount * Decimal('100')).quantize(Decimal('1')))
+        payment_amount = adhoc_payment.get_payment_amount()
+        payment_currency = adhoc_payment.get_payment_currency()
         return Response({
             "key": settings.RAZORPAY_SECRET_ID,
-            "amount": amount_in_paisa,
-            "currency": "INR",
+            "amount": amount_to_minor_units(payment_amount),
+            "currency": payment_currency,
             "name": "Tutorlix",
             "description": adhoc_payment.title,
             "order_id": adhoc_payment.razorpay_order_id,
             "payment_id": str(adhoc_payment.payment_id),
+            "source_amount": str(adhoc_payment.amount),
+            "payment_amount": str(payment_amount),
+            "international": adhoc_payment.international,
+            "exchange_rate": str(adhoc_payment.exchange_rate) if adhoc_payment.exchange_rate else None,
             "status": adhoc_payment.payment_status,
             "prefill": {
                 "name": adhoc_payment.client_name,
@@ -822,6 +880,8 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
                 "status": "success",
                 "payment_id": str(adhoc_payment.payment_id),
                 "amount": str(adhoc_payment.amount),
+                "payment_amount": str(adhoc_payment.get_payment_amount()),
+                "currency": adhoc_payment.get_payment_currency(),
             })
 
         service = PaymentService()
@@ -836,6 +896,9 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
                 adhoc_payment=adhoc_payment,
                 title=adhoc_payment.title,
                 amount=adhoc_payment.amount,
+                charged_amount=adhoc_payment.get_payment_amount(),
+                currency=adhoc_payment.get_payment_currency(),
+                exchange_rate=adhoc_payment.exchange_rate,
                 razorpay_order_id=order_id,
                 razorpay_payment_id=payment_id,
                 status='failed',
@@ -851,6 +914,9 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
             adhoc_payment=adhoc_payment,
             title=adhoc_payment.title,
             amount=adhoc_payment.amount,
+            charged_amount=adhoc_payment.get_payment_amount(),
+            currency=adhoc_payment.get_payment_currency(),
+            exchange_rate=adhoc_payment.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             razorpay_signature=signature,
@@ -873,6 +939,8 @@ class AdhocPaymentViewSet(viewsets.ModelViewSet):
             "status": "success",
             "payment_id": str(adhoc_payment.payment_id),
             "amount": str(adhoc_payment.amount),
+            "payment_amount": str(adhoc_payment.get_payment_amount()),
+            "currency": adhoc_payment.get_payment_currency(),
         })
 
 
@@ -968,6 +1036,9 @@ class RazorpayWebhookView(APIView):
             booking=booking,
             course_name=booking.course_name,
             amount=booking.final_amount,
+            charged_amount=booking.get_payment_amount(),
+            currency=booking.get_payment_currency(),
+            exchange_rate=booking.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             status="paid",
@@ -1082,6 +1153,9 @@ class RazorpayWebhookView(APIView):
             adhoc_payment=adhoc_payment,
             title=adhoc_payment.title,
             amount=adhoc_payment.amount,
+            charged_amount=adhoc_payment.get_payment_amount(),
+            currency=adhoc_payment.get_payment_currency(),
+            exchange_rate=adhoc_payment.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             status="paid",
@@ -1138,6 +1212,9 @@ class RazorpayWebhookView(APIView):
             booking=booking,
             course_name=booking.course_name,
             amount=booking.final_amount,
+            charged_amount=booking.get_payment_amount(),
+            currency=booking.get_payment_currency(),
+            exchange_rate=booking.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             status="failed",
@@ -1197,6 +1274,9 @@ class RazorpayWebhookView(APIView):
             adhoc_payment=adhoc_payment,
             title=adhoc_payment.title,
             amount=adhoc_payment.amount,
+            charged_amount=adhoc_payment.get_payment_amount(),
+            currency=adhoc_payment.get_payment_currency(),
+            exchange_rate=adhoc_payment.exchange_rate,
             razorpay_order_id=order_id,
             razorpay_payment_id=payment_id,
             status="failed",

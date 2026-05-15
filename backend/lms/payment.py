@@ -1,8 +1,9 @@
 import razorpay
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
 from uuid import uuid4
+from lms.currency import amount_to_minor_units
 
 class PaymentService:
     def __init__(self):
@@ -20,11 +21,10 @@ class PaymentService:
         customer_data: dict containing 'name', 'email', 'contact'
         """
         try:
-            # Razorpay expects amount in paisa (integer)
-            amount_in_paisa = int(amount * 100)
+            amount_in_minor_units = amount_to_minor_units(amount)
             
             payload = {
-                "amount": amount_in_paisa,
+                "amount": amount_in_minor_units,
                 "currency": currency,
                 "accept_partial": False,
                 "description": description,
@@ -58,9 +58,9 @@ class PaymentService:
 
     def create_order(self, amount, currency="INR", receipt=None, notes=None):
         try:
-            amount_in_paisa = self._amount_to_paisa(amount)
+            amount_in_minor_units = self._amount_to_paisa(amount)
             data = {
-                "amount": amount_in_paisa,
+                "amount": amount_in_minor_units,
                 "currency": currency,
                 "receipt": self._unique_receipt(receipt),
                 "notes": notes or {}
@@ -79,7 +79,7 @@ class PaymentService:
         if decimal_amount <= 0:
             raise ValidationError("Payment amount must be greater than zero.")
 
-        return int((decimal_amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        return amount_to_minor_units(decimal_amount)
 
     def _unique_receipt(self, receipt):
         suffix = uuid4().hex[:10]

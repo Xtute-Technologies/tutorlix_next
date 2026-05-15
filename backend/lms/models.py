@@ -9,6 +9,8 @@ from datetime import timedelta
 import uuid
 import uuid
 
+from lms.currency import PAYMENT_CURRENCY_CHOICES, INR, payment_pricing
+
 
 # Create your models here.
 
@@ -299,6 +301,10 @@ class CourseBooking(models.Model):
     coupon_code = models.ForeignKey(Offer, on_delete=models.SET_NULL, null=True, blank=True, related_name='used_in_bookings')
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     final_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    international_student = models.BooleanField(default=False)
+    payment_currency = models.CharField(max_length=3, choices=PAYMENT_CURRENCY_CHOICES, default=INR)
+    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
     
     # Payment details
     payment_link = models.URLField(blank=True, null=True)
@@ -347,7 +353,21 @@ class CourseBooking(models.Model):
             self.discount_amount = total_discount
             self.final_amount = max(self.price - total_discount, Decimal(0))
 
+        if self.pk is None or not self.razorpay_order_id or self.payment_amount is None:
+            self.sync_payment_pricing()
         super().save(*args, **kwargs)
+
+    def sync_payment_pricing(self):
+        pricing = payment_pricing(self.final_amount, self.international_student)
+        self.payment_currency = pricing["currency"]
+        self.payment_amount = pricing["payment_amount"]
+        self.exchange_rate = pricing["exchange_rate"]
+
+    def get_payment_currency(self):
+        return self.payment_currency or INR
+
+    def get_payment_amount(self):
+        return self.payment_amount if self.payment_amount is not None else self.final_amount
 
     
     class Meta:
@@ -375,6 +395,9 @@ class PaymentHistory(models.Model):
     # SNAPSHOT (never FK product/user again)
     course_name = models.CharField(max_length=200)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    charged_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    currency = models.CharField(max_length=3, choices=PAYMENT_CURRENCY_CHOICES, default=INR)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
 
     razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
@@ -401,7 +424,8 @@ class PaymentHistory(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.booking.booking_id} - {self.status} - ₹{self.amount}"  
+        display_amount = self.charged_amount if self.charged_amount is not None else self.amount
+        return f"{self.booking.booking_id} - {self.status} - {self.currency} {display_amount}"
 
 
 class AdhocPayment(models.Model):
@@ -424,6 +448,10 @@ class AdhocPayment(models.Model):
     client_email = models.EmailField(blank=True)
     client_phone = models.CharField(max_length=20, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    international = models.BooleanField(default=False)
+    payment_currency = models.CharField(max_length=3, choices=PAYMENT_CURRENCY_CHOICES, default=INR)
+    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
     payment_link = models.URLField(blank=True, null=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_date = models.DateTimeField(null=True, blank=True)
@@ -447,7 +475,25 @@ class AdhocPayment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} - {self.client_name} - ₹{self.amount}"
+        display_amount = self.payment_amount if self.payment_amount is not None else self.amount
+        return f"{self.title} - {self.client_name} - {self.payment_currency} {display_amount}"
+
+    def save(self, *args, **kwargs):
+        if self.pk is None or not self.razorpay_order_id or self.payment_amount is None:
+            self.sync_payment_pricing()
+        super().save(*args, **kwargs)
+
+    def sync_payment_pricing(self):
+        pricing = payment_pricing(self.amount, self.international)
+        self.payment_currency = pricing["currency"]
+        self.payment_amount = pricing["payment_amount"]
+        self.exchange_rate = pricing["exchange_rate"]
+
+    def get_payment_currency(self):
+        return self.payment_currency or INR
+
+    def get_payment_amount(self):
+        return self.payment_amount if self.payment_amount is not None else self.amount
 
 
 class AdhocPaymentHistory(models.Model):
@@ -464,6 +510,9 @@ class AdhocPaymentHistory(models.Model):
     )
     title = models.CharField(max_length=200)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    charged_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    currency = models.CharField(max_length=3, choices=PAYMENT_CURRENCY_CHOICES, default=INR)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, blank=True, null=True)
     razorpay_order_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
     razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
@@ -474,7 +523,8 @@ class AdhocPaymentHistory(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.adhoc_payment.payment_id} - {self.status} - ₹{self.amount}"
+        display_amount = self.charged_amount if self.charged_amount is not None else self.amount
+        return f"{self.adhoc_payment.payment_id} - {self.status} - {self.currency} {display_amount}"
 
 class StudentSpecificClass(models.Model):
     """

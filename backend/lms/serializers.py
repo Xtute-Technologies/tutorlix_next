@@ -555,6 +555,9 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "amount",
+            "charged_amount",
+            "currency",
+            "exchange_rate",
             "status",
             "razorpay_order_id",
             "razorpay_payment_id",
@@ -616,6 +619,10 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'coupon_code_text',
             'discount_amount',
             'final_amount',
+            'international_student',
+            'payment_currency',
+            'payment_amount',
+            'exchange_rate',
 
             'payment_link',
             'payment_status',
@@ -645,6 +652,9 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'booking_id',
             'discount_amount',
             'final_amount',
+            'payment_currency',
+            'payment_amount',
+            'exchange_rate',
             'payment_date',
             'payment_histories',
             'razorpay_order_id',
@@ -654,6 +664,28 @@ class CourseBookingSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def update(self, instance, validated_data):
+        reset_order = (
+            instance.payment_status != "paid"
+            and "international_student" in validated_data
+            and instance.international_student != validated_data["international_student"]
+        )
+        instance = super().update(instance, validated_data)
+        if reset_order:
+            instance.razorpay_order_id = None
+            instance.razorpay_payment_id = None
+            instance.razorpay_signature = None
+            instance.save(update_fields=[
+                "razorpay_order_id",
+                "razorpay_payment_id",
+                "razorpay_signature",
+                "payment_currency",
+                "payment_amount",
+                "exchange_rate",
+                "updated_at",
+            ])
+        return instance
 
     def get_payment_link(self, obj):
         if not obj.payment_link:
@@ -670,6 +702,9 @@ class AdhocPaymentHistorySerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'amount',
+            'charged_amount',
+            'currency',
+            'exchange_rate',
             'status',
             'razorpay_order_id',
             'razorpay_payment_id',
@@ -694,6 +729,10 @@ class AdhocPaymentSerializer(serializers.ModelSerializer):
             'client_email',
             'client_phone',
             'amount',
+            'international',
+            'payment_currency',
+            'payment_amount',
+            'exchange_rate',
             'payment_link',
             'payment_status',
             'payment_date',
@@ -711,6 +750,9 @@ class AdhocPaymentSerializer(serializers.ModelSerializer):
             'id',
             'payment_id',
             'payment_link',
+            'payment_currency',
+            'payment_amount',
+            'exchange_rate',
             'payment_date',
             'payment_histories',
             'razorpay_order_id',
@@ -727,6 +769,27 @@ class AdhocPaymentSerializer(serializers.ModelSerializer):
         if value < Decimal('1.00'):
             raise serializers.ValidationError('Amount must be at least ₹1.00.')
         return value
+
+    def update(self, instance, validated_data):
+        reset_order = instance.payment_status != "paid" and (
+            ("international" in validated_data and instance.international != validated_data["international"])
+            or ("amount" in validated_data and instance.amount != validated_data["amount"])
+        )
+        instance = super().update(instance, validated_data)
+        if reset_order:
+            instance.razorpay_order_id = None
+            instance.razorpay_payment_id = None
+            instance.razorpay_signature = None
+            instance.save(update_fields=[
+                "razorpay_order_id",
+                "razorpay_payment_id",
+                "razorpay_signature",
+                "payment_currency",
+                "payment_amount",
+                "exchange_rate",
+                "updated_at",
+            ])
+        return instance
 
     def get_payment_link(self, obj):
         if not obj.payment_link:
