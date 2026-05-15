@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -7,6 +8,8 @@ from django.conf import settings
 from django.core.cache import cache
 from rest_framework.exceptions import ValidationError
 
+
+logger = logging.getLogger(__name__)
 
 INR = "INR"
 USD = "USD"
@@ -21,6 +24,7 @@ USD_INR_CACHE_KEY = "lms:exchange-rate:usd-inr"
 DEFAULT_EXCHANGE_RATE_PROVIDERS = (
     "https://api.frankfurter.dev/v2/latest?base=USD&symbols=INR",
     "https://open.er-api.com/v6/latest/USD",
+    "https://latest.currency-api.pages.dev/v1/currencies/usd.json",
 )
 
 
@@ -34,14 +38,16 @@ def extract_usd_inr_rate(payload):
             raw_rate = payload["rates"].get(INR)
         elif isinstance(payload.get("conversion_rates"), dict):
             raw_rate = payload["conversion_rates"].get(INR)
+        elif isinstance(payload.get("usd"), dict):
+            raw_rate = payload["usd"].get("inr")
 
     try:
         rate = Decimal(str(raw_rate))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise ValidationError("Invalid USD to INR exchange rate received from provider.") from exc
+        raise ValueError(f"Invalid USD/INR rate received: {raw_rate}") from exc
 
     if rate <= 0:
-        raise ValidationError("USD to INR exchange rate must be greater than zero.")
+        raise ValueError(f"USD/INR rate must be greater than zero: {rate}")
 
     return rate
 
@@ -51,7 +57,7 @@ def fetch_rate_from_provider(url, timeout):
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "Tutorlix/1.0 (+https://tutorlix.com)",
+            "User-Agent": "Tutorlix/1.0",
         },
     )
 
@@ -72,8 +78,8 @@ def get_inr_per_usd():
         DEFAULT_EXCHANGE_RATE_PROVIDERS,
     )
 
-    timeout = getattr(settings, "LMS_EXCHANGE_RATE_TIMEOUT_SECONDS", 3)
-    last_error = None
+    timeout = getattr(settings, "LMS_EXCHANGE_RATE_TIMEOUT_SECONDS", 10)
+    provider_errors = []
 
     for url in providers:
         try:
@@ -84,9 +90,10 @@ def get_inr_per_usd():
             TimeoutError,
             json.JSONDecodeError,
             OSError,
-            ValidationError,
+            ValueError,
         ) as exc:
-            last_error = exc
+            provider_errors.append(f"{url}: {exc}")
+            logger.warning("Exchange rate provider failed: %s", url, exc_info=True)
             continue
 
         cache_seconds = int(getattr(settings, "LMS_EXCHANGE_RATE_CACHE_SECONDS", 3600))
@@ -95,9 +102,11 @@ def get_inr_per_usd():
 
         return rate
 
+    logger.error("All exchange rate providers failed: %s", provider_errors)
+
     raise ValidationError(
-        "Unable to fetch the latest USD to INR exchange rate from available providers."
-    ) from last_error
+       provider_errors
+    )
 
 
 def quantize_money(amount):
