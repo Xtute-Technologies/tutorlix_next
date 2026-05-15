@@ -27,7 +27,7 @@ def get_inr_per_usd():
         "LMS_EXCHANGE_RATE_API_URL",
         "https://api.frankfurter.dev/v2/rate/USD/INR",
     )
-    timeout = getattr(settings, "LMS_EXCHANGE_RATE_TIMEOUT_SECONDS", 5)
+    timeout = getattr(settings, "LMS_EXCHANGE_RATE_TIMEOUT_SECONDS", 50)
 
     try:
         request = Request(
