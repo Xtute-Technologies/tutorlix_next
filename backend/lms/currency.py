@@ -1,10 +1,6 @@
-import json
 import logging
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
-from django.conf import settings
 from django.core.cache import cache
 from rest_framework.exceptions import ValidationError
 
@@ -20,51 +16,26 @@ PAYMENT_CURRENCY_CHOICES = (
 )
 
 USD_INR_CACHE_KEY = "lms:exchange-rate:usd-inr"
-
-DEFAULT_EXCHANGE_RATE_PROVIDERS = (
-    "https://api.frankfurter.dev/v2/latest?base=USD&symbols=INR",
-    "https://open.er-api.com/v6/latest/USD",
-    "https://latest.currency-api.pages.dev/v1/currencies/usd.json",
-)
+_currency_converter = None
 
 
-def extract_usd_inr_rate(payload):
-    raw_rate = None
+def get_currency_converter():
+    global _currency_converter
+    if _currency_converter is None:
+        try:
+            from currency_converter import CurrencyConverter
+        except ImportError as exc:
+            raise ValidationError(
+                "Currency conversion package is not installed. Install CurrencyConverter from pip."
+            ) from exc
 
-    if isinstance(payload, dict):
-        if payload.get("rate") is not None:
-            raw_rate = payload.get("rate")
-        elif isinstance(payload.get("rates"), dict):
-            raw_rate = payload["rates"].get(INR)
-        elif isinstance(payload.get("conversion_rates"), dict):
-            raw_rate = payload["conversion_rates"].get(INR)
-        elif isinstance(payload.get("usd"), dict):
-            raw_rate = payload["usd"].get("inr")
+        _currency_converter = CurrencyConverter(
+            decimal=True,
+            fallback_on_missing_rate=True,
+            fallback_on_wrong_date=True,
+        )
 
-    try:
-        rate = Decimal(str(raw_rate))
-    except (InvalidOperation, TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid USD/INR rate received: {raw_rate}") from exc
-
-    if rate <= 0:
-        raise ValueError(f"USD/INR rate must be greater than zero: {rate}")
-
-    return rate
-
-
-def fetch_rate_from_provider(url, timeout):
-    request = Request(
-        url,
-        headers={
-            "Accept": "application/json",
-            "User-Agent": "Tutorlix/1.0",
-        },
-    )
-
-    with urlopen(request, timeout=timeout) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-
-    return extract_usd_inr_rate(payload)
+    return _currency_converter
 
 
 def get_inr_per_usd():
@@ -72,41 +43,23 @@ def get_inr_per_usd():
     if cached_rate:
         return Decimal(str(cached_rate))
 
-    providers = getattr(
-        settings,
-        "LMS_EXCHANGE_RATE_PROVIDERS",
-        DEFAULT_EXCHANGE_RATE_PROVIDERS,
-    )
+    try:
+        rate = Decimal(str(get_currency_converter().convert(1, USD, INR)))
+    except Exception as exc:
+        logger.exception("CurrencyConverter failed to calculate USD/INR.")
+        raise ValidationError("Unable to calculate USD exchange rate.") from exc
 
-    timeout = getattr(settings, "LMS_EXCHANGE_RATE_TIMEOUT_SECONDS", 10)
-    provider_errors = []
+    if rate <= 0:
+        logger.error("CurrencyConverter returned invalid USD/INR rate: %s", rate)
+        raise ValidationError("Unable to calculate USD exchange rate.")
 
-    for url in providers:
-        try:
-            rate = fetch_rate_from_provider(url, timeout)
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            json.JSONDecodeError,
-            OSError,
-            ValueError,
-        ) as exc:
-            provider_errors.append(f"{url}: {exc}")
-            logger.warning("Exchange rate provider failed: %s", url, exc_info=True)
-            continue
+    from django.conf import settings
 
-        cache_seconds = int(getattr(settings, "LMS_EXCHANGE_RATE_CACHE_SECONDS", 3600))
-        if cache_seconds > 0:
-            cache.set(USD_INR_CACHE_KEY, str(rate), cache_seconds)
+    cache_seconds = int(getattr(settings, "LMS_EXCHANGE_RATE_CACHE_SECONDS", 3600))
+    if cache_seconds > 0:
+        cache.set(USD_INR_CACHE_KEY, str(rate), cache_seconds)
 
-        return rate
-
-    logger.error("All exchange rate providers failed: %s", provider_errors)
-
-    raise ValidationError(
-       provider_errors
-    )
+    return rate
 
 
 def quantize_money(amount):

@@ -1,17 +1,34 @@
+import logging
+
 import razorpay
+import requests
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
 from uuid import uuid4
 from lms.currency import amount_to_minor_units
 
+logger = logging.getLogger(__name__)
+
+
+PAYMENT_GATEWAY_UNREACHABLE_MESSAGE = (
+    "Payment gateway is temporarily unreachable. Please retry in a few minutes."
+)
+
+
 class PaymentService:
     def __init__(self):
         if not settings.RAZORPAY_SECRET_ID or not settings.RAZORPAY_SECRET_KEY:
             raise ValidationError("Razorpay is not configured. Missing RAZORPAY_SECRET_ID or RAZORPAY_SECRET_KEY.")
         self.client = razorpay.Client(
-            auth=(settings.RAZORPAY_SECRET_ID, settings.RAZORPAY_SECRET_KEY)
+            auth=(settings.RAZORPAY_SECRET_ID, settings.RAZORPAY_SECRET_KEY),
+            max_retries=getattr(settings, "RAZORPAY_MAX_RETRIES", 3),
+            initial_delay=getattr(settings, "RAZORPAY_INITIAL_DELAY_SECONDS", 1),
+            max_delay=getattr(settings, "RAZORPAY_MAX_DELAY_SECONDS", 5),
         )
+        enable_retry = getattr(self.client, "enable_retry", None)
+        if callable(enable_retry):
+            enable_retry(True)
 
     def create_payment_link(self, booking_ref, amount, currency="INR", description="Course Booking", customer_data=None):
         """
@@ -46,7 +63,13 @@ class PaymentService:
             payment_link = self.client.payment_link.create(payload)
             return payment_link
             
+        except requests.exceptions.RequestException as exc:
+            logger.exception("Razorpay payment link request failed.")
+            raise ValidationError(PAYMENT_GATEWAY_UNREACHABLE_MESSAGE) from exc
         except Exception as e:
+            if self._is_network_error(e):
+                logger.exception("Razorpay payment link request failed.")
+                raise ValidationError(PAYMENT_GATEWAY_UNREACHABLE_MESSAGE) from e
             raise ValidationError(f"Error generating payment link: {str(e)}")
 
     def verify_payment_signature(self, params_dict):
@@ -67,7 +90,13 @@ class PaymentService:
             }
             order = self.client.order.create(data=data)
             return order
+        except requests.exceptions.RequestException as exc:
+            logger.exception("Razorpay order request failed.")
+            raise ValidationError(PAYMENT_GATEWAY_UNREACHABLE_MESSAGE) from exc
         except Exception as e:
+            if self._is_network_error(e):
+                logger.exception("Razorpay order request failed.")
+                raise ValidationError(PAYMENT_GATEWAY_UNREACHABLE_MESSAGE) from e
             raise ValidationError(f"Error creating Razorpay order: {str(e)}")
 
     def _amount_to_paisa(self, amount):
@@ -85,6 +114,21 @@ class PaymentService:
         suffix = uuid4().hex[:10]
         base = str(receipt or "order").strip() or "order"
         return f"{base[:29]}-{suffix}"
+
+    def _is_network_error(self, exc):
+        current = exc
+        while current:
+            if isinstance(current, requests.exceptions.RequestException):
+                return True
+            current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+
+        message = str(exc).lower()
+        return (
+            "connection refused" in message
+            or "failed to establish a new connection" in message
+            or "max retries exceeded" in message
+            or "temporarily unavailable" in message
+        )
 
     def verify_order_signature(self, params_dict):
         """
