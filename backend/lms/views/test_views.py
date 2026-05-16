@@ -74,6 +74,55 @@ def _parse_list_payload(value):
     return [str(value).strip()]
 
 
+def _elapsed_seconds_between(start, end):
+    if not start or not end:
+        return 0
+    return max(0, int((end - start).total_seconds()))
+
+
+def _capture_active_attempt_time(attempt, now):
+    resumed_at = attempt.last_resumed_at
+    if not resumed_at:
+        if (attempt.time_spent_seconds or 0) > 0:
+            return
+        resumed_at = attempt.started_at
+    elapsed_seconds = _elapsed_seconds_between(resumed_at, now)
+    if elapsed_seconds > 0:
+        attempt.time_spent_seconds = (attempt.time_spent_seconds or 0) + elapsed_seconds
+
+
+def _resume_active_attempt_timer(attempt, now):
+    if attempt.status != 'in_progress':
+        return False
+    if attempt.last_resumed_at:
+        _capture_active_attempt_time(attempt, now)
+    attempt.last_resumed_at = now
+    attempt.last_activity_at = now
+    return True
+
+
+def _normalize_legacy_attempt_timer(attempt, now=None):
+    if not attempt.started_at or (attempt.time_spent_seconds or 0) > 0:
+        return False
+
+    now = now or timezone.now()
+    end_at = None
+
+    if attempt.status == 'locked':
+        end_at = attempt.locked_at or attempt.last_activity_at or now
+    elif attempt.status == 'submitted':
+        end_at = attempt.submitted_at or attempt.last_activity_at or now
+
+    if not end_at:
+        return False
+
+    resumed_at = attempt.last_resumed_at or attempt.started_at
+    attempt.time_spent_seconds = _elapsed_seconds_between(resumed_at, end_at)
+    if attempt.status in ['locked', 'submitted']:
+        attempt.last_resumed_at = None
+    return True
+
+
 class TestViewSet(viewsets.ModelViewSet):
     queryset = Test.objects.select_related('product', 'created_by').prefetch_related('questions', 'attempts')
     serializer_class = TestSerializer
@@ -255,6 +304,23 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             return TestAttemptDetailSerializer
         return TestAttemptSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        attempt = self.get_object()
+        now = timezone.now()
+        update_fields = []
+        if _normalize_legacy_attempt_timer(attempt, now):
+            update_fields.extend(['time_spent_seconds', 'last_resumed_at'])
+        if (
+            request.user.role == 'student'
+            and attempt.student_id == request.user.id
+            and _resume_active_attempt_timer(attempt, now)
+        ):
+            update_fields.extend(['time_spent_seconds', 'last_resumed_at', 'last_activity_at'])
+        if update_fields:
+            attempt.save(update_fields=[*sorted(set(update_fields)), 'updated_at'])
+        serializer = self.get_serializer(attempt)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['post'])
     def start(self, request):
         if request.user.role != 'student':
@@ -265,7 +331,7 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             return Response({'detail': 'You are not eligible to take this test.'}, status=status.HTTP_403_FORBIDDEN)
 
         now = timezone.now()
-        attempt, _ = TestAttempt.objects.get_or_create(
+        attempt, created = TestAttempt.objects.get_or_create(
             test=test,
             student=request.user,
             defaults={
@@ -281,15 +347,23 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             return Response(serializer.data)
 
         if attempt.status == 'locked':
+            if _normalize_legacy_attempt_timer(attempt, now):
+                attempt.save(update_fields=['time_spent_seconds', 'last_resumed_at', 'updated_at'])
             serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
             return Response(serializer.data, status=status.HTTP_423_LOCKED)
 
         if not attempt.started_at:
             attempt.started_at = now
         attempt.status = 'in_progress'
-        attempt.last_resumed_at = now
-        attempt.last_activity_at = now
-        attempt.save(update_fields=['status', 'started_at', 'last_resumed_at', 'last_activity_at', 'updated_at'])
+        _resume_active_attempt_timer(attempt, now)
+        attempt.save(update_fields=[
+            'status',
+            'started_at',
+            'last_resumed_at',
+            'last_activity_at',
+            'time_spent_seconds',
+            'updated_at',
+        ])
 
         serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
         return Response(serializer.data)
@@ -370,13 +444,30 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             return Response({'detail': 'You can only lock your own attempt.'}, status=status.HTTP_403_FORBIDDEN)
         if attempt.status == 'submitted':
             return Response({'detail': 'Submitted attempts cannot be locked.'}, status=status.HTTP_400_BAD_REQUEST)
+        if attempt.status == 'locked':
+            if _normalize_legacy_attempt_timer(attempt, timezone.now()):
+                attempt.save(update_fields=['time_spent_seconds', 'last_resumed_at', 'updated_at'])
+            serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
+            return Response(serializer.data)
 
+        now = timezone.now()
+        _capture_active_attempt_time(attempt, now)
         attempt.status = 'locked'
-        attempt.locked_at = timezone.now()
+        attempt.locked_at = now
         attempt.locked_reason = request.data.get('reason') or 'Window/tab switch detected.'
         attempt.window_violation_count += 1
-        attempt.last_activity_at = timezone.now()
-        attempt.save(update_fields=['status', 'locked_at', 'locked_reason', 'window_violation_count', 'last_activity_at', 'updated_at'])
+        attempt.last_resumed_at = None
+        attempt.last_activity_at = now
+        attempt.save(update_fields=[
+            'status',
+            'locked_at',
+            'locked_reason',
+            'window_violation_count',
+            'last_resumed_at',
+            'last_activity_at',
+            'time_spent_seconds',
+            'updated_at',
+        ])
 
         serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
         return Response(serializer.data)
@@ -389,13 +480,28 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             return Response({'detail': 'Only admin or the creating teacher can unlock attempts.'}, status=status.HTTP_403_FORBIDDEN)
         if user.role == 'teacher' and attempt.test.created_by_id != user.id:
             return Response({'detail': 'Only the teacher who created this test can unlock it.'}, status=status.HTTP_403_FORBIDDEN)
+        if attempt.status == 'submitted':
+            return Response({'detail': 'Submitted attempts cannot be unlocked.'}, status=status.HTTP_400_BAD_REQUEST)
+        if attempt.status == 'in_progress':
+            serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
+            return Response(serializer.data)
 
+        now = timezone.now()
+        _normalize_legacy_attempt_timer(attempt, now)
         attempt.status = 'in_progress'
-        attempt.unlocked_at = timezone.now()
+        attempt.unlocked_at = now
         attempt.unlocked_by = user
-        attempt.last_resumed_at = timezone.now()
+        attempt.last_resumed_at = None
         attempt.locked_reason = ''
-        attempt.save(update_fields=['status', 'unlocked_at', 'unlocked_by', 'last_resumed_at', 'locked_reason', 'updated_at'])
+        attempt.save(update_fields=[
+            'status',
+            'unlocked_at',
+            'unlocked_by',
+            'last_resumed_at',
+            'locked_reason',
+            'time_spent_seconds',
+            'updated_at',
+        ])
 
         serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
         return Response(serializer.data)
@@ -405,13 +511,26 @@ class TestAttemptViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         attempt = self.get_object()
         if request.user.role != 'student' or attempt.student_id != request.user.id:
             return Response({'detail': 'You can only submit your own attempt.'}, status=status.HTTP_403_FORBIDDEN)
+        if attempt.status == 'submitted':
+            serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
+            return Response(serializer.data)
         if attempt.status == 'locked':
             return Response({'detail': 'Locked attempts must be unlocked before submission.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        now = timezone.now()
+        _capture_active_attempt_time(attempt, now)
         attempt.status = 'submitted'
-        attempt.submitted_at = timezone.now()
-        attempt.last_activity_at = timezone.now()
-        attempt.save(update_fields=['status', 'submitted_at', 'last_activity_at', 'updated_at'])
+        attempt.submitted_at = now
+        attempt.last_resumed_at = None
+        attempt.last_activity_at = now
+        attempt.save(update_fields=[
+            'status',
+            'submitted_at',
+            'last_resumed_at',
+            'last_activity_at',
+            'time_spent_seconds',
+            'updated_at',
+        ])
 
         serializer = TestAttemptDetailSerializer(attempt, context={'request': request})
         return Response(serializer.data)

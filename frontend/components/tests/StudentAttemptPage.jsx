@@ -45,13 +45,28 @@ function formatExecutionTime(durationMs) {
 
 function getAttemptTimer(attempt, nowMs) {
   const startedMs = parseDateMs(attempt?.started_at);
-  if (!startedMs) return null;
-
-  const submittedMs = parseDateMs(attempt?.submitted_at);
-  const lockedMs = attempt?.status === 'locked' ? parseDateMs(attempt?.locked_at) : null;
-  const endMs = submittedMs || lockedMs || nowMs;
-  const elapsedSeconds = Math.max(0, Math.floor((endMs - startedMs) / 1000));
+  const storedElapsedSeconds = Math.max(0, Math.floor(Number(attempt?.time_spent_seconds || 0)));
   const durationSeconds = Math.max(0, Number(attempt?.test_detail?.duration_minutes || 0) * 60);
+  let elapsedSeconds = storedElapsedSeconds;
+
+  if (attempt?.status === 'in_progress') {
+    const resumedMs = parseDateMs(attempt?.last_resumed_at);
+    if (resumedMs) {
+      elapsedSeconds += Math.max(0, Math.floor((nowMs - resumedMs) / 1000));
+    } else if (!startedMs && storedElapsedSeconds === 0) {
+      return null;
+    }
+  } else if (storedElapsedSeconds === 0 && startedMs) {
+    const submittedMs = parseDateMs(attempt?.submitted_at);
+    const lockedMs = attempt?.status === 'locked' ? parseDateMs(attempt?.locked_at) : null;
+    const endMs = submittedMs || lockedMs;
+    if (endMs) {
+      elapsedSeconds = Math.max(0, Math.floor((endMs - startedMs) / 1000));
+    }
+  } else if (!startedMs && storedElapsedSeconds === 0) {
+    return null;
+  }
+
   const remainingSeconds = durationSeconds ? Math.max(0, durationSeconds - elapsedSeconds) : null;
 
   return {
@@ -73,9 +88,12 @@ export default function StudentAttemptPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [codeRuns, setCodeRuns] = useState({});
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [submitting, setSubmitting] = useState(false);
   const autosaveTimer = useRef(null);
   const lockingRef = useRef(false);
   const lockSuppressionUntilRef = useRef(0);
+  const autoSubmitRef = useRef(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!user || user.role !== 'student') {
@@ -257,18 +275,66 @@ export default function StudentAttemptPage() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ automatic = false } = {}) => {
+    if (!attempt || attempt.status !== 'in_progress' || submittingRef.current) return;
+
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current);
+        autosaveTimer.current = null;
+      }
       if (currentQuestion) {
-        await persistAnswer(currentQuestion);
+        try {
+          await persistAnswer(currentQuestion);
+        } catch (error) {
+          console.error('Failed to save answer before submit', error);
+          if (!automatic) {
+            throw error;
+          }
+        }
       }
       const submitted = await testAttemptAPI.submit(attempt.id);
       setAttempt(submitted);
+      setMessage({
+        type: 'success',
+        text: automatic
+          ? 'Time is up. Your test was submitted automatically.'
+          : 'Test submitted successfully.',
+      });
     } catch (error) {
       console.error('Failed to submit attempt', error);
-      setMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to submit test.' });
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.detail || (
+          automatic
+            ? 'Time is up, but automatic submission failed. Please submit the test now.'
+            : 'Failed to submit test.'
+        ),
+      });
+      if (automatic) {
+        autoSubmitRef.current = false;
+      }
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    autoSubmitRef.current = false;
+    submittingRef.current = false;
+  }, [attempt?.id]);
+
+  useEffect(() => {
+    if (!attempt || attempt.status !== 'in_progress') return;
+    if (timerStats?.remainingSeconds !== 0) return;
+    if (autoSubmitRef.current) return;
+
+    autoSubmitRef.current = true;
+    handleSubmit({ automatic: true });
+  }, [attempt?.id, attempt?.status, timerStats?.remainingSeconds]);
 
   const setAnswerValue = (questionId, patch) => {
     setDraftAnswers((prev) => ({
@@ -702,8 +768,15 @@ export default function StudentAttemptPage() {
                     </Button>
                   ) : (
                     attempt.status === 'in_progress' ? (
-                      <Button disabled={locking} onClick={handleSubmit}>
-                        Submit Test
+                      <Button disabled={locking || submitting} onClick={() => handleSubmit()}>
+                        {submitting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          'Submit Test'
+                        )}
                       </Button>
                     ) : (
                       <Button variant="secondary" onClick={() => router.push('/student/scores')}>
