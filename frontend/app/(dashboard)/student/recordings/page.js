@@ -55,6 +55,11 @@ export default function StudentRecordingsPage() {
       cell: ({ row }) => row.original.note || <span className="text-slate-400 italic">No notes</span>
     },
     {
+      accessorKey: 'recording_status',
+      header: 'Status',
+      cell: ({ row }) => (row.original.recording_status || 'ready').replace(/_/g, ' ')
+    },
+    {
       id: 'actions',
       header: 'View',
       cell: ({ row }) => row.original.recording_link ? (

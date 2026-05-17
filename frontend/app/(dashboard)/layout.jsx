@@ -74,6 +74,18 @@ export default function AdminRootLayout({ children }) {
     return <div className="flex items-center justify-center h-screen">Redirecting...</div>;
   }
 
+  const isMeetRoute = pathname.startsWith("/meet/");
+
+  if (isMeetRoute) {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <div className="h-screen w-screen overflow-hidden bg-slate-950">
+          {children}
+        </div>
+      </ThemeProvider>
+    );
+  }
+
   const generateBreadcrumbs = () => {
     const pathSegments = pathname.split("/").filter(Boolean);
 

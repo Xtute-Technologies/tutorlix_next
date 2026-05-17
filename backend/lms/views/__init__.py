@@ -12,3 +12,4 @@ from .notification_views import *
 from .test_views import *
 from .resource_views import *
 from .microsoft_views import *
+from .livekit_views import *

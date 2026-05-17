@@ -203,9 +203,18 @@ export default function TeacherRecordingsPage() {
             ),
         },
         {
+            accessorKey: 'recording_status',
+            header: 'Status',
+            cell: ({ row }) => (
+                <Badge variant="outline">
+                    {(row.original.recording_status || 'ready').replace(/_/g, ' ')}
+                </Badge>
+            ),
+        },
+        {
             accessorKey: 'recording_link',
             header: 'Link',
-            cell: ({ row }) => (
+            cell: ({ row }) => row.original.recording_link ? (
                 <a
                     href={row.original.recording_link}
                     target="_blank"
@@ -214,7 +223,7 @@ export default function TeacherRecordingsPage() {
                 >
                     Watch Recording
                 </a>
-            ),
+            ) : <span className="text-sm text-gray-500">Processing</span>,
         },
         {
             id: 'actions',

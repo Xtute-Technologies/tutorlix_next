@@ -12,13 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { studentClassAPI } from '@/lib/lmsService';
 import { authService } from '@/lib/authService';
-import { Plus, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Video } from 'lucide-react';
 import { z } from 'zod';
 
 const classSchema = z.object({
   name: z.string().min(1, 'Class name is required'),
   time: z.string().min(1, 'Class time is required'),
-  class_link: z.string().url('Must be a valid URL'),
+  class_link: z.union([z.string().url('Must be a valid URL'), z.literal(''), z.undefined()]).optional(),
   // teacher removed
   students: z.array(z.number()).optional(),
   is_active: z.boolean().optional(),
@@ -70,6 +70,7 @@ export default function TeacherStudentClassesPage() {
 
       const classData = {
         ...data,
+        class_link: data.class_link || '',
         // teacher implicit
         students: Array.isArray(data.students) ? data.students : [],
         is_active: data.is_active !== undefined ? data.is_active : true,
@@ -159,10 +160,9 @@ export default function TeacherStudentClassesPage() {
     },
     {
       name: 'class_link',
-      label: 'Meeting Link',
+      label: 'External Meeting Link',
       type: 'url',
-      placeholder: 'Zoom/Google Meet Link',
-      required: true,
+      placeholder: 'Optional fallback link',
     },
     {
       name: 'students',
@@ -209,17 +209,15 @@ export default function TeacherStudentClassesPage() {
       ),
     },
     {
-      accessorKey: 'class_link',
-      header: 'Link',
+      accessorKey: 'meeting_url',
+      header: 'Meeting',
       cell: ({ row }) => (
-        <a
-          href={row.original.class_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline text-sm"
-        >
-          Join Class
-        </a>
+        <Button asChild variant="outline" size="sm">
+          <a href={row.original.meeting_url || row.original.class_link || '#'}>
+            <Video className="h-4 w-4 mr-2" />
+            Open
+          </a>
+        </Button>
       ),
     },
     {

@@ -319,3 +319,14 @@ TAVUS_PERSONA_ID = os.getenv('TAVUS_PERSONA_ID', '')
 TAVUS_REPLICA_ID = os.getenv('TAVUS_REPLICA_ID', '')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://tutorlix.com')
 # FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# LiveKit meeting and recording configuration.
+LIVEKIT_URL = os.getenv('LIVEKIT_URL', '').strip().rstrip('/')
+LIVEKIT_WS_URL = os.getenv('LIVEKIT_WS_URL', LIVEKIT_URL).strip().rstrip('/')
+LIVEKIT_API_URL = os.getenv('LIVEKIT_API_URL', LIVEKIT_URL).strip().rstrip('/')
+LIVEKIT_API_KEY = os.getenv('LIVEKIT_API_KEY', '').strip()
+LIVEKIT_API_SECRET = os.getenv('LIVEKIT_API_SECRET', '').strip()
+LIVEKIT_TOKEN_TTL_SECONDS = int(os.getenv('LIVEKIT_TOKEN_TTL_SECONDS', 6 * 60 * 60))
+LIVEKIT_ROOM_PREFIX = os.getenv('LIVEKIT_ROOM_PREFIX', 'tutorlix').strip() or 'tutorlix'
+LIVEKIT_MEETING_BASE_URL = os.getenv('LIVEKIT_MEETING_BASE_URL', '').strip().rstrip('/')
+LIVEKIT_MIN_CONCURRENT_CLASSES = int(os.getenv('LIVEKIT_MIN_CONCURRENT_CLASSES', 10))

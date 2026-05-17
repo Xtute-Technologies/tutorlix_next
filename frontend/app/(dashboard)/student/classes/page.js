@@ -56,6 +56,7 @@ export default function StudentClassesPage() {
     let isExpired = false;
     let timeDisplay = classItem.time || 'TBA';
     let dateDisplay = '';
+    let joinHref = classItem.meeting_url || classItem.link || classItem.class_link;
 
     // Logic for Course Specific Classes (Group Classes)
     if (classItem.type === 'Group Class') {
@@ -68,9 +69,7 @@ export default function StudentClassesPage() {
         }
 
         // 2. Check Join Status
-        // If backend sends 'link', it implies join is allowed. 
-        // We can also double check with 'join_allowed' flag if present.
-        if (classItem.link && !isExpired) {
+        if ((classItem.join_allowed || joinHref) && !isExpired) {
             isJoinable = true;
         }
 
@@ -84,7 +83,7 @@ export default function StudentClassesPage() {
     else {
         // Private classes typically don't expire in the same way, or handled differently.
         // Assume always joinable if link exists for now, unless we add expiry logic there too.
-         if (classItem.class_link || classItem.link) {
+         if (joinHref) {
             isJoinable = true;
          }
     }
@@ -124,7 +123,7 @@ export default function StudentClassesPage() {
             {/* Case 1: Active & Joinable */}
             {isJoinable && !isExpired && (
             <Button asChild className="w-full md:w-auto">
-                <a href={classItem.link || classItem.class_link} target="_blank" rel="noopener noreferrer">
+                <a href={joinHref}>
                 <Video className="h-4 w-4 mr-2" /> Join Class
                 </a>
             </Button>

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { courseClassAPI, productAPI } from '@/lib/lmsService';
 import { authService } from '@/lib/authService';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Video } from 'lucide-react';
 import { z } from 'zod';
 
 const classSchema = z.object({
@@ -19,7 +19,7 @@ const classSchema = z.object({
     name: z.string().min(1, 'Class name is required'),
     start_time: z.string().min(1, 'Start time is required'),
     end_time: z.string().min(1, 'End time is required'),
-    link: z.string().url('Must be a valid URL'),
+    link: z.union([z.string().url('Must be a valid URL'), z.literal(''), z.undefined()]).optional(),
     teacher: z.string().optional(),
     is_active: z.boolean().optional(),
 });
@@ -74,6 +74,7 @@ export default function CourseClassesPage() {
             const classData = {
                 ...data,
                 product: Number(data.product),
+                link: data.link || '',
                 teacher: data.teacher ? Number(data.teacher) : null,
                 is_active: data.is_active !== undefined ? data.is_active : true,
             };
@@ -190,10 +191,9 @@ export default function CourseClassesPage() {
         },
         {
             name: 'link',
-            label: 'Class Link',
+            label: 'External Class Link',
             type: 'url',
-            placeholder: 'https://zoom.us/j/...',
-            required: true,
+            placeholder: 'Optional fallback link',
         },
         {
             name: 'teacher',
@@ -257,17 +257,15 @@ export default function CourseClassesPage() {
             ),
         },
         {
-            accessorKey: 'link',
-            header: 'Link',
+            accessorKey: 'meeting_url',
+            header: 'Meeting',
             cell: ({ row }) => (
-                <a
-                    href={row.original.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-sm"
-                >
-                    Join Class
-                </a>
+                <Button asChild variant="outline" size="sm">
+                    <a href={row.original.meeting_url || row.original.link || '#'}>
+                        <Video className="h-4 w-4 mr-2" />
+                        Open
+                    </a>
+                </Button>
             ),
         },
         {

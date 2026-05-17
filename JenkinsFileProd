@@ -624,11 +624,20 @@ pipeline {
                     string(credentialsId: 'razorpay-secret-id-prod', variable: 'RAZORPAY_SECRET_ID'),
                     string(credentialsId: 'razorpay-secret-key-prod', variable: 'RAZORPAY_SECRET_KEY'),
                     string(credentialsId: 'razorpay-webhook-secret-prod', variable: 'RAZORPAY_WEBHOOK_SECRET'),
-                    string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY')
+                    string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY'),
+                    string(credentialsId: 'livekit-ws-url-prod', variable: 'LIVEKIT_WS_URL'),
+                    string(credentialsId: 'livekit-api-key-prod', variable: 'LIVEKIT_API_KEY'),
+                    string(credentialsId: 'livekit-api-secret-prod', variable: 'LIVEKIT_API_SECRET')
                 ]) {
                     sh '''
                         set -e
                         export KUBECONFIG=$HOME/.kube/config
+
+                        case "$LIVEKIT_WS_URL" in
+                          wss://*) LIVEKIT_API_URL="https://${LIVEKIT_WS_URL#wss://}" ;;
+                          ws://*) LIVEKIT_API_URL="http://${LIVEKIT_WS_URL#ws://}" ;;
+                          *) LIVEKIT_API_URL="$LIVEKIT_WS_URL" ;;
+                        esac
 
                         echo "🔐 Syncing backend prod secrets..."
                         kubectl create secret generic "$BACKEND_SECRET_NAME" \
@@ -637,6 +646,15 @@ pipeline {
                           --from-literal=RAZORPAY_WEBHOOK_SECRET="$RAZORPAY_WEBHOOK_SECRET" \
                           --from-literal=GROQ_API_KEY="$GROQ_API_KEY" \
                           --from-literal=FRONTEND_URL="https://tutorlix.com" \
+                          --from-literal=LIVEKIT_URL="$LIVEKIT_WS_URL" \
+                          --from-literal=LIVEKIT_WS_URL="$LIVEKIT_WS_URL" \
+                          --from-literal=LIVEKIT_API_URL="$LIVEKIT_API_URL" \
+                          --from-literal=LIVEKIT_API_KEY="$LIVEKIT_API_KEY" \
+                          --from-literal=LIVEKIT_API_SECRET="$LIVEKIT_API_SECRET" \
+                          --from-literal=LIVEKIT_TOKEN_TTL_SECONDS="21600" \
+                          --from-literal=LIVEKIT_ROOM_PREFIX="tutorlix-prod" \
+                          --from-literal=LIVEKIT_MEETING_BASE_URL="https://tutorlix.com" \
+                          --from-literal=LIVEKIT_MIN_CONCURRENT_CLASSES="10" \
                           --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl set env deployment/backend-prod --from=secret/"$BACKEND_SECRET_NAME"

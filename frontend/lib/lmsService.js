@@ -1072,6 +1072,15 @@ export const recordingAPI = {
   },
 };
 
+// ============= Live Class Meeting APIs =============
+
+export const liveClassAPI = {
+  join: async (classType, classId) => {
+    const response = await axiosInstance.post(`/api/lms/live-classes/${classType}/${classId}/token/`);
+    return response.data;
+  },
+};
+
 // ============= Attendance APIs =============
 
 export const attendanceAPI = {
@@ -1150,6 +1159,7 @@ const exportVariable = { category: categoryAPI,
   studentClass: studentClassAPI,
   courseClass: courseClassAPI,
   recording: recordingAPI,
+  liveClass: liveClassAPI,
   attendance: attendanceAPI,
   testScore: testScoreAPI,
   test: testAPI,

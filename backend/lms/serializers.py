@@ -1030,21 +1030,32 @@ class PublicQuestionBankTopicDetailSerializer(serializers.ModelSerializer):
 # ============= Class Serializers =============
 
 class StudentSpecificClassSerializer(serializers.ModelSerializer):
+    class_link = serializers.URLField(required=False, allow_blank=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     students_data = UserBasicSerializer(source='students', many=True, read_only=True)
     students_count = serializers.SerializerMethodField()
+    meeting_url = serializers.SerializerMethodField()
+    livekit_room_name = serializers.SerializerMethodField()
     
     class Meta:
         model = StudentSpecificClass
         fields = [
             'id', 'name', 'time', 'students', 'students_data', 'students_count',
-            'class_link', 'teacher', 'teacher_name', 'is_active',
+            'class_link', 'meeting_url', 'livekit_room_name', 'teacher', 'teacher_name', 'is_active',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_students_count(self, obj):
         return obj.students.count()
+
+    def get_meeting_url(self, obj):
+        from .livekit_service import public_meeting_url
+        return public_meeting_url('student', obj.id)
+
+    def get_livekit_room_name(self, obj):
+        from .livekit_service import room_name_for_class
+        return room_name_for_class('student', obj.id)
     
     def validate_teacher(self, value):
         if value and value.role != 'teacher':
@@ -1072,6 +1083,7 @@ class MasterClassSerializer(serializers.ModelSerializer):
         ]
 
 class CourseSpecificClassSerializer(serializers.ModelSerializer):
+    link = serializers.URLField(required=False, allow_blank=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     
@@ -1079,13 +1091,15 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
     # link is a model field, handled by to_representation for security
     is_booking_expired = serializers.SerializerMethodField()
     join_allowed = serializers.SerializerMethodField()
+    meeting_url = serializers.SerializerMethodField()
+    livekit_room_name = serializers.SerializerMethodField()
     
     class Meta:
         model = CourseSpecificClass
         fields = [
             'id', 'product', 'product_name', 'name', 
             'start_time', 'end_time',
-            'link', 'teacher', 'teacher_name', 'is_active',
+            'link', 'meeting_url', 'livekit_room_name', 'teacher', 'teacher_name', 'is_active',
             'created_at', 'updated_at',
             'is_booking_expired', 'join_allowed' # Additional status fields
         ]
@@ -1113,6 +1127,9 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
             
         if not should_show_link:
             data['link'] = None
+            data['meeting_url'] = None
+        elif not data.get('link'):
+            data['link'] = data.get('meeting_url')
             
         return data
 
@@ -1178,10 +1195,19 @@ class CourseSpecificClassSerializer(serializers.ModelSerializer):
             
         return False
 
+    def get_meeting_url(self, obj):
+        from .livekit_service import public_meeting_url
+        return public_meeting_url('course', obj.id)
+
+    def get_livekit_room_name(self, obj):
+        from .livekit_service import room_name_for_class
+        return room_name_for_class('course', obj.id)
+
 
 # ============= Recording Serializers =============
 
 class RecordingSerializer(serializers.ModelSerializer):
+    recording_link = serializers.URLField(required=False, allow_blank=True, allow_null=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     students_data = UserBasicSerializer(source='students', many=True, read_only=True)
     students_count = serializers.SerializerMethodField()
@@ -1190,9 +1216,15 @@ class RecordingSerializer(serializers.ModelSerializer):
         model = Recording
         fields = [
             'id', 'class_name', 'recording_link', 'students', 'students_data', 'students_count',
-            'teacher', 'teacher_name', 'note', 'uploaded_at', 'created_at', 'updated_at'
+            'teacher', 'teacher_name', 'note', 'recording_status', 'uploaded_at', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'uploaded_at', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'recording_status',
+            'uploaded_at',
+            'created_at',
+            'updated_at',
+        ]
     
     def get_students_count(self, obj):
         return obj.students.count()

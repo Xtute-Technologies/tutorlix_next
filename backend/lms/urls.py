@@ -42,6 +42,11 @@ router.register(r'videos', views.VideoViewSet, basename='video')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path(
+        'live-classes/<str:class_type>/<int:class_id>/token/',
+        views.LiveClassTokenView.as_view(),
+        name='live-class-token',
+    ),
     re_path(
         r'^webhook/payment-status/?$',
         views.RazorpayWebhookView.as_view(),

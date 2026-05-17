@@ -537,7 +537,7 @@ class StudentSpecificClass(models.Model):
         related_name='student_classes',
         limit_choices_to={'role': 'student'}
     )
-    class_link = models.URLField()
+    class_link = models.URLField(blank=True, default='')
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 
@@ -590,7 +590,7 @@ class CourseSpecificClass(models.Model):
     start_time = models.DateTimeField(default=timezone.now, help_text="Class Start Time")
     end_time = models.DateTimeField(default=timezone.now, help_text="Class End Time")
     
-    link = models.URLField()
+    link = models.URLField(blank=True, default='')
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 
@@ -615,8 +615,15 @@ class Recording(models.Model):
     """
     Class recordings
     """
+    STATUS_CHOICES = (
+        ('ready', 'Ready'),
+        ('recording', 'Recording'),
+        ('processing', 'Processing'),
+        ('failed', 'Failed'),
+    )
+
     class_name = models.CharField(max_length=255)
-    recording_link = models.URLField()
+    recording_link = models.URLField(blank=True, null=True)
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL, 
         related_name='recordings',
@@ -630,6 +637,7 @@ class Recording(models.Model):
         limit_choices_to={'role': 'teacher'}
     )
     note = models.TextField(blank=True, null=True)
+    recording_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ready')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
