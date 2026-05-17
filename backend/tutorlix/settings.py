@@ -321,11 +321,11 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://tutorlix.com')
 # FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # LiveKit meeting and recording configuration.
-LIVEKIT_URL = os.getenv('LIVEKIT_URL', '').strip().rstrip('/')
+LIVEKIT_URL = os.getenv('LIVEKIT_URL', 'wss://tutorlix-285la2f2.livekit.cloud').strip().rstrip('/')
 LIVEKIT_WS_URL = os.getenv('LIVEKIT_WS_URL', LIVEKIT_URL).strip().rstrip('/')
 LIVEKIT_API_URL = os.getenv('LIVEKIT_API_URL', LIVEKIT_URL).strip().rstrip('/')
-LIVEKIT_API_KEY = os.getenv('LIVEKIT_API_KEY', '').strip()
-LIVEKIT_API_SECRET = os.getenv('LIVEKIT_API_SECRET', '').strip()
+LIVEKIT_API_KEY = os.getenv('LIVEKIT_API_KEY', 'APIUcEex7FF8KQs').strip()
+LIVEKIT_API_SECRET = os.getenv('LIVEKIT_API_SECRET', 'C5LxIPgQZbeeoUoiJE4SxPBfH5AKJMX3ef0ALooPB2sF').strip()
 LIVEKIT_TOKEN_TTL_SECONDS = int(os.getenv('LIVEKIT_TOKEN_TTL_SECONDS', 6 * 60 * 60))
 LIVEKIT_ROOM_PREFIX = os.getenv('LIVEKIT_ROOM_PREFIX', 'tutorlix').strip() or 'tutorlix'
 LIVEKIT_MEETING_BASE_URL = os.getenv('LIVEKIT_MEETING_BASE_URL', '').strip().rstrip('/')

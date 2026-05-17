@@ -4,7 +4,10 @@ import time
 from datetime import timedelta
 
 import jwt
+import requests
 from django.conf import settings
+from django.core.cache import cache
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -15,6 +18,7 @@ from .models import CourseBooking, CourseSpecificClass, StudentSpecificClass
 
 COURSE_CLASS = 'course'
 STUDENT_CLASS = 'student'
+STUDENT_IDENTITY_RE = re.compile(r'^student-(\d+)$')
 
 
 def livekit_configured():
@@ -45,6 +49,10 @@ def room_name_for_class(class_type, class_id):
     return f'{prefix}-{class_type}-{class_id}'
 
 
+def participant_identity_for_user(user):
+    return f'{user.role}-{user.id}'
+
+
 def _display_name(user):
     return user.get_full_name() or user.email or user.username or f'User {user.id}'
 
@@ -55,18 +63,19 @@ def _teacher_for_course_class(class_obj):
     return class_obj.product.instructors.filter(role='teacher').first()
 
 
-def _course_join_allowed_for_student(class_obj, user):
-    booking = CourseBooking.objects.filter(
-        student=user,
-        product=class_obj.product,
-        payment_status='paid',
-    ).order_by('-booking_date').first()
-
-    if not booking:
-        return False
-
+def _active_course_booking_exists(product, user):
     today = timezone.localdate()
-    if booking.course_expiry_date and booking.course_expiry_date <= today:
+    return CourseBooking.objects.filter(
+        student=user,
+        product=product,
+        payment_status='paid',
+    ).filter(
+        Q(course_expiry_date__isnull=True) | Q(course_expiry_date__gte=today)
+    ).exists()
+
+
+def _course_join_allowed_for_student(class_obj, user):
+    if not _active_course_booking_exists(class_obj.product, user):
         return False
 
     now = timezone.now()
@@ -90,12 +99,7 @@ def get_class_for_user(class_type, class_id, user, require_join_window=True):
 
         if user.role == 'student' and class_obj.is_active:
             if not require_join_window:
-                has_booking = CourseBooking.objects.filter(
-                    student=user,
-                    product=class_obj.product,
-                    payment_status='paid',
-                ).exists()
-                if has_booking:
+                if _active_course_booking_exists(class_obj.product, user):
                     return class_obj
             elif _course_join_allowed_for_student(class_obj, user):
                 return class_obj
@@ -150,7 +154,7 @@ def generate_livekit_token(room_name, user):
     require_livekit_config()
     now = int(time.time())
     ttl = max(300, int(settings.LIVEKIT_TOKEN_TTL_SECONDS))
-    identity = f'{user.role}-{user.id}'
+    identity = participant_identity_for_user(user)
 
     video_grant = {
         'room': room_name,
@@ -173,3 +177,87 @@ def generate_livekit_token(room_name, user):
         'metadata': json.dumps({'user_id': user.id, 'role': user.role}),
     }
     return jwt.encode(payload, settings.LIVEKIT_API_SECRET, algorithm='HS256')
+
+
+def _livekit_api_base_url():
+    api_url = (settings.LIVEKIT_API_URL or settings.LIVEKIT_URL or settings.LIVEKIT_WS_URL or '').strip().rstrip('/')
+    if api_url.startswith('wss://'):
+        return f'https://{api_url[6:]}'
+    if api_url.startswith('ws://'):
+        return f'http://{api_url[5:]}'
+    return api_url
+
+
+def _generate_livekit_room_admin_token(room_name):
+    require_livekit_config()
+    now = int(time.time())
+    payload = {
+        'iss': settings.LIVEKIT_API_KEY,
+        'sub': 'tutorlix-livekit-admin',
+        'nbf': now - 10,
+        'exp': now + 300,
+        'video': {
+            'room': room_name,
+            'roomAdmin': True,
+        },
+    }
+    return jwt.encode(payload, settings.LIVEKIT_API_SECRET, algorithm='HS256')
+
+
+def student_user_id_from_identity(identity):
+    match = STUDENT_IDENTITY_RE.match(identity or '')
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def remove_livekit_participant(room_name, identity):
+    require_livekit_config()
+    token = _generate_livekit_room_admin_token(room_name)
+    response = requests.post(
+        f'{_livekit_api_base_url()}/twirp/livekit.RoomService/RemoveParticipant',
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+        },
+        json={'room': room_name, 'identity': identity},
+        timeout=10,
+    )
+
+    if response.ok:
+        return
+
+    try:
+        body = response.json()
+        message = body.get('msg') or body.get('message') or body.get('error') or response.text
+    except ValueError:
+        message = response.text
+
+    raise serializers.ValidationError({
+        'livekit': f'Could not remove participant from LiveKit room: {message or response.status_code}'
+    })
+
+
+def _removed_participant_cache_key(class_type, class_id, identity):
+    return f'livekit:removed:{class_type}:{class_id}:{identity}'
+
+
+def _removed_participant_timeout(class_type, class_obj):
+    if class_type == COURSE_CLASS:
+        now = timezone.now()
+        end_time = class_obj.end_time or (class_obj.start_time + timedelta(hours=1))
+        seconds = int((end_time + timedelta(minutes=30) - now).total_seconds())
+        return max(300, seconds)
+    return max(300, int(settings.LIVEKIT_TOKEN_TTL_SECONDS))
+
+
+def mark_participant_removed(class_type, class_obj, identity):
+    cache.set(
+        _removed_participant_cache_key(class_type, class_obj.id, identity),
+        True,
+        _removed_participant_timeout(class_type, class_obj),
+    )
+
+
+def participant_is_removed(class_type, class_id, identity):
+    return bool(cache.get(_removed_participant_cache_key(class_type, class_id, identity)))

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import LocalCallRecorder from '@/components/livekit/LocalCallRecorder';
+import ParticipantKickControls from '@/components/livekit/ParticipantKickControls';
 import { useAuth } from '@/context/AuthContext';
 import { liveClassAPI } from '@/lib/lmsService';
 
@@ -117,6 +118,12 @@ export default function LiveClassRoomPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <ParticipantKickControls
+            canManage={user?.role === 'admin' || user?.role === 'teacher'}
+            classType={classType}
+            classId={classId}
+            onError={setError}
+          />
           <LocalCallRecorder
             canRecord={user?.role === 'admin' || user?.role === 'teacher' || session?.can_record}
             fileBasename={session?.class?.name || `class-${classId}`}

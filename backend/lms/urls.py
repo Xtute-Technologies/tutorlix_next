@@ -47,6 +47,11 @@ urlpatterns = [
         views.LiveClassTokenView.as_view(),
         name='live-class-token',
     ),
+    path(
+        'live-classes/<str:class_type>/<int:class_id>/participants/remove/',
+        views.LiveClassParticipantRemoveView.as_view(),
+        name='live-class-remove-participant',
+    ),
     re_path(
         r'^webhook/payment-status/?$',
         views.RazorpayWebhookView.as_view(),

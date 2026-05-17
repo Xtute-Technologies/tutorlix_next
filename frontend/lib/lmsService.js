@@ -1079,6 +1079,12 @@ export const liveClassAPI = {
     const response = await axiosInstance.post(`/api/lms/live-classes/${classType}/${classId}/token/`);
     return response.data;
   },
+  removeParticipant: async (classType, classId, identity) => {
+    const response = await axiosInstance.post(`/api/lms/live-classes/${classType}/${classId}/participants/remove/`, {
+      identity,
+    });
+    return response.data;
+  },
 };
 
 // ============= Attendance APIs =============
