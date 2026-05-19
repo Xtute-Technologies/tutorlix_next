@@ -658,6 +658,11 @@ pipeline {
                           printf 'GROQ_LLM_MODEL=llama-3.1-8b-instant\\n'
                           printf 'GROQ_STT_MODEL=whisper-large-v3-turbo\\n'
                           printf 'PIPER_TTS_URL=http://127.0.0.1:5000/\\n'
+                          printf 'PIPER_TTS_AUTO_START=true\\n'
+                          printf 'PIPER_TTS_VOICE=en_US-lessac-medium\\n'
+                          printf 'PIPER_TTS_DATA_DIR=/app/piper-voices\\n'
+                          printf 'PIPER_TTS_HOST=127.0.0.1\\n'
+                          printf 'PIPER_TTS_PORT=5000\\n'
                           printf 'LOG_LEVEL=INFO\\n'
                         } > "$AI_TUTOR_LIVEKIT_ENV_FILE"
 

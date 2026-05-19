@@ -6,7 +6,9 @@ COPY bots/__init__.py ./bots/__init__.py
 COPY bots/ai_tutor_livekit/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && mkdir -p /app/piper-voices \
+    && python -m piper.download_voices --download-dir /app/piper-voices en_US-lessac-medium
 
 COPY bots/ai_tutor_livekit ./bots/ai_tutor_livekit
 

@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
+import requests
 from dotenv import load_dotenv
 from livekit import agents
 from livekit.agents import Agent, AgentSession, WorkerOptions
@@ -34,6 +38,16 @@ GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo").strip()
 GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY_SECRET") or "").strip()
 
 PIPER_TTS_URL = os.getenv("PIPER_TTS_URL", "http://127.0.0.1:5000/").strip()
+PIPER_TTS_AUTO_START = os.getenv("PIPER_TTS_AUTO_START", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+PIPER_TTS_VOICE = os.getenv("PIPER_TTS_VOICE", "en_US-lessac-medium").strip()
+PIPER_TTS_DATA_DIR = os.getenv("PIPER_TTS_DATA_DIR", "/app/piper-voices").strip()
+PIPER_TTS_HOST = os.getenv("PIPER_TTS_HOST", "127.0.0.1").strip()
+PIPER_TTS_PORT = os.getenv("PIPER_TTS_PORT", "5000").strip()
+_PIPER_PROCESS: subprocess.Popen[bytes] | None = None
 
 
 def _load_metadata(raw_metadata: str | None) -> dict[str, Any]:
@@ -123,6 +137,75 @@ class CourseTutorAgent(Agent):
         super().__init__(instructions=build_instructions(metadata))
 
 
+def _check_piper_tts() -> bool:
+    try:
+        response = requests.post(
+            PIPER_TTS_URL,
+            json={"text": "ready"},
+            timeout=3,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "")
+        return bool(response.content) and (
+            content_type.startswith("audio/") or response.content.startswith(b"RIFF")
+        )
+    except requests.RequestException as exc:
+        LOGGER.warning("Piper TTS is not reachable at %s: %s", PIPER_TTS_URL, exc)
+        return False
+
+
+def _start_piper_tts_server() -> None:
+    global _PIPER_PROCESS
+
+    if not PIPER_TTS_AUTO_START:
+        return
+
+    if _check_piper_tts():
+        LOGGER.info("Piper TTS already reachable at %s", PIPER_TTS_URL)
+        return
+
+    model_path = Path(PIPER_TTS_DATA_DIR) / f"{PIPER_TTS_VOICE}.onnx"
+    if not model_path.exists():
+        raise RuntimeError(
+            f"Piper voice model not found: {model_path}. Rebuild the image or mount PIPER_TTS_DATA_DIR."
+        )
+
+    LOGGER.info(
+        "Starting Piper TTS server host=%s port=%s voice=%s data_dir=%s",
+        PIPER_TTS_HOST,
+        PIPER_TTS_PORT,
+        PIPER_TTS_VOICE,
+        PIPER_TTS_DATA_DIR,
+    )
+    _PIPER_PROCESS = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "piper.http_server",
+            "--host",
+            PIPER_TTS_HOST,
+            "--port",
+            PIPER_TTS_PORT,
+            "-m",
+            PIPER_TTS_VOICE,
+            "--data-dir",
+            PIPER_TTS_DATA_DIR,
+            "--download-dir",
+            PIPER_TTS_DATA_DIR,
+        ]
+    )
+
+    for _ in range(30):
+        if _check_piper_tts():
+            LOGGER.info("Piper TTS is ready at %s", PIPER_TTS_URL)
+            return
+        if _PIPER_PROCESS.poll() is not None:
+            raise RuntimeError(f"Piper TTS server exited with code {_PIPER_PROCESS.returncode}")
+        time.sleep(1)
+
+    raise RuntimeError(f"Piper TTS did not become ready at {PIPER_TTS_URL}")
+
+
 async def entrypoint(ctx: agents.JobContext) -> None:
     metadata = _load_metadata(getattr(ctx.job, "metadata", None))
     course = metadata.get("course") if isinstance(metadata.get("course"), dict) else {}
@@ -172,6 +255,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+    _start_piper_tts_server()
 
     livekit_url = (
         os.getenv("LIVEKIT_URL")
