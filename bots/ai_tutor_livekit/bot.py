@@ -143,9 +143,11 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         stt=groq.STT(
             model=GROQ_STT_MODEL,
             language="en",
+            api_key=os.getenv("GROQ_API_KEY"),
         ),
         llm=groq.LLM(
             model=GROQ_LLM_MODEL,
+            api_key=os.getenv("GROQ_API_KEY"),
         ),
         tts=piper_tts.TTS(PIPER_TTS_URL),
         vad=silero.VAD.load(),
