@@ -437,7 +437,7 @@ export default function StudentAITutorCallPage() {
   }, [loadSession]);
 
   const dispatchError = session?.agent_dispatch?.ok === false
-    ? 'The AI tutor could not join this room. Please try again shortly or contact support.'
+    ? session.agent_dispatch.error || 'The AI tutor could not join this room. Please try again shortly or contact support.'
     : '';
 
   if (loading) {

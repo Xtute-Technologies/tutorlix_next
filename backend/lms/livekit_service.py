@@ -297,6 +297,14 @@ def _livekit_api_base_url():
     return api_url
 
 
+def _livekit_response_error(response):
+    try:
+        body = response.json()
+        return body.get('msg') or body.get('message') or body.get('error') or response.text
+    except ValueError:
+        return response.text
+
+
 def _generate_livekit_room_admin_token(room_name):
     require_livekit_config()
     now = int(time.time())
@@ -323,24 +331,26 @@ def student_user_id_from_identity(identity):
 def remove_livekit_participant(room_name, identity):
     require_livekit_config()
     token = _generate_livekit_room_admin_token(room_name)
-    response = requests.post(
-        f'{_livekit_api_base_url()}/twirp/livekit.RoomService/RemoveParticipant',
-        headers={
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-        },
-        json={'room': room_name, 'identity': identity},
-        timeout=10,
-    )
+    api_base_url = _livekit_api_base_url()
+    try:
+        response = requests.post(
+            f'{api_base_url}/twirp/livekit.RoomService/RemoveParticipant',
+            headers={
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            },
+            json={'room': room_name, 'identity': identity},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        raise serializers.ValidationError({
+            'livekit': f'Could not reach LiveKit RoomService at {api_base_url}: {exc}'
+        })
 
     if response.ok:
         return
 
-    try:
-        body = response.json()
-        message = body.get('msg') or body.get('message') or body.get('error') or response.text
-    except ValueError:
-        message = response.text
+    message = _livekit_response_error(response)
 
     raise serializers.ValidationError({
         'livekit': f'Could not remove participant from LiveKit room: {message or response.status_code}'
@@ -358,19 +368,29 @@ def dispatch_ai_tutor_agent(room_name, metadata):
         }
 
     token = _generate_livekit_room_admin_token(room_name)
-    response = requests.post(
-        f'{_livekit_api_base_url()}/twirp/livekit.AgentDispatchService/CreateDispatch',
-        headers={
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-        },
-        json={
+    api_base_url = _livekit_api_base_url()
+    try:
+        response = requests.post(
+            f'{api_base_url}/twirp/livekit.AgentDispatchService/CreateDispatch',
+            headers={
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'agent_name': agent_name,
+                'room': room_name,
+                'metadata': json.dumps(metadata, ensure_ascii=False, default=str),
+            },
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        return {
+            'requested': True,
+            'ok': False,
             'agent_name': agent_name,
-            'room': room_name,
-            'metadata': json.dumps(metadata, ensure_ascii=False, default=str),
-        },
-        timeout=10,
-    )
+            'api_url': api_base_url,
+            'error': f'Could not reach LiveKit Agent Dispatch API: {exc}',
+        }
 
     if response.ok:
         try:
@@ -384,16 +404,13 @@ def dispatch_ai_tutor_agent(room_name, metadata):
             'dispatch': dispatch,
         }
 
-    try:
-        body = response.json()
-        message = body.get('msg') or body.get('message') or body.get('error') or response.text
-    except ValueError:
-        message = response.text
+    message = _livekit_response_error(response)
 
     return {
         'requested': True,
         'ok': False,
         'agent_name': agent_name,
+        'api_url': api_base_url,
         'error': message or f'LiveKit dispatch failed with HTTP {response.status_code}.',
     }
 
