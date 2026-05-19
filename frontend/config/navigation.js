@@ -16,6 +16,7 @@ import {
   FileText,
   FolderOpen,
   ReceiptText,
+  Bot,
 } from "lucide-react";
 
 export const getNavItems = (role) => {
@@ -146,6 +147,7 @@ export const getNavItems = (role) => {
         isActive: true,
         items: [
           { title: "My Bookings", url: "/student/bookings", icon: ShoppingCart },
+          { title: "AI Tutor", url: "/student/ai-tutor", icon: Bot },
           { title: "Classes", url: "/student/classes", icon: Users },
           { title: "Recordings", url: "/student/recordings", icon: Video },
           { title: "Attendance", url: "/student/attendance", icon: CheckSquare },

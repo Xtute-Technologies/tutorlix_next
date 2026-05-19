@@ -1,6 +1,7 @@
 import json
 import re
 import time
+import uuid
 from datetime import timedelta
 
 import jwt
@@ -9,6 +10,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils.html import strip_tags
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
@@ -18,6 +20,7 @@ from .models import CourseBooking, CourseSpecificClass, StudentSpecificClass
 
 COURSE_CLASS = 'course'
 STUDENT_CLASS = 'student'
+AI_TUTOR_CLASS = 'ai-tutor'
 STUDENT_IDENTITY_RE = re.compile(r'^student-(\d+)$')
 
 
@@ -49,6 +52,12 @@ def room_name_for_class(class_type, class_id):
     return f'{prefix}-{class_type}-{class_id}'
 
 
+def room_name_for_ai_tutor(product_id, user_id, session_id=None):
+    prefix = re.sub(r'[^a-zA-Z0-9_-]+', '-', settings.LIVEKIT_ROOM_PREFIX).strip('-') or 'tutorlix'
+    session = session_id or uuid.uuid4().hex[:12]
+    return f'{prefix}-ai-tutor-course-{product_id}-student-{user_id}-{session}'
+
+
 def participant_identity_for_user(user):
     return f'{user.role}-{user.id}'
 
@@ -72,6 +81,40 @@ def _active_course_booking_exists(product, user):
     ).filter(
         Q(course_expiry_date__isnull=True) | Q(course_expiry_date__gte=today)
     ).exists()
+
+
+def active_ai_tutor_course_bookings(user):
+    if not user.is_authenticated or user.role != 'student':
+        return CourseBooking.objects.none()
+
+    today = timezone.localdate()
+    return (
+        CourseBooking.objects
+        .select_related('product', 'product__category')
+        .filter(
+            student=user,
+            payment_status='paid',
+            product__is_active=True,
+        )
+        .exclude(student_status__in=['inactive', 'cancelled'])
+        .filter(Q(course_expiry_date__isnull=True) | Q(course_expiry_date__gte=today))
+        .order_by('product__name', '-booking_date')
+    )
+
+
+def get_ai_tutor_course_booking(product_id, user):
+    if user.role != 'student':
+        raise PermissionDenied('AI tutor calls are available for student accounts only.')
+
+    try:
+        product_id = int(product_id)
+    except (TypeError, ValueError):
+        raise serializers.ValidationError({'product_id': 'Course id must be a number.'})
+
+    booking = active_ai_tutor_course_bookings(user).filter(product_id=product_id).first()
+    if not booking:
+        raise PermissionDenied('You need an active paid booking for this course to use the AI tutor.')
+    return booking
 
 
 def _course_join_allowed_for_student(class_obj, user):
@@ -179,6 +222,72 @@ def generate_livekit_token(room_name, user):
     return jwt.encode(payload, settings.LIVEKIT_API_SECRET, algorithm='HS256')
 
 
+def _compact_text(value, max_length=1200):
+    text = strip_tags(str(value or ''))
+    text = re.sub(r'\s+', ' ', text).strip()
+    if len(text) <= max_length:
+        return text
+    return text[:max_length].rsplit(' ', 1)[0].strip()
+
+
+def _compact_json_value(value, max_length=3500):
+    if value in (None, '', [], {}):
+        return value
+
+    try:
+        encoded = json.dumps(value, ensure_ascii=False, default=str)
+    except TypeError:
+        return _compact_text(value, max_length=max_length)
+
+    if len(encoded) <= max_length:
+        return value
+
+    return _compact_text(encoded, max_length=max_length)
+
+
+def ai_tutor_course_payload(booking):
+    product = booking.product
+    return {
+        'id': product.id,
+        'name': product.name,
+        'slug': product.slug,
+        'category': product.category.name if product.category_id else '',
+        'description': _compact_text(product.description, max_length=600),
+        'course_expiry_date': booking.course_expiry_date,
+        'booking_id': str(booking.booking_id),
+    }
+
+
+def ai_tutor_session_metadata(booking, user, room_name):
+    product = booking.product
+    return {
+        'session': {
+            'type': AI_TUTOR_CLASS,
+            'room_name': room_name,
+            'started_at': timezone.now().isoformat(),
+        },
+        'student': {
+            'id': user.id,
+            'name': _display_name(user),
+        },
+        'course': {
+            'id': product.id,
+            'name': product.name,
+            'slug': product.slug,
+            'category': product.category.name if product.category_id else '',
+            'description': _compact_text(product.description, max_length=1200),
+            'overview': _compact_text(product.overview, max_length=2200),
+            'features': _compact_json_value(product.features, max_length=1800),
+            'curriculum': _compact_json_value(product.curriculum, max_length=3500),
+        },
+        'booking': {
+            'id': str(booking.booking_id),
+            'course_name': booking.course_name,
+            'course_expiry_date': booking.course_expiry_date.isoformat() if booking.course_expiry_date else None,
+        },
+    }
+
+
 def _livekit_api_base_url():
     api_url = (settings.LIVEKIT_API_URL or settings.LIVEKIT_URL or settings.LIVEKIT_WS_URL or '').strip().rstrip('/')
     if api_url.startswith('wss://'):
@@ -236,6 +345,57 @@ def remove_livekit_participant(room_name, identity):
     raise serializers.ValidationError({
         'livekit': f'Could not remove participant from LiveKit room: {message or response.status_code}'
     })
+
+
+def dispatch_ai_tutor_agent(room_name, metadata):
+    require_livekit_config()
+    agent_name = getattr(settings, 'LIVEKIT_AI_AGENT_NAME', 'tutorlix-ai-tutor').strip()
+    if not agent_name:
+        return {
+            'requested': False,
+            'ok': False,
+            'error': 'LIVEKIT_AI_AGENT_NAME is not configured.',
+        }
+
+    token = _generate_livekit_room_admin_token(room_name)
+    response = requests.post(
+        f'{_livekit_api_base_url()}/twirp/livekit.AgentDispatchService/CreateDispatch',
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+        },
+        json={
+            'agent_name': agent_name,
+            'room': room_name,
+            'metadata': json.dumps(metadata, ensure_ascii=False, default=str),
+        },
+        timeout=10,
+    )
+
+    if response.ok:
+        try:
+            dispatch = response.json()
+        except ValueError:
+            dispatch = {}
+        return {
+            'requested': True,
+            'ok': True,
+            'agent_name': agent_name,
+            'dispatch': dispatch,
+        }
+
+    try:
+        body = response.json()
+        message = body.get('msg') or body.get('message') or body.get('error') or response.text
+    except ValueError:
+        message = response.text
+
+    return {
+        'requested': True,
+        'ok': False,
+        'agent_name': agent_name,
+        'error': message or f'LiveKit dispatch failed with HTTP {response.status_code}.',
+    }
 
 
 def _removed_participant_cache_key(class_type, class_id, identity):

@@ -1087,6 +1087,23 @@ export const liveClassAPI = {
   },
 };
 
+// ============= AI Tutor LiveKit APIs =============
+
+export const aiTutorAPI = {
+  getCourses: async () => {
+    const response = await axiosInstance.get('/api/lms/ai-tutor/courses/');
+    return response.data;
+  },
+  joinCourse: async (productId) => {
+    const response = await axiosInstance.post(`/api/lms/ai-tutor/courses/${productId}/token/`);
+    return response.data;
+  },
+  reviewCode: async (productId, payload) => {
+    const response = await axiosInstance.post(`/api/lms/ai-tutor/courses/${productId}/code-review/`, payload);
+    return response.data;
+  },
+};
+
 // ============= Attendance APIs =============
 
 export const attendanceAPI = {
@@ -1166,6 +1183,7 @@ const exportVariable = { category: categoryAPI,
   courseClass: courseClassAPI,
   recording: recordingAPI,
   liveClass: liveClassAPI,
+  aiTutor: aiTutorAPI,
   attendance: attendanceAPI,
   testScore: testScoreAPI,
   test: testAPI,

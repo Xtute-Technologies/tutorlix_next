@@ -5,9 +5,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 
+from ..ai_tutor_service import review_ai_tutor_code
 from ..livekit_service import (
+    active_ai_tutor_course_bookings,
+    ai_tutor_course_payload,
+    ai_tutor_session_metadata,
     class_payload,
+    dispatch_ai_tutor_agent,
     generate_livekit_token,
+    get_ai_tutor_course_booking,
     get_class_for_user,
     livekit_configured,
     mark_participant_removed,
@@ -15,6 +21,7 @@ from ..livekit_service import (
     participant_is_removed,
     public_meeting_url,
     remove_livekit_participant,
+    room_name_for_ai_tutor,
     room_name_for_class,
     student_user_id_from_identity,
 )
@@ -68,3 +75,62 @@ class LiveClassParticipantRemoveView(APIView):
             'detail': 'Student removed from live class.',
             'identity': identity,
         })
+
+
+class AITutorCourseListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'student':
+            raise PermissionDenied('AI tutor calls are available for student accounts only.')
+
+        courses = []
+        seen_product_ids = set()
+        for booking in active_ai_tutor_course_bookings(request.user):
+            if booking.product_id in seen_product_ids:
+                continue
+            seen_product_ids.add(booking.product_id)
+            courses.append(ai_tutor_course_payload(booking))
+
+        return Response({
+            'courses': courses,
+            'livekit_configured': livekit_configured(),
+            'agent_name': settings.LIVEKIT_AI_AGENT_NAME,
+            'groq_configured': bool(settings.GROQ_API_KEY),
+        })
+
+
+class AITutorCourseTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, product_id):
+        booking = get_ai_tutor_course_booking(product_id, request.user)
+        room_name = room_name_for_ai_tutor(booking.product_id, request.user.id)
+        metadata = ai_tutor_session_metadata(booking, request.user, room_name)
+        token = generate_livekit_token(room_name, request.user)
+        agent_dispatch = dispatch_ai_tutor_agent(room_name, metadata)
+
+        return Response({
+            'server_url': settings.LIVEKIT_WS_URL,
+            'room_name': room_name,
+            'token': token,
+            'course': ai_tutor_course_payload(booking),
+            'agent_dispatch': agent_dispatch,
+            'livekit_configured': livekit_configured(),
+            'agent_name': settings.LIVEKIT_AI_AGENT_NAME,
+            'groq_configured': bool(settings.GROQ_API_KEY),
+        })
+
+
+class AITutorCodeReviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, product_id):
+        booking = get_ai_tutor_course_booking(product_id, request.user)
+        result = review_ai_tutor_code(
+            booking=booking,
+            code=request.data.get('code', ''),
+            language=request.data.get('language', 'python'),
+            goal=request.data.get('goal', ''),
+        )
+        return Response(result)

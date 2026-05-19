@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LiveKitRoom, VideoConference } from '@livekit/components-react';
+import { Room } from 'livekit-client';
 import { AlertCircle, Loader2, Video, VideoOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { FastDevicePublisher, SpacebarMicShortcut } from '@/components/livekit/LiveKitMediaControls';
 import LocalCallRecorder from '@/components/livekit/LocalCallRecorder';
 import ParticipantKickControls from '@/components/livekit/ParticipantKickControls';
 import { useAuth } from '@/context/AuthContext';
@@ -29,6 +31,20 @@ const errorText = (err, fallback) => {
   return fallback;
 };
 
+const liveClassRoomOptions = {
+  adaptiveStream: true,
+  dynacast: true,
+  publishDefaults: {
+    dtx: true,
+    red: true,
+    simulcast: true,
+    videoEncoding: {
+      maxBitrate: 1_400_000,
+      maxFramerate: 24,
+    },
+  },
+};
+
 export default function LiveClassRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -36,6 +52,7 @@ export default function LiveClassRoomPage() {
   const classType = params.classType;
   const classId = params.classId;
 
+  const [room] = useState(() => new Room(liveClassRoomOptions));
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,13 +63,16 @@ export default function LiveClassRoomPage() {
       setError('');
       setLoading(true);
       const data = await liveClassAPI.join(classType, classId);
+      if (data?.server_url && data?.token) {
+        room.prepareConnection(data.server_url, data.token).catch(() => {});
+      }
       setSession(data);
     } catch (err) {
       setError(errorText(err, 'Could not open this live class.'));
     } finally {
       setLoading(false);
     }
-  }, [classId, classType]);
+  }, [classId, classType, room]);
 
   useEffect(() => {
     loadSession();
@@ -89,16 +109,20 @@ export default function LiveClassRoomPage() {
 
   return (
     <LiveKitRoom
+      room={room}
       serverUrl={session?.server_url}
       token={session?.token}
       connect
-      audio
-      video
+      audio={false}
+      video={false}
       data-lk-theme="default"
       className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950"
       onError={(err) => setRoomError(err?.message || 'LiveKit connection failed.')}
       onDisconnected={() => router.push(roleClassesPath(user?.role))}
     >
+      <FastDevicePublisher onError={setRoomError} />
+      <SpacebarMicShortcut onError={setRoomError} />
+
       <div className="flex flex-col gap-3 border-b border-white/10 bg-slate-900 px-4 py-3 text-white md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

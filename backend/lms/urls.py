@@ -52,6 +52,21 @@ urlpatterns = [
         views.LiveClassParticipantRemoveView.as_view(),
         name='live-class-remove-participant',
     ),
+    path(
+        'ai-tutor/courses/',
+        views.AITutorCourseListView.as_view(),
+        name='ai-tutor-courses',
+    ),
+    path(
+        'ai-tutor/courses/<int:product_id>/token/',
+        views.AITutorCourseTokenView.as_view(),
+        name='ai-tutor-course-token',
+    ),
+    path(
+        'ai-tutor/courses/<int:product_id>/code-review/',
+        views.AITutorCodeReviewView.as_view(),
+        name='ai-tutor-code-review',
+    ),
     re_path(
         r'^webhook/payment-status/?$',
         views.RazorpayWebhookView.as_view(),

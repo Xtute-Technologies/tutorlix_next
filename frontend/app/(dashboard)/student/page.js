@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { bookingAPI, testAPI, attendanceAPI } from '@/lib/lmsService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, BookOpen, Clock, Award, Calendar, StickyNote, ArrowRight } from 'lucide-react';
+import { Loader2, BookOpen, Clock, Award, Calendar, StickyNote, ArrowRight, Bot } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentDashboardPage() {
@@ -106,10 +106,14 @@ export default function StudentDashboardPage() {
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-3">
             <Link href="/student/classes" className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 rounded-lg border border-dashed border-slate-300 transition-colors">
               <Calendar className="h-8 w-8 text-blue-500 mb-2" />
               <span className="font-bold text-slate-700 text-center">Book Class</span>
+            </Link>
+            <Link href="/student/ai-tutor" className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 rounded-lg border border-dashed border-slate-300 transition-colors">
+              <Bot className="h-8 w-8 text-sky-500 mb-2" />
+              <span className="font-bold text-slate-700 text-center">AI Tutor</span>
             </Link>
             <Link href="/student/bookings" className="flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-slate-100 rounded-lg border border-dashed border-slate-300 transition-colors">
               <BookOpen className="h-8 w-8 text-green-500 mb-2" />

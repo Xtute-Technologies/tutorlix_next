@@ -1,0 +1,13 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY bots/__init__.py ./bots/__init__.py
+COPY bots/ai_tutor_livekit/requirements.txt ./requirements.txt
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+COPY bots/ai_tutor_livekit ./bots/ai_tutor_livekit
+
+CMD ["python", "-m", "bots.ai_tutor_livekit", "start"]
