@@ -31,6 +31,7 @@ GROQ_LLM_MODEL = (
 ).strip()
 
 GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo").strip()
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY_SECRET") or "").strip()
 
 PIPER_TTS_URL = os.getenv("PIPER_TTS_URL", "http://127.0.0.1:5000/").strip()
 
@@ -143,11 +144,11 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         stt=groq.STT(
             model=GROQ_STT_MODEL,
             language="en",
-            api_key=os.getenv("GROQ_API_KEY"),
+            api_key=GROQ_API_KEY,
         ),
         llm=groq.LLM(
             model=GROQ_LLM_MODEL,
-            api_key=os.getenv("GROQ_API_KEY"),
+            api_key=GROQ_API_KEY,
         ),
         tts=piper_tts.TTS(PIPER_TTS_URL),
         vad=silero.VAD.load(),
@@ -188,15 +189,19 @@ def main() -> None:
         or os.getenv("LIVEKIT_CREDENTIAL_API_SECRET")
         or ""
     ).strip()
+    groq_api_key = (GROQ_API_KEY or os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY_SECRET") or "").strip()
 
     if livekit_url and not os.getenv("LIVEKIT_URL"):
         os.environ["LIVEKIT_URL"] = livekit_url
+    if groq_api_key:
+        os.environ["GROQ_API_KEY"] = groq_api_key
 
     missing = [
         name for name, value in [
             ("LIVEKIT_URL or LIVEKIT_WS_URL", livekit_url),
             ("LIVEKIT_API_KEY", livekit_api_key),
             ("LIVEKIT_API_SECRET", livekit_api_secret),
+            ("GROQ_API_KEY", groq_api_key),
         ]
         if not value
     ]
@@ -204,9 +209,10 @@ def main() -> None:
         raise RuntimeError(f"Missing LiveKit worker configuration: {', '.join(missing)}")
 
     LOGGER.info(
-        "Starting worker with LIVEKIT_URL=%s agent=%s",
+        "Starting worker with LIVEKIT_URL=%s agent=%s groq_configured=%s",
         livekit_url,
         AGENT_NAME,
+        bool(groq_api_key),
     )
 
     agents.cli.run_app(
