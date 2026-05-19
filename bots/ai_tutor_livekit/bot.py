@@ -170,9 +170,22 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
-    livekit_url = (os.getenv("LIVEKIT_URL") or os.getenv("LIVEKIT_WS_URL") or "").strip()
-    livekit_api_key = (os.getenv("LIVEKIT_API_KEY") or "").strip()
-    livekit_api_secret = (os.getenv("LIVEKIT_API_SECRET") or "").strip()
+    livekit_url = (
+        os.getenv("LIVEKIT_URL")
+        or os.getenv("LIVEKIT_WS_URL")
+        or os.getenv("LIVEKIT_CREDENTIAL_WS_URL")
+        or ""
+    ).strip()
+    livekit_api_key = (
+        os.getenv("LIVEKIT_API_KEY")
+        or os.getenv("LIVEKIT_CREDENTIAL_API_KEY")
+        or ""
+    ).strip()
+    livekit_api_secret = (
+        os.getenv("LIVEKIT_API_SECRET")
+        or os.getenv("LIVEKIT_CREDENTIAL_API_SECRET")
+        or ""
+    ).strip()
 
     if livekit_url and not os.getenv("LIVEKIT_URL"):
         os.environ["LIVEKIT_URL"] = livekit_url

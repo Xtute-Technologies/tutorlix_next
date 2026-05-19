@@ -625,7 +625,6 @@ pipeline {
             sh '''
                 set -e
 
-                echo "Writing AI Tutor LiveKit env file..."
                 mkdir -p "$(dirname "$AI_TUTOR_LIVEKIT_ENV_FILE")"
 
                 LIVEKIT_WORKER_URL="$(printf '%s' "$LIVEKIT_WS_URL_SECRET" | tr -d '\\r\\n')"
@@ -633,32 +632,14 @@ pipeline {
                 LIVEKIT_WORKER_API_SECRET="$(printf '%s' "$LIVEKIT_API_SECRET_SECRET" | tr -d '\\r\\n')"
                 GROQ_WORKER_API_KEY="$(printf '%s' "$GROQ_API_KEY_SECRET" | tr -d '\\r\\n')"
 
-                if [ -z "$LIVEKIT_WORKER_URL" ]; then
-                  echo "LiveKit websocket URL is empty. Check Jenkins credential livekit-ws-url-prod."
-                  exit 1
-                fi
-
-                if [ -z "$LIVEKIT_WORKER_API_KEY" ]; then
-                  echo "LiveKit API key is empty. Check Jenkins credential livekit-api-key-prod."
-                  exit 1
-                fi
-
-                if [ -z "$LIVEKIT_WORKER_API_SECRET" ]; then
-                  echo "LiveKit API secret is empty. Check Jenkins credential livekit-api-secret-prod."
-                  exit 1
-                fi
-
-                if [ -z "$GROQ_WORKER_API_KEY" ]; then
-                  echo "Groq API key is empty. Check Jenkins credential groq-api-key-prod."
-                  exit 1
-                fi
+                [ -n "$LIVEKIT_WORKER_URL" ] || { echo "LiveKit websocket URL is empty"; exit 1; }
+                [ -n "$LIVEKIT_WORKER_API_KEY" ] || { echo "LiveKit API key is empty"; exit 1; }
+                [ -n "$LIVEKIT_WORKER_API_SECRET" ] || { echo "LiveKit API secret is empty"; exit 1; }
+                [ -n "$GROQ_WORKER_API_KEY" ] || { echo "Groq API key is empty"; exit 1; }
 
                 case "$LIVEKIT_WORKER_URL" in
                   ws://*|wss://*) ;;
-                  *)
-                    echo "LiveKit websocket URL must start with ws:// or wss://"
-                    exit 1
-                    ;;
+                  *) echo "LiveKit websocket URL must start with ws:// or wss://"; exit 1 ;;
                 esac
 
                 {
@@ -666,6 +647,11 @@ pipeline {
                   printf 'LIVEKIT_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
                   printf 'LIVEKIT_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
                   printf 'LIVEKIT_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+
+                  printf 'LIVEKIT_CREDENTIAL_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
+                  printf 'LIVEKIT_CREDENTIAL_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
+                  printf 'LIVEKIT_CREDENTIAL_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+
                   printf 'LIVEKIT_AI_AGENT_NAME=tutorlix-ai-tutor\\n'
                   printf 'GROQ_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
                   printf 'GROQ_MODEL=llama-3.1-8b-instant\\n'
@@ -677,20 +663,16 @@ pipeline {
 
                 chmod 600 "$AI_TUTOR_LIVEKIT_ENV_FILE"
 
-                echo "Pulling latest AI Tutor LiveKit image..."
                 docker pull "$AI_TUTOR_LIVEKIT_IMAGE"
 
-                echo "Validating AI Tutor LiveKit Docker env..."
                 docker run --rm \
                   --entrypoint python \
                   --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
                   "$AI_TUTOR_LIVEKIT_IMAGE" \
-                  -c 'import os, sys; missing=[name for name in ["LIVEKIT_URL","LIVEKIT_API_KEY","LIVEKIT_API_SECRET","GROQ_API_KEY"] if not os.getenv(name)]; print("env ok" if not missing else "missing " + ",".join(missing)); sys.exit(1 if missing else 0)'
+                  -c 'import os, sys; missing=[n for n in ["LIVEKIT_URL","LIVEKIT_API_KEY","LIVEKIT_API_SECRET","GROQ_API_KEY"] if not os.getenv(n)]; print("env ok" if not missing else "missing " + ",".join(missing)); sys.exit(1 if missing else 0)'
 
-                echo "Removing old AI Tutor LiveKit container..."
                 docker rm -f "$AI_TUTOR_LIVEKIT_CONTAINER" || true
 
-                echo "Starting AI Tutor LiveKit container..."
                 docker run -d \
                   --name "$AI_TUTOR_LIVEKIT_CONTAINER" \
                   --restart unless-stopped \
@@ -698,7 +680,6 @@ pipeline {
                   --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
                   "$AI_TUTOR_LIVEKIT_IMAGE"
 
-                docker ps --filter "name=$AI_TUTOR_LIVEKIT_CONTAINER"
                 sleep 5
                 docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=120
 
@@ -706,8 +687,7 @@ pipeline {
                 CONTAINER_STATUS="$(docker inspect -f '{{.State.Status}}' "$AI_TUTOR_LIVEKIT_CONTAINER" 2>/dev/null || echo missing)"
 
                 if [ "$CONTAINER_STATUS" != "running" ] || [ "$RESTART_COUNT" -gt 0 ]; then
-                  echo "AI Tutor LiveKit container is not running after startup."
-                  echo "Container status=$CONTAINER_STATUS restart_count=$RESTART_COUNT"
+                  echo "AI Tutor LiveKit container failed."
                   docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=200 || true
                   exit 1
                 fi
