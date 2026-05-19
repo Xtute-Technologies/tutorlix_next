@@ -619,8 +619,8 @@ pipeline {
                 withCredentials([
                     string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY'),
                     string(credentialsId: 'livekit-ws-url-prod', variable: 'LIVEKIT_CREDENTIAL_WS_URL'),
-                    string(credentialsId: 'livekit-api-key-prod', variable: 'LIVEKIT_API_KEY'),
-                    string(credentialsId: 'livekit-api-secret-prod', variable: 'LIVEKIT_API_SECRET')
+                    string(credentialsId: 'livekit-api-key-prod', variable: 'LIVEKIT_CREDENTIAL_API_KEY'),
+                    string(credentialsId: 'livekit-api-secret-prod', variable: 'LIVEKIT_CREDENTIAL_API_SECRET')
                 ]) {
                     sh '''
                         set -e
@@ -631,6 +631,17 @@ pipeline {
                         LIVEKIT_WORKER_URL="${LIVEKIT_CREDENTIAL_WS_URL:-${LIVEKIT_WS_URL:-${LIVEKIT_URL:-}}}"
                         if [ -z "$LIVEKIT_WORKER_URL" ]; then
                           echo "❌ LiveKit websocket URL is empty. Check Jenkins credential livekit-ws-url-prod."
+                          exit 1
+                        fi
+
+                        LIVEKIT_WORKER_API_KEY="${LIVEKIT_CREDENTIAL_API_KEY:-${LIVEKIT_API_KEY:-}}"
+                        LIVEKIT_WORKER_API_SECRET="${LIVEKIT_CREDENTIAL_API_SECRET:-${LIVEKIT_API_SECRET:-}}"
+                        if [ -z "$LIVEKIT_WORKER_API_KEY" ]; then
+                          echo "❌ LiveKit API key is empty. Check Jenkins credential livekit-api-key-prod."
+                          exit 1
+                        fi
+                        if [ -z "$LIVEKIT_WORKER_API_SECRET" ]; then
+                          echo "❌ LiveKit API secret is empty. Check Jenkins credential livekit-api-secret-prod."
                           exit 1
                         fi
 
@@ -645,8 +656,8 @@ pipeline {
 cat > "$AI_TUTOR_LIVEKIT_ENV_FILE" <<EOF
 LIVEKIT_URL=${LIVEKIT_WORKER_URL}
 LIVEKIT_WS_URL=${LIVEKIT_WORKER_URL}
-LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+LIVEKIT_API_KEY=${LIVEKIT_WORKER_API_KEY}
+LIVEKIT_API_SECRET=${LIVEKIT_WORKER_API_SECRET}
 LIVEKIT_AI_AGENT_NAME=tutorlix-ai-tutor
 GROQ_API_KEY=${GROQ_API_KEY}
 GROQ_MODEL=llama-3.1-8b-instant
