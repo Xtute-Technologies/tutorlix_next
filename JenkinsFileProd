@@ -653,7 +653,12 @@ pipeline {
                   printf 'LIVEKIT_CREDENTIAL_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
 
                   printf 'LIVEKIT_AI_AGENT_NAME=tutorlix-ai-tutor\\n'
+
                   printf 'GROQ_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
+                  printf 'GROQ_API_KEY_SECRET=%s\\n' "$GROQ_WORKER_API_KEY"
+                  printf 'GROQ_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
+                  printf 'GROQ_CREDENTIAL_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
+
                   printf 'GROQ_MODEL=llama-3.1-8b-instant\\n'
                   printf 'GROQ_LLM_MODEL=llama-3.1-8b-instant\\n'
                   printf 'GROQ_STT_MODEL=whisper-large-v3-turbo\\n'
