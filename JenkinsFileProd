@@ -612,94 +612,100 @@ pipeline {
         }
 
         stage('Run AI Tutor LiveKit Container') {
-    when {
-        expression { params.BUILD_TARGET == 'ai_tutor_livekit' }
-    }
-    steps {
-        withCredentials([
-            string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY_SECRET'),
-            string(credentialsId: 'livekit-ws-url-prod', variable: 'LIVEKIT_WS_URL_SECRET'),
-            string(credentialsId: 'livekit-api-key-prod', variable: 'LIVEKIT_API_KEY_SECRET'),
-            string(credentialsId: 'livekit-api-secret-prod', variable: 'LIVEKIT_API_SECRET_SECRET')
-        ]) {
-            sh '''
-                set -e
+            when {
+                expression { params.BUILD_TARGET == 'ai_tutor_livekit' }
+            }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'groq-api-key-prod', variable: 'GROQ_API_KEY_SECRET'),
+                    string(credentialsId: 'livekit-ws-url-prod', variable: 'LIVEKIT_WS_URL_SECRET'),
+                    string(credentialsId: 'livekit-api-key-prod', variable: 'LIVEKIT_API_KEY_SECRET'),
+                    string(credentialsId: 'livekit-api-secret-prod', variable: 'LIVEKIT_API_SECRET_SECRET')
+                ]) {
+                    sh '''
+                        set -e
 
-                mkdir -p "$(dirname "$AI_TUTOR_LIVEKIT_ENV_FILE")"
+                        echo "Writing AI Tutor LiveKit env file..."
+                        mkdir -p "$(dirname "$AI_TUTOR_LIVEKIT_ENV_FILE")"
 
-                LIVEKIT_WORKER_URL="$(printf '%s' "$LIVEKIT_WS_URL_SECRET" | tr -d '\\r\\n')"
-                LIVEKIT_WORKER_API_KEY="$(printf '%s' "$LIVEKIT_API_KEY_SECRET" | tr -d '\\r\\n')"
-                LIVEKIT_WORKER_API_SECRET="$(printf '%s' "$LIVEKIT_API_SECRET_SECRET" | tr -d '\\r\\n')"
-                GROQ_WORKER_API_KEY="$(printf '%s' "$GROQ_API_KEY_SECRET" | tr -d '\\r\\n')"
+                        LIVEKIT_WORKER_URL="$(printf '%s' "$LIVEKIT_WS_URL_SECRET" | tr -d '\\r\\n')"
+                        LIVEKIT_WORKER_API_KEY="$(printf '%s' "$LIVEKIT_API_KEY_SECRET" | tr -d '\\r\\n')"
+                        LIVEKIT_WORKER_API_SECRET="$(printf '%s' "$LIVEKIT_API_SECRET_SECRET" | tr -d '\\r\\n')"
+                        GROQ_WORKER_API_KEY="$(printf '%s' "$GROQ_API_KEY_SECRET" | tr -d '\\r\\n')"
 
-                [ -n "$LIVEKIT_WORKER_URL" ] || { echo "LiveKit websocket URL is empty"; exit 1; }
-                [ -n "$LIVEKIT_WORKER_API_KEY" ] || { echo "LiveKit API key is empty"; exit 1; }
-                [ -n "$LIVEKIT_WORKER_API_SECRET" ] || { echo "LiveKit API secret is empty"; exit 1; }
-                [ -n "$GROQ_WORKER_API_KEY" ] || { echo "Groq API key is empty"; exit 1; }
+                        [ -n "$LIVEKIT_WORKER_URL" ] || { echo "LiveKit websocket URL is empty"; exit 1; }
+                        [ -n "$LIVEKIT_WORKER_API_KEY" ] || { echo "LiveKit API key is empty"; exit 1; }
+                        [ -n "$LIVEKIT_WORKER_API_SECRET" ] || { echo "LiveKit API secret is empty"; exit 1; }
+                        [ -n "$GROQ_WORKER_API_KEY" ] || { echo "Groq API key is empty"; exit 1; }
 
-                case "$LIVEKIT_WORKER_URL" in
-                  ws://*|wss://*) ;;
-                  *) echo "LiveKit websocket URL must start with ws:// or wss://"; exit 1 ;;
-                esac
+                        case "$LIVEKIT_WORKER_URL" in
+                          ws://*|wss://*) ;;
+                          *) echo "LiveKit websocket URL must start with ws:// or wss://"; exit 1 ;;
+                        esac
 
-                {
-                  printf 'LIVEKIT_URL=%s\\n' "$LIVEKIT_WORKER_URL"
-                  printf 'LIVEKIT_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
-                  printf 'LIVEKIT_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
-                  printf 'LIVEKIT_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+                        {
+                          printf 'LIVEKIT_URL=%s\\n' "$LIVEKIT_WORKER_URL"
+                          printf 'LIVEKIT_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
+                          printf 'LIVEKIT_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
+                          printf 'LIVEKIT_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+                          printf 'LIVEKIT_CREDENTIAL_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
+                          printf 'LIVEKIT_CREDENTIAL_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
+                          printf 'LIVEKIT_CREDENTIAL_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+                          printf 'LIVEKIT_AI_AGENT_NAME=tutorlix-ai-tutor\\n'
+                          printf 'GROQ_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
+                          printf 'GROQ_API_KEY_SECRET=%s\\n' "$GROQ_WORKER_API_KEY"
+                          printf 'GROQ_MODEL=llama-3.1-8b-instant\\n'
+                          printf 'GROQ_LLM_MODEL=llama-3.1-8b-instant\\n'
+                          printf 'GROQ_STT_MODEL=whisper-large-v3-turbo\\n'
+                          printf 'PIPER_TTS_URL=http://127.0.0.1:5000/\\n'
+                          printf 'LOG_LEVEL=INFO\\n'
+                        } > "$AI_TUTOR_LIVEKIT_ENV_FILE"
 
-                  printf 'LIVEKIT_CREDENTIAL_WS_URL=%s\\n' "$LIVEKIT_WORKER_URL"
-                  printf 'LIVEKIT_CREDENTIAL_API_KEY=%s\\n' "$LIVEKIT_WORKER_API_KEY"
-                  printf 'LIVEKIT_CREDENTIAL_API_SECRET=%s\\n' "$LIVEKIT_WORKER_API_SECRET"
+                        chmod 600 "$AI_TUTOR_LIVEKIT_ENV_FILE"
 
-                  printf 'LIVEKIT_AI_AGENT_NAME=tutorlix-ai-tutor\\n'
+                        docker pull "$AI_TUTOR_LIVEKIT_IMAGE"
 
-                  printf 'GROQ_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
-                  printf 'GROQ_API_KEY_SECRET=%s\\n' "$GROQ_WORKER_API_KEY"
-                  printf 'GROQ_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
-                  printf 'GROQ_CREDENTIAL_API_KEY=%s\\n' "$GROQ_WORKER_API_KEY"
+                        docker run --rm \
+                          --entrypoint python \
+                          --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
+                          -e LIVEKIT_URL="$LIVEKIT_WORKER_URL" \
+                          -e LIVEKIT_WS_URL="$LIVEKIT_WORKER_URL" \
+                          -e LIVEKIT_API_KEY="$LIVEKIT_WORKER_API_KEY" \
+                          -e LIVEKIT_API_SECRET="$LIVEKIT_WORKER_API_SECRET" \
+                          -e GROQ_API_KEY="$GROQ_WORKER_API_KEY" \
+                          "$AI_TUTOR_LIVEKIT_IMAGE" \
+                          -c 'import os, sys; missing=[n for n in ["LIVEKIT_URL","LIVEKIT_API_KEY","LIVEKIT_API_SECRET","GROQ_API_KEY"] if not os.getenv(n)]; print("env ok" if not missing else "missing " + ",".join(missing)); sys.exit(1 if missing else 0)'
 
-                  printf 'GROQ_MODEL=llama-3.1-8b-instant\\n'
-                  printf 'GROQ_LLM_MODEL=llama-3.1-8b-instant\\n'
-                  printf 'GROQ_STT_MODEL=whisper-large-v3-turbo\\n'
-                  printf 'PIPER_TTS_URL=http://127.0.0.1:5000/\\n'
-                  printf 'LOG_LEVEL=INFO\\n'
-                } > "$AI_TUTOR_LIVEKIT_ENV_FILE"
+                        docker rm -f "$AI_TUTOR_LIVEKIT_CONTAINER" || true
 
-                chmod 600 "$AI_TUTOR_LIVEKIT_ENV_FILE"
+                        docker run -d \
+                          --name "$AI_TUTOR_LIVEKIT_CONTAINER" \
+                          --restart unless-stopped \
+                          --network host \
+                          --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
+                          -e LIVEKIT_URL="$LIVEKIT_WORKER_URL" \
+                          -e LIVEKIT_WS_URL="$LIVEKIT_WORKER_URL" \
+                          -e LIVEKIT_API_KEY="$LIVEKIT_WORKER_API_KEY" \
+                          -e LIVEKIT_API_SECRET="$LIVEKIT_WORKER_API_SECRET" \
+                          -e GROQ_API_KEY="$GROQ_WORKER_API_KEY" \
+                          "$AI_TUTOR_LIVEKIT_IMAGE"
 
-                docker pull "$AI_TUTOR_LIVEKIT_IMAGE"
+                        docker ps --filter "name=$AI_TUTOR_LIVEKIT_CONTAINER"
+                        sleep 5
+                        docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=120
 
-                docker run --rm \
-                  --entrypoint python \
-                  --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
-                  "$AI_TUTOR_LIVEKIT_IMAGE" \
-                  -c 'import os, sys; missing=[n for n in ["LIVEKIT_URL","LIVEKIT_API_KEY","LIVEKIT_API_SECRET","GROQ_API_KEY"] if not os.getenv(n)]; print("env ok" if not missing else "missing " + ",".join(missing)); sys.exit(1 if missing else 0)'
+                        RESTART_COUNT="$(docker inspect -f '{{.RestartCount}}' "$AI_TUTOR_LIVEKIT_CONTAINER" 2>/dev/null || echo 999)"
+                        CONTAINER_STATUS="$(docker inspect -f '{{.State.Status}}' "$AI_TUTOR_LIVEKIT_CONTAINER" 2>/dev/null || echo missing)"
 
-                docker rm -f "$AI_TUTOR_LIVEKIT_CONTAINER" || true
-
-                docker run -d \
-                  --name "$AI_TUTOR_LIVEKIT_CONTAINER" \
-                  --restart unless-stopped \
-                  --network host \
-                  --env-file "$AI_TUTOR_LIVEKIT_ENV_FILE" \
-                  "$AI_TUTOR_LIVEKIT_IMAGE"
-
-                sleep 5
-                docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=120
-
-                RESTART_COUNT="$(docker inspect -f '{{.RestartCount}}' "$AI_TUTOR_LIVEKIT_CONTAINER" 2>/dev/null || echo 999)"
-                CONTAINER_STATUS="$(docker inspect -f '{{.State.Status}}' "$AI_TUTOR_LIVEKIT_CONTAINER" 2>/dev/null || echo missing)"
-
-                if [ "$CONTAINER_STATUS" != "running" ] || [ "$RESTART_COUNT" -gt 0 ]; then
-                  echo "AI Tutor LiveKit container failed."
-                  docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=200 || true
-                  exit 1
-                fi
-            '''
+                        if [ "$CONTAINER_STATUS" != "running" ] || [ "$RESTART_COUNT" -gt 0 ]; then
+                          echo "AI Tutor LiveKit container failed."
+                          docker logs "$AI_TUTOR_LIVEKIT_CONTAINER" --tail=200 || true
+                          exit 1
+                        fi
+                    '''
+                }
+            }
         }
-    }
-}
 
         stage('Setup Kubeconfig') {
             when {
