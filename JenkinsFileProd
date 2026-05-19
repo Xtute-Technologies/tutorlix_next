@@ -775,6 +775,7 @@ pipeline {
                           --from-literal=LIVEKIT_ROOM_PREFIX="tutorlix-prod" \
                           --from-literal=LIVEKIT_MEETING_BASE_URL="https://tutorlix.com" \
                           --from-literal=LIVEKIT_MIN_CONCURRENT_CLASSES="10" \
+                          --from-literal=LIVEKIT_AI_AGENT_DISPATCH_MODE="token" \
                           --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl set env deployment/backend-prod --from=secret/"$BACKEND_SECRET_NAME"

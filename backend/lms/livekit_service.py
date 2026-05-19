@@ -193,7 +193,7 @@ def class_payload(class_type, class_obj):
     }
 
 
-def generate_livekit_token(room_name, user):
+def generate_livekit_token(room_name, user, room_config=None):
     require_livekit_config()
     now = int(time.time())
     ttl = max(300, int(settings.LIVEKIT_TOKEN_TTL_SECONDS))
@@ -219,6 +219,10 @@ def generate_livekit_token(room_name, user):
         'video': video_grant,
         'metadata': json.dumps({'user_id': user.id, 'role': user.role}),
     }
+
+    if room_config:
+        payload['roomConfig'] = room_config
+
     return jwt.encode(payload, settings.LIVEKIT_API_SECRET, algorithm='HS256')
 
 
@@ -285,6 +289,35 @@ def ai_tutor_session_metadata(booking, user, room_name):
             'course_name': booking.course_name,
             'course_expiry_date': booking.course_expiry_date.isoformat() if booking.course_expiry_date else None,
         },
+    }
+
+
+def ai_tutor_agent_token_dispatch(room_name, metadata):
+    agent_name = getattr(settings, 'LIVEKIT_AI_AGENT_NAME', 'tutorlix-ai-tutor').strip()
+    if not agent_name:
+        return {
+            'requested': False,
+            'ok': False,
+            'method': 'token',
+            'error': 'LIVEKIT_AI_AGENT_NAME is not configured.',
+        }
+
+    room_config = {
+        'agents': [
+            {
+                'agentName': agent_name,
+                'metadata': json.dumps(metadata, ensure_ascii=False, default=str, separators=(',', ':')),
+            }
+        ]
+    }
+
+    return {
+        'requested': True,
+        'ok': True,
+        'method': 'token',
+        'agent_name': agent_name,
+        'room': room_name,
+        'room_config': room_config,
     }
 
 

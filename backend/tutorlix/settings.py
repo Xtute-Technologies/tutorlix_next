@@ -332,3 +332,4 @@ LIVEKIT_ROOM_PREFIX = os.getenv('LIVEKIT_ROOM_PREFIX', 'tutorlix').strip() or 't
 LIVEKIT_MEETING_BASE_URL = os.getenv('LIVEKIT_MEETING_BASE_URL', '').strip().rstrip('/')
 LIVEKIT_MIN_CONCURRENT_CLASSES = int(os.getenv('LIVEKIT_MIN_CONCURRENT_CLASSES', 10))
 LIVEKIT_AI_AGENT_NAME = os.getenv('LIVEKIT_AI_AGENT_NAME', 'tutorlix-ai-tutor').strip()
+LIVEKIT_AI_AGENT_DISPATCH_MODE = os.getenv('LIVEKIT_AI_AGENT_DISPATCH_MODE', 'token').strip().lower()

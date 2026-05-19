@@ -8,6 +8,7 @@ from rest_framework.exceptions import PermissionDenied
 from ..ai_tutor_service import review_ai_tutor_code
 from ..livekit_service import (
     active_ai_tutor_course_bookings,
+    ai_tutor_agent_token_dispatch,
     ai_tutor_course_payload,
     ai_tutor_session_metadata,
     class_payload,
@@ -107,8 +108,17 @@ class AITutorCourseTokenView(APIView):
         booking = get_ai_tutor_course_booking(product_id, request.user)
         room_name = room_name_for_ai_tutor(booking.product_id, request.user.id)
         metadata = ai_tutor_session_metadata(booking, request.user, room_name)
-        token = generate_livekit_token(room_name, request.user)
-        agent_dispatch = dispatch_ai_tutor_agent(room_name, metadata)
+        if getattr(settings, 'LIVEKIT_AI_AGENT_DISPATCH_MODE', 'token') == 'api':
+            token = generate_livekit_token(room_name, request.user)
+            agent_dispatch = dispatch_ai_tutor_agent(room_name, metadata)
+        else:
+            agent_dispatch = ai_tutor_agent_token_dispatch(room_name, metadata)
+            room_config = agent_dispatch.pop('room_config', None)
+            token = generate_livekit_token(
+                room_name,
+                request.user,
+                room_config=room_config,
+            )
 
         return Response({
             'server_url': settings.LIVEKIT_WS_URL,
