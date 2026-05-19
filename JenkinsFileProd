@@ -54,10 +54,10 @@ pipeline {
         AI_DEVOPS_REEL_PORT = '11004'
         AI_DEVOPS_REEL_GPU_ARGS = ''
         BACKEND_SECRET_NAME = 'backend-prod-env'
-        ROLLOUT_TIMEOUT = '600s',
-        AI_TUTOR_LIVEKIT_IMAGE = "${DOCKER_CREDS_USR}/ai-tutor-livekit-prod:latest",
-        AI_TUTOR_LIVEKIT_CONTAINER = 'ai-tutor-livekit-prod',
-        AI_TUTOR_LIVEKIT_ENV_FILE = '/var/www/tutorlix-prod/ai-tutor-livekit.env',
+        ROLLOUT_TIMEOUT = '600s'
+        AI_TUTOR_LIVEKIT_IMAGE = "${DOCKER_CREDS_USR}/ai-tutor-livekit-prod:latest"
+        AI_TUTOR_LIVEKIT_CONTAINER = 'ai-tutor-livekit-prod'
+        AI_TUTOR_LIVEKIT_ENV_FILE = '/var/www/tutorlix-prod/ai-tutor-livekit.env'
     }
 
     stages {
