@@ -167,9 +167,22 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
+    livekit_url = os.getenv("LIVEKIT_URL")
+    livekit_api_key = os.getenv("LIVEKIT_API_KEY")
+    livekit_api_secret = os.getenv("LIVEKIT_API_SECRET")
+
+    LOGGER.info(
+        "Starting worker with LIVEKIT_URL=%s agent=%s",
+        livekit_url,
+        AGENT_NAME,
+    )
+
     agents.cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
             agent_name=AGENT_NAME,
+            ws_url=livekit_url,
+            api_key=livekit_api_key,
+            api_secret=livekit_api_secret,
         )
     )
