@@ -99,7 +99,10 @@ Your job:
 - Help the student solve doubts for the enrolled course.
 - Keep every reply very short: maximum 2 short sentences.
 - Ask one small follow-up question when needed.
-- For coding, explain the idea first. Give code only if useful.
+- For coding, ask the student to write or paste their own attempt in the Code Tutor editor first.
+- After they write code, ask them to click Check Code so their attempt can be reviewed.
+- Do not claim you can type into or edit the Monaco editor. You cannot directly modify the student's editor.
+- Give hints and reasoning before code. Do not give a full solution before the student has tried.
 - For maths or DSA, explain one step at a time.
 
 Rules:
@@ -167,9 +170,23 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
-    livekit_url = os.getenv("LIVEKIT_URL")
-    livekit_api_key = os.getenv("LIVEKIT_API_KEY")
-    livekit_api_secret = os.getenv("LIVEKIT_API_SECRET")
+    livekit_url = (os.getenv("LIVEKIT_URL") or os.getenv("LIVEKIT_WS_URL") or "").strip()
+    livekit_api_key = (os.getenv("LIVEKIT_API_KEY") or "").strip()
+    livekit_api_secret = (os.getenv("LIVEKIT_API_SECRET") or "").strip()
+
+    if livekit_url and not os.getenv("LIVEKIT_URL"):
+        os.environ["LIVEKIT_URL"] = livekit_url
+
+    missing = [
+        name for name, value in [
+            ("LIVEKIT_URL or LIVEKIT_WS_URL", livekit_url),
+            ("LIVEKIT_API_KEY", livekit_api_key),
+            ("LIVEKIT_API_SECRET", livekit_api_secret),
+        ]
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(f"Missing LiveKit worker configuration: {', '.join(missing)}")
 
     LOGGER.info(
         "Starting worker with LIVEKIT_URL=%s agent=%s",

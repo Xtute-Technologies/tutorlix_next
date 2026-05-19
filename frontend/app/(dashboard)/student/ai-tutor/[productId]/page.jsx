@@ -141,26 +141,11 @@ function CodeTutorPanel({ productId }) {
         goal,
       });
       setReview(data);
-      if (data?.is_correct && data?.annotated_code) {
-        setCode(data.annotated_code);
-      } else if (data?.corrected_code) {
-        setCode(data.corrected_code);
-      } else if (data?.annotated_code) {
-        setCode(data.annotated_code);
-      }
     } catch (err) {
       setCodeError(errorText(err, 'Could not check this code with Groq.'));
     } finally {
       setChecking(false);
     }
-  };
-
-  const applyAnnotatedCode = () => {
-    if (review?.annotated_code) setCode(review.annotated_code);
-  };
-
-  const applyCorrectedCode = () => {
-    if (review?.corrected_code) setCode(review.corrected_code);
   };
 
   return (
@@ -220,15 +205,10 @@ function CodeTutorPanel({ productId }) {
             Check Code
           </Button>
 
-          {review ? (
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={applyAnnotatedCode} disabled={!review.annotated_code}>
-                Comments
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={applyCorrectedCode} disabled={!review.corrected_code}>
-                Correction
-              </Button>
-            </div>
+          {review?.model_name ? (
+            <Badge variant="outline" className="w-fit text-slate-600">
+              {review.model_name}
+            </Badge>
           ) : null}
         </div>
 
