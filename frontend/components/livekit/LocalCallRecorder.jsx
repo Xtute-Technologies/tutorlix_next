@@ -27,6 +27,84 @@ const safeFilename = (value) => {
   return cleaned || 'class-recording';
 };
 
+const RECOVERY_DB_NAME = 'tutorlix-local-call-recordings';
+const RECOVERY_STORE_NAME = 'recordings';
+
+const createRecordingId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const openRecoveryDb = () => {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(RECOVERY_DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(RECOVERY_STORE_NAME)) {
+        db.createObjectStore(RECOVERY_STORE_NAME, { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const putRecoveredRecording = async (recording) => {
+  const db = await openRecoveryDb();
+  if (!db) return;
+
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(RECOVERY_STORE_NAME, 'readwrite');
+    transaction.objectStore(RECOVERY_STORE_NAME).put(recording);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+
+  db.close();
+};
+
+const deleteRecoveredRecording = async (id) => {
+  const db = await openRecoveryDb();
+  if (!db) return;
+
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(RECOVERY_STORE_NAME, 'readwrite');
+    transaction.objectStore(RECOVERY_STORE_NAME).delete(id);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+
+  db.close();
+};
+
+const getRecoveredRecordings = async () => {
+  const db = await openRecoveryDb();
+  if (!db) return [];
+
+  let recordings = [];
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(RECOVERY_STORE_NAME, 'readonly');
+    const request = transaction.objectStore(RECOVERY_STORE_NAME).getAll();
+    request.onsuccess = () => {
+      recordings = Array.isArray(request.result) ? request.result : [];
+    };
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+
+  db.close();
+  return recordings;
+};
+
 const downloadBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -134,6 +212,7 @@ export default function LocalCallRecorder({ canRecord, fileBasename, onError }) 
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const cleanupRef = useRef(null);
+  const recordingMetaRef = useRef(null);
 
   const isRecording = recordingState === 'recording';
   const statusLabel = (() => {
@@ -144,14 +223,58 @@ export default function LocalCallRecorder({ canRecord, fileBasename, onError }) 
   })();
 
   useEffect(() => {
+    if (!canRecord) return undefined;
+
+    let cancelled = false;
+
+    getRecoveredRecordings()
+      .then(async (recordings) => {
+        if (cancelled) return;
+
+        for (const recording of recordings) {
+          if (!Array.isArray(recording.chunks) || recording.chunks.length === 0) {
+            await deleteRecoveredRecording(recording.id);
+            continue;
+          }
+
+          const blob = new Blob(recording.chunks, { type: recording.mimeType || 'video/webm' });
+          downloadBlob(blob, recording.filename || `${safeFilename(fileBasename)}-recovered.webm`);
+          await deleteRecoveredRecording(recording.id);
+        }
+      })
+      .catch((err) => {
+        onError?.(err?.message || 'Could not recover the previous recording.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canRecord, fileBasename, onError]);
+
+  useEffect(() => {
     return () => {
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== 'inactive') {
+        try {
+          recorder.requestData();
+        } catch {}
         recorder.stop();
+      } else {
+        cleanupRef.current?.();
       }
-      cleanupRef.current?.();
     };
   }, []);
+
+  const persistCurrentRecording = () => {
+    const meta = recordingMetaRef.current;
+    if (!meta || chunksRef.current.length === 0) return;
+
+    putRecoveredRecording({
+      ...meta,
+      chunks: [...chunksRef.current],
+      updatedAt: new Date().toISOString(),
+    }).catch(() => {});
+  };
 
   const startRecording = async () => {
     try {
@@ -307,19 +430,59 @@ export default function LocalCallRecorder({ canRecord, fileBasename, onError }) 
 
       chunksRef.current = [];
       recorderRef.current = recorder;
+      const recordingId = createRecordingId();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${safeFilename(fileBasename)}-${timestamp}.webm`;
+      recordingMetaRef.current = {
+        id: recordingId,
+        filename,
+        mimeType: mimeType || 'video/webm',
+        createdAt: new Date().toISOString(),
+      };
+
+      const stopForUnload = () => {
+        const activeRecorder = recorderRef.current;
+        if (!activeRecorder || activeRecorder.state === 'inactive') return;
+
+        try {
+          activeRecorder.requestData();
+        } catch {}
+
+        persistCurrentRecording();
+
+        try {
+          activeRecorder.stop();
+        } catch {}
+      };
+
+      window.addEventListener('pagehide', stopForUnload);
+      window.addEventListener('beforeunload', stopForUnload);
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
           chunksRef.current.push(event.data);
+          persistCurrentRecording();
         }
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType || 'video/webm' });
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        downloadBlob(blob, `${safeFilename(fileBasename)}-${timestamp}.webm`);
+        window.removeEventListener('pagehide', stopForUnload);
+        window.removeEventListener('beforeunload', stopForUnload);
+
+        const meta = recordingMetaRef.current;
+        const chunks = [...chunksRef.current];
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: meta?.mimeType || mimeType || 'video/webm' });
+          downloadBlob(blob, meta?.filename || filename);
+        }
+
+        if (meta?.id) {
+          deleteRecoveredRecording(meta.id).catch(() => {});
+        }
+
         chunksRef.current = [];
         recorderRef.current = null;
+        recordingMetaRef.current = null;
         cleanupRef.current?.();
         setRecordingState('idle');
       };
@@ -330,6 +493,7 @@ export default function LocalCallRecorder({ canRecord, fileBasename, onError }) 
       cleanupRef.current?.();
       recorderRef.current = null;
       chunksRef.current = [];
+      recordingMetaRef.current = null;
       setRecordingState('idle');
       onError?.(err.message || 'Could not start call recording.');
     }

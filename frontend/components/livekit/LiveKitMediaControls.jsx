@@ -36,20 +36,20 @@ const isEditableTarget = (target) => {
   );
 };
 
-const publishUserProvidedTrack = async (room, mediaStreamTrack) => {
-  const source = mediaStreamTrack.kind === 'audio' ? Track.Source.Microphone : Track.Source.Camera;
+const publishLiveKitTrack = async (room, track) => {
+  const source = track.kind === Track.Kind.Audio ? Track.Source.Microphone : Track.Source.Camera;
 
   if (room.localParticipant.getTrackPublication(source)) {
-    mediaStreamTrack.stop();
+    track.stop();
     return;
   }
 
-  await room.localParticipant.publishTrack(mediaStreamTrack, {
+  await room.localParticipant.publishTrack(track, {
     source,
-    dtx: mediaStreamTrack.kind === 'audio' ? true : undefined,
-    red: mediaStreamTrack.kind === 'audio' ? true : undefined,
-    simulcast: mediaStreamTrack.kind === 'video' ? true : undefined,
-    videoEncoding: mediaStreamTrack.kind === 'video'
+    dtx: track.kind === Track.Kind.Audio ? true : undefined,
+    red: track.kind === Track.Kind.Audio ? true : undefined,
+    simulcast: track.kind === Track.Kind.Video ? true : undefined,
+    videoEncoding: track.kind === Track.Kind.Video
       ? { maxBitrate: 1_400_000, maxFramerate: 24 }
       : undefined,
   });
@@ -58,7 +58,7 @@ const publishUserProvidedTrack = async (room, mediaStreamTrack) => {
 export function FastDevicePublisher({ audio = true, video = true, onError }) {
   const room = useRoomContext();
   const startedRef = useRef(false);
-  const streamRef = useRef(null);
+  const tracksRef = useRef([]);
 
   const publishInitialTracks = useCallback(async () => {
     if (startedRef.current || room.state !== ConnectionState.Connected) return;
@@ -68,18 +68,18 @@ export function FastDevicePublisher({ audio = true, video = true, onError }) {
     if (!needsAudio && !needsVideo) return;
 
     startedRef.current = true;
-    let stream;
+    let tracks = [];
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      tracks = await room.localParticipant.createTracks({
         audio: needsAudio ? AUDIO_CONSTRAINTS : false,
         video: needsVideo ? VIDEO_CONSTRAINTS : false,
       });
-      streamRef.current = stream;
+      tracksRef.current = tracks;
 
-      await Promise.all(stream.getTracks().map((track) => publishUserProvidedTrack(room, track)));
+      await Promise.all(tracks.map((track) => publishLiveKitTrack(room, track)));
     } catch (err) {
-      stream?.getTracks().forEach((track) => track.stop());
+      tracks.forEach((track) => track.stop());
       startedRef.current = false;
       onError?.(err?.message || 'Could not start camera or microphone.');
     }
@@ -96,12 +96,12 @@ export function FastDevicePublisher({ audio = true, video = true, onError }) {
 
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach((track) => {
-        if (track.readyState !== 'ended') track.stop();
+      tracksRef.current.forEach((track) => {
+        room.localParticipant.unpublishTrack(track, true).catch(() => track.stop());
       });
-      streamRef.current = null;
+      tracksRef.current = [];
     };
-  }, []);
+  }, [room]);
 
   return null;
 }

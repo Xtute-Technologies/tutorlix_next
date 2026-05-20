@@ -2,3 +2,4 @@ livekit-agents[groq,silero]>=1.5,<2
 python-dotenv>=1.0,<2
 piper-tts[http]
 livekit-plugins-piper-tts
+requests>=2.32,<3
