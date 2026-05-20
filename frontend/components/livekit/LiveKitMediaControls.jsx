@@ -12,9 +12,9 @@ const AUDIO_CONSTRAINTS = {
 };
 
 const VIDEO_CONSTRAINTS = {
-  width: { ideal: 1280 },
-  height: { ideal: 720 },
-  frameRate: { ideal: 24, max: 30 },
+  width: { ideal: 960, max: 1280 },
+  height: { ideal: 540, max: 720 },
+  frameRate: { ideal: 20, max: 24 },
 };
 
 const isEditableTarget = (target) => {
@@ -41,7 +41,7 @@ const publishLiveKitTrack = async (room, track) => {
 
   if (room.localParticipant.getTrackPublication(source)) {
     track.stop();
-    return;
+    return false;
   }
 
   await room.localParticipant.publishTrack(track, {
@@ -53,21 +53,54 @@ const publishLiveKitTrack = async (room, track) => {
       ? { maxBitrate: 1_400_000, maxFramerate: 24 }
       : undefined,
   });
+  return true;
 };
 
 export function FastDevicePublisher({ audio = true, video = true, onError }) {
   const room = useRoomContext();
-  const startedRef = useRef(false);
-  const tracksRef = useRef([]);
+  const captureStartedRef = useRef(false);
+  const publishingRef = useRef(false);
+  const capturedTracksRef = useRef([]);
+  const publishedTracksRef = useRef([]);
+  const disposedRef = useRef(false);
 
-  const publishInitialTracks = useCallback(async () => {
-    if (startedRef.current || room.state !== ConnectionState.Connected) return;
+  const publishCapturedTracks = useCallback(async () => {
+    if (publishingRef.current || room.state !== ConnectionState.Connected) return;
 
-    const needsAudio = audio && !room.localParticipant.getTrackPublication(Track.Source.Microphone);
-    const needsVideo = video && !room.localParticipant.getTrackPublication(Track.Source.Camera);
+    const tracks = [...capturedTracksRef.current];
+    if (!tracks.length) return;
+
+    publishingRef.current = true;
+
+    try {
+      for (const track of tracks) {
+        const published = await publishLiveKitTrack(room, track);
+        capturedTracksRef.current = capturedTracksRef.current.filter((item) => item !== track);
+        if (published) {
+          publishedTracksRef.current = [...publishedTracksRef.current, track];
+        }
+      }
+    } catch (err) {
+      const unpublishedTracks = tracks.filter((track) => !publishedTracksRef.current.includes(track));
+      unpublishedTracks.forEach((track) => track.stop());
+      capturedTracksRef.current = capturedTracksRef.current.filter((track) => !unpublishedTracks.includes(track));
+      captureStartedRef.current = false;
+      onError?.(err?.message || 'Could not publish camera or microphone.');
+    } finally {
+      publishingRef.current = false;
+    }
+  }, [onError, room]);
+
+  const captureInitialTracks = useCallback(async () => {
+    if (captureStartedRef.current) return;
+
+    const hasCapturedAudio = capturedTracksRef.current.some((track) => track.kind === Track.Kind.Audio);
+    const hasCapturedVideo = capturedTracksRef.current.some((track) => track.kind === Track.Kind.Video);
+    const needsAudio = audio && !hasCapturedAudio && !room.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const needsVideo = video && !hasCapturedVideo && !room.localParticipant.getTrackPublication(Track.Source.Camera);
     if (!needsAudio && !needsVideo) return;
 
-    startedRef.current = true;
+    captureStartedRef.current = true;
     let tracks = [];
 
     try {
@@ -75,31 +108,40 @@ export function FastDevicePublisher({ audio = true, video = true, onError }) {
         audio: needsAudio ? AUDIO_CONSTRAINTS : false,
         video: needsVideo ? VIDEO_CONSTRAINTS : false,
       });
-      tracksRef.current = tracks;
 
-      await Promise.all(tracks.map((track) => publishLiveKitTrack(room, track)));
+      if (disposedRef.current) {
+        tracks.forEach((track) => track.stop());
+        return;
+      }
+
+      capturedTracksRef.current = [...capturedTracksRef.current, ...tracks];
+      await publishCapturedTracks();
     } catch (err) {
       tracks.forEach((track) => track.stop());
-      startedRef.current = false;
+      captureStartedRef.current = false;
       onError?.(err?.message || 'Could not start camera or microphone.');
     }
-  }, [audio, onError, room, video]);
+  }, [audio, onError, publishCapturedTracks, room, video]);
 
   useEffect(() => {
-    publishInitialTracks();
-    room.on(RoomEvent.Connected, publishInitialTracks);
+    disposedRef.current = false;
+    captureInitialTracks();
+    room.on(RoomEvent.Connected, publishCapturedTracks);
 
     return () => {
-      room.off(RoomEvent.Connected, publishInitialTracks);
+      room.off(RoomEvent.Connected, publishCapturedTracks);
     };
-  }, [publishInitialTracks, room]);
+  }, [captureInitialTracks, publishCapturedTracks, room]);
 
   useEffect(() => {
     return () => {
-      tracksRef.current.forEach((track) => {
+      disposedRef.current = true;
+      capturedTracksRef.current.forEach((track) => track.stop());
+      capturedTracksRef.current = [];
+      publishedTracksRef.current.forEach((track) => {
         room.localParticipant.unpublishTrack(track, true).catch(() => track.stop());
       });
-      tracksRef.current = [];
+      publishedTracksRef.current = [];
     };
   }, [room]);
 
