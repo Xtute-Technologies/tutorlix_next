@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { LiveKitRoom, VideoConference } from '@livekit/components-react';
+import { LiveKitRoom } from '@livekit/components-react';
 import { Room } from 'livekit-client';
 import { AlertCircle, Loader2, Video, VideoOff } from 'lucide-react';
 
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { FastDevicePublisher, SpacebarMicShortcut } from '@/components/livekit/LiveKitMediaControls';
+import LiveClassVideoConference, { SCREEN_SHARE_2K_PUBLISH_OPTIONS } from '@/components/livekit/LiveClassVideoConference';
 import LocalCallRecorder from '@/components/livekit/LocalCallRecorder';
 import ParticipantKickControls from '@/components/livekit/ParticipantKickControls';
 import { useAuth } from '@/context/AuthContext';
@@ -42,6 +43,7 @@ const liveClassRoomOptions = {
       maxBitrate: 1_400_000,
       maxFramerate: 24,
     },
+    ...SCREEN_SHARE_2K_PUBLISH_OPTIONS,
   },
 };
 
@@ -168,7 +170,7 @@ export default function LiveClassRoomPage() {
       ) : null}
 
       <div className="min-h-0 flex-1">
-        <VideoConference />
+        <LiveClassVideoConference />
       </div>
     </LiveKitRoom>
   );
